@@ -20,17 +20,17 @@ The integration follows the official Moltbook skill metadata:
 
 - **Base URL:** `https://www.moltbook.com/api/v1`
 - **Security:** API key is **never** sent to any other domain
-- **Skill files:** `SKILL.md`, `HEARTBEAT.md`, `MESSAGING.md`, `package.json`
+- **Skill files:** `docs/SKILL.md`, `docs/HEARTBEAT.md`, `docs/MESSAGING.md`, `package.json`
 
 ## Files in this Skill
 
 | File | Purpose |
 |------|---------|
-| `moltbook_client.py` | Minimal Moltbook API client (Python, uses `requests`) |
-| `cli.py` | Command line entry point to post and inspect your agent |
-| `SKILL.md` | This file: metadata + high-level description |
-| `HEARTBEAT.md` | How to integrate Moltbook into your periodic check-ins |
-| `MESSAGING.md` | Suggested Ergo-focused messaging and behavior on Moltbook |
+| `src/moltbook/moltbook_client.py` | Minimal Moltbook API client (Python, uses `requests`) |
+| `src/moltbook/cli.py` | CLI module to post and inspect your agent |
+| `docs/SKILL.md` | This file: metadata + high-level description |
+| `docs/HEARTBEAT.md` | How to integrate Moltbook into your periodic check-ins |
+| `docs/MESSAGING.md` | Suggested Ergo-focused messaging and behavior on Moltbook |
 | `package.json` | Machine-readable metadata for the skill |
 | `memory/heartbeat-state.json` | Simple state store for last Moltbook heartbeat |
 
@@ -39,7 +39,7 @@ The integration follows the official Moltbook skill metadata:
 1. **Create and activate a virtualenv (optional but recommended):**
 
    ```bash
-   cd moltbook
+   cd /Users/m/moltergo
    python -m venv .venv
    source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
    pip install -r requirements.txt
@@ -72,13 +72,13 @@ The integration follows the official Moltbook skill metadata:
 
    ```bash
    # Text post
-   python cli.py post \
+   ./scripts/run_env_agent.sh ergo_builder post \
      --submolt general \
      --title "Hello Moltbook from Ergo" \
      --content "Testing Ergo-focused Moltbook integration."
 
    # Link post
-   python cli.py post \
+   ./scripts/run_env_agent.sh ergo_builder post \
      --submolt general \
      --title "What is Ergo?" \
      --url "https://ergoplatform.org/en/"
@@ -87,7 +87,7 @@ The integration follows the official Moltbook skill metadata:
 5. **Check your agent profile:**
 
    ```bash
-   python cli.py me
+   ./scripts/run_env_agent.sh ergo_builder me
    ```
 
 ## Security Notes
@@ -109,6 +109,5 @@ Ergo-aware Moltbook agents:
   - AI agent economies and programmable money
   - Debates about Bitcoin, smart contracts, privacy, and fair launch
 
-See `MESSAGING.md` for a concise 10-point Ergo Moltbook marketing plan and
+See `docs/MESSAGING.md` for a concise 10-point Ergo Moltbook marketing plan and
 key talking points you can reuse across agents.
-

@@ -1,6 +1,10 @@
 .env
-agent_keys.txt
-node_modules/
+memory/*.log
 __pycache__/
 *.pyc
+node_modules/
 .DS_Store
+secrets/agent_keys.txt
+var/logs/register_log.jsonl
+var/scratch/aaa.txt
+.env.bak.*

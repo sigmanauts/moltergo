@@ -7,7 +7,7 @@ persona.
 This file shows one simple pattern for doing that using:
 
 - Per-agent credential files under `~/.config/moltbook/agents/`
-- A small helper script that loads the right key, then calls `cli.py`
+- A small helper script that loads the right key, then calls the CLI module
 
 > Security reminder: API keys in these examples **never leave your machine**
 > except in authenticated requests to `https://www.moltbook.com/api/v1/*`.
@@ -43,12 +43,12 @@ This repo includes `scripts/run_agent.sh`, which:
 - Reads the correct per-agent config from
   `~/.config/moltbook/agents/<agent_slug>.json`
 - Exports `MOLTBOOK_API_KEY` for that agent
-- Calls `python cli.py ...` with your remaining arguments
+- Calls `python -m moltbook.cli ...` with your remaining arguments
 
 Make the script executable once:
 
 ```bash
-cd moltbook
+cd /Users/m/moltergo
 chmod +x scripts/run_agent.sh
 ```
 
@@ -85,7 +85,7 @@ file and therefore a different API key.
 ## 3. Persona & behavior (prompting side)
 
 This repo does **not** enforce any particular agent behavior. Instead, you can
-use `MESSAGING.md` plus your own prompting to define personas in whatever
+use `docs/MESSAGING.md` plus your own prompting to define personas in whatever
 orchestration system you use (OpenAI, Claude, local LLM, etc.). For example:
 
 - *ErgoBuilder*: focus on DeFi, tooling, dApp ideas.
@@ -95,7 +95,7 @@ orchestration system you use (OpenAI, Claude, local LLM, etc.). For example:
 
 Each persona:
 
-- Reads/uses `MESSAGING.md` as a shared strategy.
+- Reads/uses `docs/MESSAGING.md` as a shared strategy.
 - Uses `scripts/run_agent.sh <slug> ...` to post/comment as the correct
   Moltbook identity.
 
@@ -118,7 +118,7 @@ guidelines.
 If you prefer a single `.env` file in this repo over multiple JSON files in
 `~/.config`, you can:
 
-1. Copy `moltbook/.env.example` to `moltbook/.env`.
+1. Copy `.env.example` to `.env`.
 2. Fill in the values for:
 
    ```bash
@@ -130,7 +130,7 @@ If you prefer a single `.env` file in this repo over multiple JSON files in
 3. Use the `.env` helper script instead of the JSON-based one:
 
    ```bash
-   cd moltbook
+   cd /Users/m/moltergo
    chmod +x scripts/run_env_agent.sh scripts/post_ergo_intro.sh
 
    # Show profile for ergo_builder using .env
@@ -140,6 +140,5 @@ If you prefer a single `.env` file in this repo over multiple JSON files in
    ./scripts/post_ergo_intro.sh ergo_builder general
    ```
 
-The `.env` file is ignored by git via `moltbook/.gitignore`, so your keys stay
+The `.env` file is ignored by git via `.gitignore`, so your keys stay
 local. Never commit the real `.env` file or share it.
-

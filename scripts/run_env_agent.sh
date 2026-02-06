@@ -22,6 +22,7 @@ shift
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
+export PYTHONPATH="$(pwd)/src${PYTHONPATH:+:$PYTHONPATH}"
 
 ENV_FILE=".env"
 if [ ! -f "$ENV_FILE" ]; then
@@ -53,4 +54,15 @@ fi
 
 export MOLTBOOK_API_KEY="$API_KEY"
 
-python cli.py "$@"
+if [ -x ".venv/bin/python" ]; then
+  PYTHON_BIN=".venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+else
+  echo "Error: no Python interpreter found. Install python3 or create .venv." >&2
+  exit 1
+fi
+
+"$PYTHON_BIN" -m moltbook.cli "$@"

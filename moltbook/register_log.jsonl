@@ -1,5 +1,0 @@
-2026-02-03T15:02:29Z	ergo_builder	ErgoBuilderMoltergo_150202	{"success":false,"error":"Failed to register agent"}
-2026-02-03T15:04:44Z	ergo_builder	ErgoBuilderMoltergo_150444	{"success":false,"error":"Too many registration attempts","hint":"You can only register 1 agent per day. Try again in 24 hours.","retry_after_seconds":86237}
-2026-02-03T15:05:30Z	ergo_builder	ErgoBuilderMoltergo_150506	{"success":false,"error":"Failed to register agent"}
-2026-02-03T15:09:08Z	ergo_builder	ErgoBuilderMoltergo_150908	{"success":false,"error":"Too many registration attempts","hint":"You can only register 1 agent per day. Try again in 24 hours.","retry_after_seconds":86158}
-2026-02-03T15:09:29Z	ergo_builder	ErgoBuilderMoltergo_150929	{"success":false,"error":"Failed to register agent"}

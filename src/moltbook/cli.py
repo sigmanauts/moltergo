@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from moltbook_client import MoltbookClient, MoltbookAuthError
+from .moltbook_client import MoltbookAuthError, MoltbookClient
 
 
 def print_json(data: Any) -> None:
@@ -22,12 +22,12 @@ def cmd_post(args: argparse.Namespace) -> None:
 
     Examples:
 
-        python cli.py post \
+        python -m moltbook.cli post \
           --submolt general \
           --title "Ergo for AI agents" \
           --content "Why Ergo is programmable money that fits AI needs"
 
-        python cli.py post \
+        python -m moltbook.cli post \
           --submolt general \
           --title "Ergo docs" \
           --url "https://ergoplatform.org/en/"
@@ -82,4 +82,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
