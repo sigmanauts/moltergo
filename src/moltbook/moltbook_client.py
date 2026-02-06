@@ -285,6 +285,38 @@ class MoltbookClient:
 
         return resp.json()
 
+    def get_post(self, post_id: str) -> Dict[str, Any]:
+        if not post_id.strip():
+            raise ValueError("post_id must be provided")
+        try:
+            resp = requests.get(
+                self._url(f"posts/{post_id}"),
+                headers=self._headers,
+                timeout=30,
+            )
+        except requests_exceptions.Timeout as e:
+            raise RuntimeError(
+                f"Timed out while contacting Moltbook for /posts/{post_id}."
+            ) from e
+
+        if resp.status_code in {401, 403}:
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+            message = data.get("error") or data.get("hint") or "Authentication required"
+            raise MoltbookAuthError(f"Moltbook auth error {resp.status_code}: {message}")
+
+        if resp.status_code >= 400:
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+            message = data.get("error") or data.get("hint") or data.get("message") or resp.text
+            raise RuntimeError(f"Moltbook error {resp.status_code}: {message}")
+
+        return resp.json()
+
     def list_submolts(self) -> Dict[str, Any]:
         try:
             resp = requests.get(
@@ -528,6 +560,56 @@ class MoltbookClient:
             raise RuntimeError(f"Moltbook error {resp.status_code}: {message}")
 
         return resp.json()
+
+    def delete_comment(self, comment_id: str) -> Dict[str, Any]:
+        if not comment_id:
+            raise ValueError("comment_id must be provided.")
+
+        candidates = [
+            f"comments/{comment_id}",
+            f"posts/comments/{comment_id}",
+        ]
+        last_error: Optional[str] = None
+
+        for path in candidates:
+            try:
+                resp = requests.delete(
+                    self._url(path),
+                    headers=self._headers,
+                    timeout=30,
+                )
+            except requests_exceptions.Timeout as e:
+                raise RuntimeError(
+                    "Timed out while deleting a comment on Moltbook."
+                ) from e
+
+            if resp.status_code == 404:
+                last_error = f"{path}: not found"
+                continue
+
+            if resp.status_code in {401, 403}:
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = {}
+                message = data.get("error") or data.get("hint") or "Authentication required"
+                raise MoltbookAuthError(f"Moltbook auth error {resp.status_code}: {message}")
+
+            if resp.status_code >= 400:
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = {}
+                message = data.get("error") or data.get("hint") or data.get("message") or resp.text
+                last_error = f"{path}: {message}"
+                continue
+
+            try:
+                return resp.json()
+            except Exception:
+                return {"ok": True}
+
+        raise RuntimeError(f"Moltbook comment delete failed for '{comment_id}'. Last error: {last_error}")
 
     def get_post_comments(self, post_id: str, limit: int = 20) -> Dict[str, Any]:
         candidates = [

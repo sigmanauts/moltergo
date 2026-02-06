@@ -19,15 +19,18 @@ def load_state(path: Path) -> Dict[str, Any]:
             "replied_post_ids": [],
             "voted_post_ids": [],
             "seen_comment_ids": [],
+            "my_comment_ids": [],
             "voted_comment_ids": [],
             "replied_to_comment_ids": [],
             "last_action_ts": None,
             "last_post_action_ts": None,
             "last_comment_action_ts": None,
+            "comment_action_timestamps": [],
             "per_author_last_reply": {},
             "daily_post_count": 0,
             "daily_comment_count": 0,
             "last_daily_reset": utc_date_str(),
+            "last_proactive_post_attempt_ts": None,
             "pending_actions": [],
             "approved_submolts": [],
             "dismissed_submolts": [],
@@ -39,14 +42,20 @@ def load_state(path: Path) -> Dict[str, Any]:
         state["last_post_action_ts"] = state.get("last_action_ts")
     if "last_comment_action_ts" not in state:
         state["last_comment_action_ts"] = state.get("last_action_ts")
+    if "comment_action_timestamps" not in state:
+        state["comment_action_timestamps"] = []
     if "seen_comment_ids" not in state:
         state["seen_comment_ids"] = []
     if "replied_post_ids" not in state:
         state["replied_post_ids"] = []
     if "voted_post_ids" not in state:
         state["voted_post_ids"] = []
+    if "my_comment_ids" not in state:
+        state["my_comment_ids"] = []
     if "pending_actions" not in state:
         state["pending_actions"] = []
+    if "last_proactive_post_attempt_ts" not in state:
+        state["last_proactive_post_attempt_ts"] = None
     if "approved_submolts" not in state:
         state["approved_submolts"] = []
     if "dismissed_submolts" not in state:

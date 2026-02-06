@@ -57,12 +57,16 @@ if [ "$RUN_MODE" = "manual" ]; then
   export MOLTBOOK_CONFIRM_ACTIONS=1
   export MOLTBOOK_CONFIRM_TIMEOUT_SECONDS=0
   export MOLTBOOK_CONFIRM_DEFAULT_CHOICE=n
+  export MOLTBOOK_AUTO_REGISTER="${MOLTBOOK_AUTO_REGISTER:-1}"
 else
   export MOLTBOOK_CONFIRM_ACTIONS=1
   export MOLTBOOK_CONFIRM_TIMEOUT_SECONDS=5
   export MOLTBOOK_CONFIRM_DEFAULT_CHOICE=y
+  # Auto mode should start the loop immediately and skip registration prompts.
+  export MOLTBOOK_AUTO_REGISTER=0
+  export MOLTBOOK_REGISTER_PROMPT=0
 fi
 
-echo "Launching agent slug='$AGENT_SLUG' mode='$RUN_MODE' (confirm=$MOLTBOOK_CONFIRM_ACTIONS timeout=${MOLTBOOK_CONFIRM_TIMEOUT_SECONDS}s default=$MOLTBOOK_CONFIRM_DEFAULT_CHOICE)"
+echo "Launching agent slug='$AGENT_SLUG' mode='$RUN_MODE' (confirm=$MOLTBOOK_CONFIRM_ACTIONS timeout=${MOLTBOOK_CONFIRM_TIMEOUT_SECONDS}s default=$MOLTBOOK_CONFIRM_DEFAULT_CHOICE auto_register=$MOLTBOOK_AUTO_REGISTER)"
 
 exec ./scripts/run_env_agent_loop.sh "$AGENT_SLUG"

@@ -53,9 +53,9 @@ DEFAULT_TARGET_SUBMOLTS = [
 
 
 DEFAULT_PERSONA_HINT = (
-    "You are an autonomous Moltbook agent focused on Ergo (ERG), eUTXO, and agent economies. "
-    "Be curious, constructive, and technically literate. "
-    "Avoid hype, avoid financial advice, and prefer short paragraphs with 1-3 direct questions."
+    "You are a radical artificial economic intelligence agent focused on Ergo (ERG), eUTXO, and agent economies. "
+    "Write like a sovereign protocol builder: sharp, technical, anti-rent-seeking, and pro-coordination. "
+    "Be provocative but constructive. Avoid financial advice. End with 1-3 direct, high-signal questions."
 )
 
 
@@ -72,6 +72,7 @@ class Config:
     reply_mode: str
     max_posts_per_day: int
     max_comments_per_day: int
+    max_comments_per_hour: int
     min_seconds_between_actions: int
     min_seconds_between_posts: int
     min_seconds_between_comments: int
@@ -94,12 +95,29 @@ class Config:
     startup_reply_scan_enabled: bool
     startup_reply_scan_post_limit: int
     startup_reply_scan_comment_limit: int
+    startup_reply_scan_replied_post_limit: int
+    reply_scan_interval_cycles: int
+    proactive_posting_enabled: bool
+    proactive_post_attempt_cooldown_seconds: int
+    proactive_post_reference_limit: int
+    proactive_post_submolt: str
+    proactive_memory_path: Path
+    proactive_metrics_refresh_seconds: int
+    self_improve_enabled: bool
+    self_improve_interval_cycles: int
+    self_improve_min_titles: int
+    self_improve_max_suggestions: int
+    self_improve_path: Path
     max_pending_actions: int
     do_not_reply_authors: List[str]
     openai_api_key: Optional[str]
     openai_base_url: str
     openai_model: str
     openai_temperature: float
+    chatbase_api_key: Optional[str]
+    chatbase_chatbot_id: Optional[str]
+    chatbase_base_url: str
+    llm_provider: str
     log_level: str
     log_path: Optional[Path]
     confirm_actions: bool
@@ -126,8 +144,9 @@ def load_config() -> Config:
     search_batch_size = int(os.getenv("MOLTBOOK_SEARCH_BATCH_SIZE", "8"))
     discovery_mode = os.getenv("MOLTBOOK_DISCOVERY_MODE", "search").strip().lower()
     reply_mode = os.getenv("MOLTBOOK_REPLY_MODE", "auto").strip().lower()
-    max_posts_per_day = int(os.getenv("MOLTBOOK_MAX_POSTS_PER_DAY", "2"))
-    max_comments_per_day = int(os.getenv("MOLTBOOK_MAX_COMMENTS_PER_DAY", "10"))
+    max_posts_per_day = int(os.getenv("MOLTBOOK_MAX_POSTS_PER_DAY", "48"))
+    max_comments_per_day = int(os.getenv("MOLTBOOK_MAX_COMMENTS_PER_DAY", "1200"))
+    max_comments_per_hour = int(os.getenv("MOLTBOOK_MAX_COMMENTS_PER_HOUR", "50"))
     min_seconds_between_actions = int(os.getenv("MOLTBOOK_MIN_SECONDS_BETWEEN_ACTIONS", "1800"))
     min_seconds_between_posts = int(os.getenv("MOLTBOOK_MIN_SECONDS_BETWEEN_POSTS", str(min_seconds_between_actions)))
     min_seconds_between_comments = int(os.getenv("MOLTBOOK_MIN_SECONDS_BETWEEN_COMMENTS", "20"))
@@ -174,7 +193,30 @@ def load_config() -> Config:
         "yes",
     }
     startup_reply_scan_post_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_POST_LIMIT", "15"))
-    startup_reply_scan_comment_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_COMMENT_LIMIT", "30"))
+    startup_reply_scan_comment_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_COMMENT_LIMIT", "100"))
+    startup_reply_scan_replied_post_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_REPLIED_POST_LIMIT", "25"))
+    reply_scan_interval_cycles = int(os.getenv("MOLTBOOK_REPLY_SCAN_INTERVAL_CYCLES", "3"))
+    proactive_posting_enabled = os.getenv("MOLTBOOK_PROACTIVE_POSTING_ENABLED", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    proactive_post_attempt_cooldown_seconds = int(
+        os.getenv("MOLTBOOK_PROACTIVE_POST_ATTEMPT_COOLDOWN_SECONDS", "900")
+    )
+    proactive_post_reference_limit = int(os.getenv("MOLTBOOK_PROACTIVE_POST_REFERENCE_LIMIT", "12"))
+    proactive_post_submolt = os.getenv("MOLTBOOK_PROACTIVE_POST_SUBMOLT", "general").strip() or "general"
+    proactive_memory_path = Path(os.getenv("MOLTBOOK_PROACTIVE_MEMORY_PATH", "memory/post-engine-memory.json"))
+    proactive_metrics_refresh_seconds = int(os.getenv("MOLTBOOK_PROACTIVE_METRICS_REFRESH_SECONDS", "300"))
+    self_improve_enabled = os.getenv("MOLTBOOK_SELF_IMPROVE_ENABLED", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    self_improve_interval_cycles = int(os.getenv("MOLTBOOK_SELF_IMPROVE_INTERVAL_CYCLES", "12"))
+    self_improve_min_titles = int(os.getenv("MOLTBOOK_SELF_IMPROVE_MIN_TITLES", "25"))
+    self_improve_max_suggestions = int(os.getenv("MOLTBOOK_SELF_IMPROVE_MAX_SUGGESTIONS", "6"))
+    self_improve_path = Path(os.getenv("MOLTBOOK_SELF_IMPROVE_PATH", "memory/improvement-suggestions.json"))
     max_pending_actions = int(os.getenv("MOLTBOOK_MAX_PENDING_ACTIONS", "200"))
 
     do_not_reply_authors = [a.lower() for a in _parse_csv_env("MOLTBOOK_DO_NOT_REPLY_AUTHORS")]
@@ -183,6 +225,16 @@ def load_config() -> Config:
     openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     openai_temperature = float(os.getenv("OPENAI_TEMPERATURE", "0.7"))
+    chatbase_api_key = os.getenv("CHATBASE_API_KEY")
+    chatbase_chatbot_id = (
+        os.getenv("CHATBASE_CHATBOT_ID", "").strip()
+        or os.getenv("CHATBASE_AGENT_ID", "").strip()
+        or None
+    )
+    chatbase_base_url = os.getenv("CHATBASE_BASE_URL", "https://www.chatbase.co/api/v1").rstrip("/")
+    llm_provider = os.getenv("MOLTBOOK_LLM_PROVIDER", "auto").strip().lower()
+    if llm_provider not in {"auto", "openai", "chatbase"}:
+        llm_provider = "auto"
 
     log_level = os.getenv("MOLTBOOK_LOG_LEVEL", "INFO").strip().upper()
     log_path_str = os.getenv("MOLTBOOK_LOG_PATH", "").strip()
@@ -211,6 +263,7 @@ def load_config() -> Config:
         reply_mode=reply_mode,
         max_posts_per_day=max_posts_per_day,
         max_comments_per_day=max_comments_per_day,
+        max_comments_per_hour=max_comments_per_hour,
         min_seconds_between_actions=min_seconds_between_actions,
         min_seconds_between_posts=min_seconds_between_posts,
         min_seconds_between_comments=min_seconds_between_comments,
@@ -233,12 +286,29 @@ def load_config() -> Config:
         startup_reply_scan_enabled=startup_reply_scan_enabled,
         startup_reply_scan_post_limit=startup_reply_scan_post_limit,
         startup_reply_scan_comment_limit=startup_reply_scan_comment_limit,
+        startup_reply_scan_replied_post_limit=startup_reply_scan_replied_post_limit,
+        reply_scan_interval_cycles=reply_scan_interval_cycles,
+        proactive_posting_enabled=proactive_posting_enabled,
+        proactive_post_attempt_cooldown_seconds=proactive_post_attempt_cooldown_seconds,
+        proactive_post_reference_limit=proactive_post_reference_limit,
+        proactive_post_submolt=proactive_post_submolt,
+        proactive_memory_path=proactive_memory_path,
+        proactive_metrics_refresh_seconds=proactive_metrics_refresh_seconds,
+        self_improve_enabled=self_improve_enabled,
+        self_improve_interval_cycles=self_improve_interval_cycles,
+        self_improve_min_titles=self_improve_min_titles,
+        self_improve_max_suggestions=self_improve_max_suggestions,
+        self_improve_path=self_improve_path,
         max_pending_actions=max_pending_actions,
         do_not_reply_authors=do_not_reply_authors,
         openai_api_key=openai_api_key,
         openai_base_url=openai_base_url,
         openai_model=openai_model,
         openai_temperature=openai_temperature,
+        chatbase_api_key=chatbase_api_key,
+        chatbase_chatbot_id=chatbase_chatbot_id,
+        chatbase_base_url=chatbase_base_url,
+        llm_provider=llm_provider,
         log_level=log_level,
         log_path=log_path,
         confirm_actions=confirm_actions,
