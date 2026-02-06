@@ -45,6 +45,12 @@ DEFAULT_MISSION_QUERIES = [
     "threads comparing chains for AI agents where Ergo could be relevant",
 ]
 
+DEFAULT_TARGET_SUBMOLTS = [
+    "general",
+    "crypto",
+    "ai-web3",
+]
+
 
 DEFAULT_PERSONA_HINT = (
     "You are an autonomous Moltbook agent focused on Ergo (ERG), eUTXO, and agent economies. "
@@ -74,14 +80,21 @@ class Config:
     dry_run: bool
     state_path: Path
     persona_path: Optional[Path]
+    context_path: Optional[Path]
     keywords: List[str]
     mission_queries: List[str]
+    target_submolts: List[str]
+    auto_subscribe_submolts: bool
     keyword_store_path: Path
     keyword_learning_enabled: bool
     keyword_learning_interval_cycles: int
     keyword_learning_min_titles: int
     keyword_learning_max_suggestions: int
     search_retry_after_failure_cycles: int
+    startup_reply_scan_enabled: bool
+    startup_reply_scan_post_limit: int
+    startup_reply_scan_comment_limit: int
+    max_pending_actions: int
     do_not_reply_authors: List[str]
     openai_api_key: Optional[str]
     openai_base_url: str
@@ -90,6 +103,9 @@ class Config:
     log_level: str
     log_path: Optional[Path]
     confirm_actions: bool
+    confirm_timeout_seconds: int
+    confirm_default_choice: str
+    allow_comment_downvote: bool
     agent_name_hint: Optional[str]
 
 
@@ -123,6 +139,8 @@ def load_config() -> Config:
 
     persona_path_str = os.getenv("MOLTBOOK_PERSONA_PATH", "docs/MESSAGING.md").strip()
     persona_path = Path(persona_path_str) if persona_path_str else None
+    context_path_str = os.getenv("MOLTBOOK_CONTEXT_PATH", "docs/CELAUT.md").strip()
+    context_path = Path(context_path_str) if context_path_str else None
 
     keywords = [k.lower() for k in _parse_csv_env("MOLTBOOK_KEYWORDS")]
     if not keywords:
@@ -132,6 +150,14 @@ def load_config() -> Config:
         mission_queries = [q.strip() for q in mission_queries_env.split("||") if q.strip()]
     else:
         mission_queries = DEFAULT_MISSION_QUERIES[:]
+    target_submolts = [s.lower() for s in _parse_csv_env("MOLTBOOK_TARGET_SUBMOLTS")]
+    if not target_submolts:
+        target_submolts = DEFAULT_TARGET_SUBMOLTS[:]
+    auto_subscribe_submolts = os.getenv("MOLTBOOK_AUTO_SUBSCRIBE_SUBMOLTS", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     keyword_store_path = Path(os.getenv("MOLTBOOK_KEYWORD_STORE_PATH", "memory/learned-keywords.json"))
     keyword_learning_enabled = os.getenv("MOLTBOOK_KEYWORD_LEARNING_ENABLED", "1").strip().lower() in {
         "1",
@@ -142,6 +168,14 @@ def load_config() -> Config:
     keyword_learning_min_titles = int(os.getenv("MOLTBOOK_KEYWORD_LEARNING_MIN_TITLES", "15"))
     keyword_learning_max_suggestions = int(os.getenv("MOLTBOOK_KEYWORD_LEARNING_MAX_SUGGESTIONS", "6"))
     search_retry_after_failure_cycles = int(os.getenv("MOLTBOOK_SEARCH_RETRY_AFTER_FAILURE_CYCLES", "8"))
+    startup_reply_scan_enabled = os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_ENABLED", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    startup_reply_scan_post_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_POST_LIMIT", "15"))
+    startup_reply_scan_comment_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_COMMENT_LIMIT", "30"))
+    max_pending_actions = int(os.getenv("MOLTBOOK_MAX_PENDING_ACTIONS", "200"))
 
     do_not_reply_authors = [a.lower() for a in _parse_csv_env("MOLTBOOK_DO_NOT_REPLY_AUTHORS")]
 
@@ -154,6 +188,15 @@ def load_config() -> Config:
     log_path_str = os.getenv("MOLTBOOK_LOG_PATH", "").strip()
     log_path = Path(log_path_str) if log_path_str else None
     confirm_actions = os.getenv("MOLTBOOK_CONFIRM_ACTIONS", "1").strip().lower() in {"1", "true", "yes"}
+    confirm_timeout_seconds = int(os.getenv("MOLTBOOK_CONFIRM_TIMEOUT_SECONDS", "0"))
+    confirm_default_choice = os.getenv("MOLTBOOK_CONFIRM_DEFAULT_CHOICE", "n").strip().lower()
+    if confirm_default_choice not in {"y", "n", "a", "q"}:
+        confirm_default_choice = "n"
+    allow_comment_downvote = os.getenv("MOLTBOOK_ALLOW_COMMENT_DOWNVOTE", "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     agent_name_hint = os.getenv("MOLTBOOK_AGENT_NAME", "").strip() or None
 
     return Config(
@@ -176,14 +219,21 @@ def load_config() -> Config:
         dry_run=dry_run,
         state_path=state_path,
         persona_path=persona_path,
+        context_path=context_path,
         keywords=keywords,
         mission_queries=mission_queries,
+        target_submolts=target_submolts,
+        auto_subscribe_submolts=auto_subscribe_submolts,
         keyword_store_path=keyword_store_path,
         keyword_learning_enabled=keyword_learning_enabled,
         keyword_learning_interval_cycles=keyword_learning_interval_cycles,
         keyword_learning_min_titles=keyword_learning_min_titles,
         keyword_learning_max_suggestions=keyword_learning_max_suggestions,
         search_retry_after_failure_cycles=search_retry_after_failure_cycles,
+        startup_reply_scan_enabled=startup_reply_scan_enabled,
+        startup_reply_scan_post_limit=startup_reply_scan_post_limit,
+        startup_reply_scan_comment_limit=startup_reply_scan_comment_limit,
+        max_pending_actions=max_pending_actions,
         do_not_reply_authors=do_not_reply_authors,
         openai_api_key=openai_api_key,
         openai_base_url=openai_base_url,
@@ -192,5 +242,8 @@ def load_config() -> Config:
         log_level=log_level,
         log_path=log_path,
         confirm_actions=confirm_actions,
+        confirm_timeout_seconds=confirm_timeout_seconds,
+        confirm_default_choice=confirm_default_choice,
+        allow_comment_downvote=allow_comment_downvote,
         agent_name_hint=agent_name_hint,
     )

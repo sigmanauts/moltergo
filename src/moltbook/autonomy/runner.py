@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import select
 import sys
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -9,10 +10,12 @@ from ..moltbook_client import MoltbookAuthError, MoltbookClient
 
 from .config import Config, load_config
 from .drafting import (
+    build_reply_triage_messages,
     build_openai_messages,
     call_openai,
     fallback_draft,
     format_content,
+    load_context_text,
     load_persona_text,
     normalize_str,
     post_url,
@@ -50,6 +53,32 @@ def extract_comments(payload: Any) -> List[Dict[str, Any]]:
         if isinstance(value, list):
             return [item for item in value if isinstance(item, dict)]
     return []
+
+
+def extract_submolts(payload: Any) -> List[Dict[str, Any]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if not isinstance(payload, dict):
+        return []
+    for key in ("submolts", "data", "items", "results"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+    return []
+
+
+def submolt_name_from_post(post: Dict[str, Any]) -> Optional[str]:
+    raw = post.get("submolt")
+    if isinstance(raw, str):
+        value = raw.strip().lower()
+        if value.startswith("m/"):
+            value = value[2:]
+        return value or None
+    if isinstance(raw, dict):
+        candidate = raw.get("name") or raw.get("slug")
+        if candidate:
+            return str(candidate).strip().lower()
+    return None
 
 
 def supports_color() -> bool:
@@ -126,6 +155,30 @@ def comment_score(comment: Dict[str, Any]) -> int:
     return 0
 
 
+def normalize_vote_marker(value: Any) -> Optional[str]:
+    text = normalize_str(value).strip().lower()
+    if text in {"upvote", "up", "1", "+1", "like"}:
+        return "upvote"
+    if text in {"downvote", "down", "-1"}:
+        return "downvote"
+    return None
+
+
+def extract_my_vote_from_comment(comment: Dict[str, Any]) -> Optional[str]:
+    for key in ("my_vote", "current_user_vote", "user_vote", "vote", "viewer_vote"):
+        marker = normalize_vote_marker(comment.get(key))
+        if marker:
+            return marker
+    return None
+
+
+def comment_parent_id(comment: Dict[str, Any]) -> Optional[str]:
+    parent = comment.get("parent_id") or comment.get("parentId")
+    if parent is None:
+        return None
+    return str(parent)
+
+
 def normalize_submolt(raw_submolt: Any, default: str = "general") -> str:
     if isinstance(raw_submolt, str):
         value = raw_submolt.strip()
@@ -173,23 +226,33 @@ def normalize_vote_target(value: Any) -> str:
 
 
 def can_post(state: Dict[str, Any], cfg: Config) -> bool:
-    if state.get("daily_post_count", 0) >= cfg.max_posts_per_day:
-        return False
-    last_post = state.get("last_post_action_ts")
-    if isinstance(last_post, (int, float)):
-        if utc_now().timestamp() - last_post < cfg.min_seconds_between_posts:
-            return False
-    return True
+    allowed, _ = post_gate_status(state=state, cfg=cfg)
+    return allowed
 
 
 def can_comment(state: Dict[str, Any], cfg: Config) -> bool:
+    allowed, _ = comment_gate_status(state=state, cfg=cfg)
+    return allowed
+
+
+def post_gate_status(state: Dict[str, Any], cfg: Config) -> Tuple[bool, str]:
+    if state.get("daily_post_count", 0) >= cfg.max_posts_per_day:
+        return False, "post_daily_limit"
+    last_post = state.get("last_post_action_ts")
+    if isinstance(last_post, (int, float)):
+        if utc_now().timestamp() - last_post < cfg.min_seconds_between_posts:
+            return False, "post_cooldown"
+    return True, "ok"
+
+
+def comment_gate_status(state: Dict[str, Any], cfg: Config) -> Tuple[bool, str]:
     if state.get("daily_comment_count", 0) >= cfg.max_comments_per_day:
-        return False
+        return False, "comment_daily_limit"
     last_comment = state.get("last_comment_action_ts")
     if isinstance(last_comment, (int, float)):
         if utc_now().timestamp() - last_comment < cfg.min_seconds_between_comments:
-            return False
-    return True
+            return False, "comment_cooldown"
+    return True, "ok"
 
 
 def planned_actions(
@@ -210,15 +273,11 @@ def planned_actions(
     if requested_mode == "post":
         if post_ok:
             return ["post"]
-        if comment_ok:
-            return ["comment"]
         return []
 
     if requested_mode == "comment":
         if comment_ok:
             return ["comment"]
-        if post_ok:
-            return ["post"]
         return []
 
     # both
@@ -278,17 +337,17 @@ def can_reply(
     reset_daily_if_needed(state)
     now_ts = utc_now().timestamp()
 
-    post_allowed = can_post(state, cfg)
-    comment_allowed = can_comment(state, cfg)
+    post_allowed, post_reason = post_gate_status(state=state, cfg=cfg)
+    comment_allowed, comment_reason = comment_gate_status(state=state, cfg=cfg)
 
     if cfg.reply_mode == "post" and not post_allowed:
-        return False, "post_cooldown_or_limit"
+        return False, post_reason
 
     if cfg.reply_mode == "comment" and not comment_allowed:
-        return False, "comment_cooldown_or_limit"
+        return False, comment_reason
 
     if cfg.reply_mode not in {"post", "comment"} and not post_allowed and not comment_allowed:
-        return False, "post_comment_cooldown_or_limit"
+        return False, f"{post_reason}+{comment_reason}"
 
     if author_name and author_name.lower() in cfg.do_not_reply_authors:
         return False, "blocked_author"
@@ -315,6 +374,168 @@ def cooldown_remaining_seconds(state: Dict[str, Any], cfg: Config) -> Tuple[int,
     post_remaining = _remaining_since(state.get("last_post_action_ts"), cfg.min_seconds_between_posts)
     comment_remaining = _remaining_since(state.get("last_comment_action_ts"), cfg.min_seconds_between_comments)
     return post_remaining, comment_remaining
+
+
+def enqueue_pending_action(state: Dict[str, Any], cfg: Config, action: Dict[str, Any]) -> None:
+    queue = state.setdefault("pending_actions", [])
+    if len(queue) >= cfg.max_pending_actions:
+        queue.pop(0)
+    queue.append(action)
+
+
+def mark_reply_action_timestamps(state: Dict[str, Any], action_kind: str) -> None:
+    now_ts = utc_now().timestamp()
+    state["last_action_ts"] = now_ts
+    if action_kind == "comment":
+        state["last_comment_action_ts"] = now_ts
+    elif action_kind == "post":
+        state["last_post_action_ts"] = now_ts
+
+
+def execute_pending_actions(
+    client: MoltbookClient,
+    cfg: Config,
+    state: Dict[str, Any],
+    logger,
+) -> int:
+    queue = list(state.get("pending_actions", []))
+    if not queue:
+        return 0
+
+    executed = 0
+    remaining: List[Dict[str, Any]] = []
+    for action in queue:
+        kind = normalize_str(action.get("kind")).strip().lower()
+        if kind == "comment":
+            allowed, reason = comment_gate_status(state=state, cfg=cfg)
+            if not allowed:
+                remaining.append(action)
+                logger.info("Pending action deferred kind=comment reason=%s", reason)
+                continue
+            pid = normalize_str(action.get("post_id"))
+            content = normalize_str(action.get("content"))
+            parent_comment_id = normalize_str(action.get("parent_comment_id")) or None
+            if not pid or not content:
+                logger.warning("Dropping invalid pending comment action (missing post_id/content).")
+                continue
+            logger.info(
+                "Executing pending action kind=comment post_id=%s parent_comment_id=%s",
+                pid,
+                parent_comment_id or "(none)",
+            )
+            client.create_comment(pid, content, parent_id=parent_comment_id)
+            state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
+            mark_reply_action_timestamps(state=state, action_kind="comment")
+            replied_posts = set(state.get("replied_post_ids", []))
+            replied_posts.add(pid)
+            state["replied_post_ids"] = list(replied_posts)[-10000:]
+            maybe_upvote_post_after_comment(
+                client=client,
+                state=state,
+                logger=logger,
+                post_id_value=pid,
+            )
+            if parent_comment_id:
+                replied_ids = set(state.get("replied_to_comment_ids", []))
+                replied_ids.add(parent_comment_id)
+                state["replied_to_comment_ids"] = list(replied_ids)[-10000:]
+            executed += 1
+            print_success_banner(
+                action="pending-comment",
+                pid=pid,
+                url=normalize_str(action.get("url")) or post_url(pid),
+                title=normalize_str(action.get("title")) or "Queued comment",
+            )
+            continue
+
+        if kind == "vote_comment":
+            cid = normalize_str(action.get("comment_id"))
+            vote_action = normalize_vote_action(action.get("vote_action"))
+            if not cid or vote_action == "none":
+                logger.warning("Dropping invalid pending comment vote action.")
+                continue
+            if vote_action == "downvote" and not cfg.allow_comment_downvote:
+                logger.info("Dropping unsupported pending downvote-comment action comment_id=%s", cid)
+                continue
+            logger.info("Executing pending action kind=vote_comment comment_id=%s vote=%s", cid, vote_action)
+            client.vote_comment(cid, vote_action=vote_action)
+            voted_ids = set(state.get("voted_comment_ids", []))
+            voted_ids.add(cid)
+            state["voted_comment_ids"] = list(voted_ids)[-10000:]
+            executed += 1
+            print_success_banner(
+                action=f"pending-{vote_action}-comment",
+                pid=cid,
+                url=normalize_str(action.get("url")),
+                title=normalize_str(action.get("title")) or "Queued comment vote",
+            )
+            continue
+
+        if kind == "vote_post":
+            pid = normalize_str(action.get("post_id"))
+            vote_action = normalize_vote_action(action.get("vote_action"))
+            if not pid or vote_action == "none":
+                logger.warning("Dropping invalid pending post vote action.")
+                continue
+            logger.info("Executing pending action kind=vote_post post_id=%s vote=%s", pid, vote_action)
+            client.vote_post(pid, vote_action=vote_action)
+            executed += 1
+            print_success_banner(
+                action=f"pending-{vote_action}-post",
+                pid=pid,
+                url=normalize_str(action.get("url")) or post_url(pid),
+                title=normalize_str(action.get("title")) or "Queued post vote",
+            )
+            continue
+
+        logger.warning("Dropping unsupported pending action kind=%s", kind)
+
+    state["pending_actions"] = remaining
+    if executed > 0:
+        logger.info("Executed pending actions count=%s remaining=%s", executed, len(remaining))
+    return executed
+
+
+def maybe_upvote_post_after_comment(
+    client: MoltbookClient,
+    state: Dict[str, Any],
+    logger,
+    post_id_value: str,
+) -> None:
+    voted_post_ids = set(state.get("voted_post_ids", []))
+    if post_id_value in voted_post_ids:
+        return
+    try:
+        client.vote_post(post_id_value, vote_action="upvote")
+        voted_post_ids.add(post_id_value)
+        state["voted_post_ids"] = list(voted_post_ids)[-10000:]
+        logger.info("Auto-upvoted post after comment post_id=%s", post_id_value)
+        print_success_banner(
+            action="auto-upvote-post",
+            pid=post_id_value,
+            url=post_url(post_id_value),
+            title="Auto upvote after comment",
+        )
+    except Exception as e:
+        logger.warning("Auto-upvote after comment failed post_id=%s error=%s", post_id_value, e)
+
+
+def wait_for_comment_slot(state: Dict[str, Any], cfg: Config, logger) -> bool:
+    allowed, reason = comment_gate_status(state=state, cfg=cfg)
+    if allowed:
+        return True
+    if reason != "comment_cooldown":
+        logger.info("Cannot wait for comment slot reason=%s", reason)
+        return False
+    _, comment_remaining = cooldown_remaining_seconds(state=state, cfg=cfg)
+    wait_seconds = max(1, comment_remaining)
+    logger.info("Waiting for comment cooldown to clear seconds=%s", wait_seconds)
+    time.sleep(wait_seconds)
+    allowed_after, reason_after = comment_gate_status(state=state, cfg=cfg)
+    if not allowed_after:
+        logger.info("Comment slot still unavailable after wait reason=%s", reason_after)
+        return False
+    return True
 
 
 def merge_unique_posts(posts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -350,6 +571,26 @@ def select_keyword_batch(
     return selected, idx
 
 
+def has_my_comment_on_post(
+    client: MoltbookClient,
+    post_id_value: str,
+    my_name: Optional[str],
+    logger,
+) -> bool:
+    if not my_name:
+        return False
+    try:
+        payload = client.get_post_comments(post_id_value, limit=50)
+    except Exception as e:
+        logger.debug("Comment history check failed post_id=%s error=%s", post_id_value, e)
+        return False
+    for comment in extract_comments(payload):
+        _, author_name = comment_author(comment)
+        if author_name and author_name.lower() == my_name.lower():
+            return True
+    return False
+
+
 def discover_posts(
     client: MoltbookClient,
     cfg: Config,
@@ -360,6 +601,7 @@ def discover_posts(
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     sources: List[str] = []
     search_posts: List[Dict[str, Any]] = []
+    submolt_posts: List[Dict[str, Any]] = []
 
     if cfg.discovery_mode == "search":
         retry_cycle = int(search_state.get("retry_cycle", 1))
@@ -449,11 +691,25 @@ def discover_posts(
     feed_posts = extract_posts(feed)
     posts_resp = client.get_posts(sort=cfg.posts_sort, limit=cfg.posts_limit)
     global_posts = extract_posts(posts_resp)
+    if cfg.target_submolts:
+        for submolt in cfg.target_submolts:
+            try:
+                payload = client.get_submolt_feed(name=submolt, sort=cfg.posts_sort, limit=cfg.posts_limit)
+                posts = extract_posts(payload)
+                if posts:
+                    submolt_posts.extend(posts)
+            except MoltbookAuthError:
+                raise
+            except Exception as e:
+                logger.debug("Discovery submolt feed failed submolt=%s error=%s", submolt, e)
+    if submolt_posts:
+        sources.append("submolts")
     sources.extend(["posts", "feed"])
-    merged = merge_unique_posts(search_posts + global_posts + feed_posts)
+    merged = merge_unique_posts(search_posts + submolt_posts + global_posts + feed_posts)
     logger.info(
-        "Discovery merged search_posts=%s posts_global=%s feed_posts=%s total=%s",
+        "Discovery merged search_posts=%s submolt_posts=%s posts_global=%s feed_posts=%s total=%s",
         len(search_posts),
+        len(submolt_posts),
         len(global_posts),
         len(feed_posts),
         len(merged),
@@ -468,6 +724,273 @@ def resolve_self_name(client: MoltbookClient, logger) -> Optional[str]:
     except Exception as e:
         logger.warning("Could not resolve current agent identity: %s", e)
         return None
+
+
+def extract_recent_posts_from_profile(profile_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    for key in ("recentPosts", "posts", "data", "items"):
+        value = profile_payload.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+    return []
+
+
+def run_startup_reply_scan(
+    client: MoltbookClient,
+    cfg: Config,
+    logger,
+    state: Dict[str, Any],
+    my_name: Optional[str],
+    persona_text: str,
+    domain_context_text: str,
+    approve_all_actions: bool,
+) -> bool:
+    if not cfg.startup_reply_scan_enabled:
+        return approve_all_actions
+    if not my_name:
+        logger.info("Startup reply scan skipped (agent identity unavailable).")
+        return approve_all_actions
+
+    logger.info(
+        "Startup reply scan begin agent=%s post_limit=%s comment_limit=%s",
+        my_name,
+        cfg.startup_reply_scan_post_limit,
+        cfg.startup_reply_scan_comment_limit,
+    )
+    seen_comment_ids: Set[str] = set(state.get("seen_comment_ids", []))
+    voted_comment_ids: Set[str] = set(state.get("voted_comment_ids", []))
+    replied_to_comment_ids: Set[str] = set(state.get("replied_to_comment_ids", []))
+    replied_post_ids: Set[str] = set(state.get("replied_post_ids", []))
+    scanned = 0
+    new_replies = 0
+    actions = 0
+
+    try:
+        profile_payload = client.get_agent_profile(my_name)
+    except Exception as e:
+        logger.warning("Startup reply scan skipped (profile fetch failed): %s", e)
+        return approve_all_actions
+
+    recent_posts = extract_recent_posts_from_profile(profile_payload)[: cfg.startup_reply_scan_post_limit]
+    for post in recent_posts:
+        pid = post_id(post)
+        if not pid:
+            continue
+        try:
+            comments_payload = client.get_post_comments(pid, limit=cfg.startup_reply_scan_comment_limit)
+        except Exception as e:
+            logger.warning("Startup reply scan comments fetch failed post_id=%s error=%s", pid, e)
+            continue
+
+        comments = extract_comments(comments_payload)
+        my_replied_parent_ids: Set[str] = set()
+        if my_name:
+            for maybe_reply in comments:
+                _, maybe_author = comment_author(maybe_reply)
+                parent = comment_parent_id(maybe_reply)
+                if not parent:
+                    continue
+                if maybe_author and maybe_author.lower() == my_name.lower():
+                    my_replied_parent_ids.add(parent)
+        for comment in comments:
+            scanned += 1
+            cid = comment_id(comment)
+            if not cid:
+                continue
+            if cid in seen_comment_ids:
+                continue
+            seen_comment_ids.add(cid)
+            new_replies += 1
+
+            _, c_author_name = comment_author(comment)
+            if my_name and c_author_name and c_author_name.lower() == my_name.lower():
+                continue
+
+            triage: Dict[str, Any]
+            try:
+                messages = build_reply_triage_messages(
+                    persona=persona_text,
+                    domain_context=domain_context_text,
+                    post=post,
+                    comment=comment,
+                    post_id=pid,
+                    comment_id=cid,
+                )
+                triage = call_openai(cfg, messages)
+            except Exception as e:
+                logger.warning("Startup reply triage failed comment_id=%s error=%s", cid, e)
+                triage = {
+                    "should_respond": False,
+                    "confidence": 0.0,
+                    "vote_action": "none",
+                    "vote_target": "none",
+                    "response_mode": "none",
+                    "title": "",
+                    "content": "",
+                }
+
+            vote_action = normalize_vote_action(triage.get("vote_action"))
+            response_mode = normalize_response_mode(triage.get("response_mode"), default="none")
+            confidence = float(triage.get("confidence", 0))
+            url = post_url(pid)
+            post_title = normalize_str(post.get("title")) or f"Post {pid}"
+            incoming_body = normalize_str(comment.get("content"))
+
+            if vote_action != "none":
+                if cid in voted_comment_ids:
+                    logger.info("Startup reply scan skipping vote; already voted comment_id=%s", cid)
+                    vote_action = "none"
+                existing_vote = extract_my_vote_from_comment(comment)
+                if vote_action != "none" and existing_vote == vote_action:
+                    logger.info(
+                        "Startup reply scan skipping vote; API shows existing vote comment_id=%s vote=%s",
+                        cid,
+                        existing_vote,
+                    )
+                    voted_comment_ids.add(cid)
+                    vote_action = "none"
+                if vote_action == "downvote" and not cfg.allow_comment_downvote:
+                    logger.info(
+                        "Startup reply scan skipping unsupported vote action downvote-comment comment_id=%s",
+                        cid,
+                    )
+                    vote_action = "none"
+                if vote_action == "none":
+                    continue
+                approved, approve_all_actions, should_stop = confirm_action(
+                    cfg=cfg,
+                    logger=logger,
+                    action=f"{vote_action}-comment",
+                    pid=cid,
+                    title=f"Reply on '{post_title}'",
+                    submolt=normalize_submolt(post.get("submolt")),
+                    url=url,
+                    author=c_author_name or "(unknown)",
+                    content_preview=preview_text(incoming_body),
+                    approve_all=approve_all_actions,
+                )
+                if should_stop:
+                    state["seen_comment_ids"] = list(seen_comment_ids)[-10000:]
+                    save_state(cfg.state_path, state)
+                    return approve_all_actions
+                if approved:
+                    try:
+                        client.vote_comment(cid, vote_action=vote_action)
+                        voted_comment_ids.add(cid)
+                        state["voted_comment_ids"] = list(voted_comment_ids)[-10000:]
+                        actions += 1
+                        print_success_banner(
+                            action=f"{vote_action}-comment",
+                            pid=cid,
+                            url=url,
+                            title=f"Reply on '{post_title}'",
+                        )
+                    except Exception as e:
+                        logger.warning("Startup reply vote failed comment_id=%s vote=%s error=%s", cid, vote_action, e)
+
+            should_respond = bool(triage.get("should_respond"))
+            if not should_respond or response_mode == "none" or confidence < cfg.min_confidence:
+                continue
+
+            if cid in replied_to_comment_ids or cid in my_replied_parent_ids:
+                logger.info("Startup reply scan skipping reply; already replied to comment_id=%s", cid)
+                replied_to_comment_ids.add(cid)
+                state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
+                continue
+
+            reply_content = format_content(triage)
+            if not reply_content:
+                continue
+
+            comment_allowed, comment_reason = comment_gate_status(state=state, cfg=cfg)
+            if comment_allowed:
+                approved, approve_all_actions, should_stop = confirm_action(
+                    cfg=cfg,
+                    logger=logger,
+                    action=f"comment-reply-to-{cid}",
+                    pid=pid,
+                    title=post_title,
+                    submolt=normalize_submolt(post.get("submolt")),
+                    url=url,
+                    author=c_author_name or "(unknown)",
+                    content_preview=preview_text(reply_content),
+                    approve_all=approve_all_actions,
+                )
+                if should_stop:
+                    state["seen_comment_ids"] = list(seen_comment_ids)[-10000:]
+                    save_state(cfg.state_path, state)
+                    return approve_all_actions
+                if approved:
+                    try:
+                        client.create_comment(pid, reply_content, parent_id=cid)
+                        state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
+                        mark_reply_action_timestamps(state=state, action_kind="comment")
+                        replied_post_ids.add(pid)
+                        state["replied_post_ids"] = list(replied_post_ids)[-10000:]
+                        maybe_upvote_post_after_comment(
+                            client=client,
+                            state=state,
+                            logger=logger,
+                            post_id_value=pid,
+                        )
+                        replied_to_comment_ids.add(cid)
+                        state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
+                        actions += 1
+                        print_success_banner(action="comment-reply", pid=pid, url=url, title=post_title)
+                    except Exception as e:
+                        logger.warning("Startup reply comment failed post_id=%s error=%s", pid, e)
+                continue
+
+            if comment_reason == "comment_cooldown":
+                approved, approve_all_actions, should_stop = confirm_action(
+                    cfg=cfg,
+                    logger=logger,
+                    action=f"wait-comment-reply-to-{cid}",
+                    pid=pid,
+                    title=post_title,
+                    submolt=normalize_submolt(post.get("submolt")),
+                    url=url,
+                    author=c_author_name or "(unknown)",
+                    content_preview=preview_text(reply_content),
+                    approve_all=approve_all_actions,
+                )
+                if should_stop:
+                    state["seen_comment_ids"] = list(seen_comment_ids)[-10000:]
+                    save_state(cfg.state_path, state)
+                    return approve_all_actions
+                if approved:
+                    if wait_for_comment_slot(state=state, cfg=cfg, logger=logger):
+                        try:
+                            client.create_comment(pid, reply_content, parent_id=cid)
+                            state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
+                            mark_reply_action_timestamps(state=state, action_kind="comment")
+                            replied_post_ids.add(pid)
+                            state["replied_post_ids"] = list(replied_post_ids)[-10000:]
+                            replied_to_comment_ids.add(cid)
+                            state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
+                            maybe_upvote_post_after_comment(
+                                client=client,
+                                state=state,
+                                logger=logger,
+                                post_id_value=pid,
+                            )
+                            actions += 1
+                            print_success_banner(action="comment-reply", pid=pid, url=url, title=post_title)
+                        except Exception as e:
+                            logger.warning("Startup waited reply comment failed post_id=%s error=%s", pid, e)
+
+    state["seen_comment_ids"] = list(seen_comment_ids)[-10000:]
+    state["replied_post_ids"] = list(replied_post_ids)[-10000:]
+    state["voted_comment_ids"] = list(voted_comment_ids)[-10000:]
+    state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
+    save_state(cfg.state_path, state)
+    logger.info(
+        "Startup reply scan complete scanned_comments=%s new_replies=%s actions=%s pending=%s",
+        scanned,
+        new_replies,
+        actions,
+        len(state.get("pending_actions", [])),
+    )
+    return approve_all_actions
 
 
 def confirm_action(
@@ -511,7 +1034,25 @@ def confirm_action(
         for line in content_preview.splitlines() or [""]:
             print(f"  {line}")
         print("  ---")
-    choice = input("Proceed? [y]es / [n]o / [a]ll remaining / [q]uit: ").strip().lower()
+    prompt = "Proceed? [y]es / [n]o / [a]ll remaining / [q]uit: "
+    choice = ""
+    if cfg.confirm_timeout_seconds > 0:
+        default_choice = cfg.confirm_default_choice
+        print(
+            (
+                f"[auto] default='{default_choice}' in {cfg.confirm_timeout_seconds}s "
+                "if no input is provided."
+            )
+        )
+        print(prompt, end="", flush=True)
+        ready, _, _ = select.select([sys.stdin], [], [], cfg.confirm_timeout_seconds)
+        if ready:
+            choice = sys.stdin.readline().strip().lower()
+        else:
+            print("")
+            choice = default_choice
+    else:
+        choice = input(prompt).strip().lower()
 
     if choice in {"y", "yes"}:
         return True, approve_all, False
@@ -552,6 +1093,112 @@ def confirm_keyword_addition(
         logger.info("Operator requested stop from keyword confirmation prompt.")
         return False, approve_all, True
     return False, approve_all, False
+
+
+def discover_relevant_submolts(payload: Dict[str, Any], target_submolts: List[str]) -> List[str]:
+    target = {s.strip().lower() for s in target_submolts if s.strip()}
+    keywords = ("crypto", "defi", "web3", "ai", "agent", "ergo", "blockchain", "bitcoin")
+    discovered: List[str] = []
+    for item in extract_submolts(payload):
+        name = normalize_str(item.get("name") or item.get("slug")).strip().lower()
+        if not name:
+            continue
+        if name in target:
+            discovered.append(name)
+            continue
+        blob = " ".join(
+            [
+                name,
+                normalize_str(item.get("display_name")).lower(),
+                normalize_str(item.get("description")).lower(),
+            ]
+        )
+        if any(k in blob for k in keywords):
+            discovered.append(name)
+    out: List[str] = []
+    seen = set()
+    for name in discovered:
+        if name in seen:
+            continue
+        seen.add(name)
+        out.append(name)
+    return out
+
+
+def maybe_subscribe_relevant_submolts(
+    client: MoltbookClient,
+    cfg: Config,
+    logger,
+    state: Dict[str, Any],
+    approve_all_actions: bool,
+) -> bool:
+    if not cfg.auto_subscribe_submolts:
+        return approve_all_actions
+
+    try:
+        payload = client.list_submolts()
+    except Exception as e:
+        logger.warning("Submolt discovery skipped: %s", e)
+        return approve_all_actions
+
+    candidates_all = discover_relevant_submolts(payload=payload, target_submolts=cfg.target_submolts)
+    approved_submolts = {normalize_str(x).strip().lower() for x in state.get("approved_submolts", [])}
+    dismissed_submolts = {normalize_str(x).strip().lower() for x in state.get("dismissed_submolts", [])}
+    target_set = {x.strip().lower() for x in cfg.target_submolts if x.strip()}
+    prioritized = [name for name in candidates_all if name in target_set]
+    extras = [name for name in candidates_all if name not in target_set][:5]
+    candidates = [name for name in prioritized + extras if name not in approved_submolts and name not in dismissed_submolts]
+    if not candidates:
+        logger.info("Submolt discovery found no relevant candidates.")
+        return approve_all_actions
+
+    logger.info("Relevant submolts discovered count=%s", len(candidates))
+    for submolt in candidates:
+        approved, approve_all_actions, should_stop = confirm_action(
+            cfg=cfg,
+            logger=logger,
+            action="subscribe-submolt",
+            pid=submolt,
+            title=f"Subscribe to m/{submolt}",
+            submolt=submolt,
+            url=f"https://moltbook.com/m/{submolt}",
+            author="system",
+            content_preview=preview_text(
+                "Subscribe so discovery/feed includes this community more reliably."
+            ),
+            approve_all=approve_all_actions,
+        )
+        if should_stop:
+            return approve_all_actions
+        if not approved:
+            dismissed_submolts.add(submolt)
+            state["dismissed_submolts"] = sorted(dismissed_submolts)
+            continue
+        try:
+            client.subscribe_submolt(submolt)
+            approved_submolts.add(submolt)
+            dismissed_submolts.discard(submolt)
+            state["approved_submolts"] = sorted(approved_submolts)
+            state["dismissed_submolts"] = sorted(dismissed_submolts)
+            logger.info("Subscribed to submolt=%s", submolt)
+            print_success_banner(
+                action="subscribe-submolt",
+                pid=submolt,
+                url=f"https://moltbook.com/m/{submolt}",
+                title=f"m/{submolt}",
+            )
+        except Exception as e:
+            msg = str(e).lower()
+            if "already" in msg:
+                approved_submolts.add(submolt)
+                dismissed_submolts.discard(submolt)
+                state["approved_submolts"] = sorted(approved_submolts)
+                state["dismissed_submolts"] = sorted(dismissed_submolts)
+                logger.info("Already subscribed to submolt=%s", submolt)
+                continue
+            logger.warning("Subscribe failed submolt=%s error=%s", submolt, e)
+
+    return approve_all_actions
 
 
 def run_loop() -> None:
@@ -596,11 +1243,17 @@ def run_loop() -> None:
         logger.info("Using configured agent name hint=%s", my_name)
 
     persona_text = load_persona_text(cfg.persona_path)
+    domain_context_text = load_context_text(cfg.context_path)
     keyword_store = load_keyword_store(cfg.keyword_store_path)
     active_keywords = merge_keywords(cfg.keywords, keyword_store.get("learned_keywords", []))
     logger.info(
-        "Loaded persona guidance path=%s keywords=%s learned_keywords=%s mission_queries=%s do_not_reply_authors=%s",
+        (
+            "Loaded persona guidance path=%s context_path=%s context_chars=%s "
+            "keywords=%s learned_keywords=%s mission_queries=%s do_not_reply_authors=%s"
+        ),
         cfg.persona_path,
+        cfg.context_path,
+        len(domain_context_text),
         len(active_keywords),
         len(keyword_store.get("learned_keywords", [])),
         len(cfg.mission_queries),
@@ -609,7 +1262,8 @@ def run_loop() -> None:
 
     state = load_state(cfg.state_path)
     seen: Set[str] = set(state.get("seen_post_ids", []))
-    logger.info("Loaded state seen_posts=%s", len(seen))
+    replied_posts: Set[str] = set(state.get("replied_post_ids", []))
+    logger.info("Loaded state seen_posts=%s replied_posts=%s", len(seen), len(replied_posts))
     if cfg.confirm_actions:
         logger.info("Interactive confirmation enabled for outgoing actions.")
     else:
@@ -618,6 +1272,24 @@ def run_loop() -> None:
     iteration = 0
     approve_all_actions = False
     approve_all_keyword_changes = False
+    approve_all_actions = maybe_subscribe_relevant_submolts(
+        client=client,
+        cfg=cfg,
+        logger=logger,
+        state=state,
+        approve_all_actions=approve_all_actions,
+    )
+    save_state(cfg.state_path, state)
+    approve_all_actions = run_startup_reply_scan(
+        client=client,
+        cfg=cfg,
+        logger=logger,
+        state=state,
+        my_name=my_name,
+        persona_text=persona_text,
+        domain_context_text=domain_context_text,
+        approve_all_actions=approve_all_actions,
+    )
     search_state: Dict[str, Any] = {"retry_cycle": 1, "keyword_cursor": 0}
     while True:
         iteration += 1
@@ -629,6 +1301,14 @@ def run_loop() -> None:
 
             print_cycle_banner(iteration=iteration, mode=cfg.discovery_mode, keywords=len(active_keywords))
             logger.info("Poll cycle=%s start", iteration)
+            pending_executed = execute_pending_actions(
+                client=client,
+                cfg=cfg,
+                state=state,
+                logger=logger,
+            )
+            if pending_executed:
+                save_state(cfg.state_path, state)
             posts, sources = discover_posts(
                 client=client,
                 cfg=cfg,
@@ -646,15 +1326,23 @@ def run_loop() -> None:
             model_approved = 0
             acted = 0
             reply_actions = 0
+            post_action_sent = False
+            comment_action_sent = False
             skip_reasons: Dict[str, int] = {}
             cycle_titles: List[str] = []
-            remaining_cooldown = cooldown_remaining_seconds(state=state, cfg=cfg)
+            reply_presence_checks = 0
+            reply_presence_check_limit = 30
+            post_cd_remaining, comment_cd_remaining = cooldown_remaining_seconds(state=state, cfg=cfg)
 
-            if remaining_cooldown > 0:
+            if post_cd_remaining > 0 or comment_cd_remaining > 0:
                 logger.info(
-                    "Global action cooldown active remaining=%ss (~%sm). No new post/comment actions this cycle.",
-                    remaining_cooldown,
-                    max(1, remaining_cooldown // 60),
+                    (
+                        "Action cooldown status post_remaining=%ss (~%sm) "
+                        "comment_remaining=%ss. Drafting only allowed for eligible actions."
+                    ),
+                    post_cd_remaining,
+                    max(1, post_cd_remaining // 60) if post_cd_remaining > 0 else 0,
+                    comment_cd_remaining,
                 )
 
             def mark_seen(pid: Optional[str]) -> None:
@@ -675,6 +1363,25 @@ def run_loop() -> None:
 
                 new_candidates += 1
 
+                if pid in replied_posts:
+                    skip_reasons["already_replied_post"] = skip_reasons.get("already_replied_post", 0) + 1
+                    mark_seen(pid)
+                    logger.debug("Cycle=%s skip post_id=%s reason=already_replied_post", iteration, pid)
+                    continue
+
+                if (
+                    my_name
+                    and reply_presence_checks < reply_presence_check_limit
+                ):
+                    reply_presence_checks += 1
+                    if has_my_comment_on_post(client=client, post_id_value=pid, my_name=my_name, logger=logger):
+                        replied_posts.add(pid)
+                        state["replied_post_ids"] = list(replied_posts)[-10000:]
+                        skip_reasons["already_replied_post"] = skip_reasons.get("already_replied_post", 0) + 1
+                        mark_seen(pid)
+                        logger.debug("Cycle=%s skip post_id=%s reason=already_replied_post_detected", iteration, pid)
+                        continue
+
                 author_id, author_name = post_author(post)
                 if my_name and author_name and author_name.lower() == str(my_name).lower():
                     skip_reasons["self_post"] = skip_reasons.get("self_post", 0) + 1
@@ -691,13 +1398,10 @@ def run_loop() -> None:
                 allowed, reason = can_reply(state, cfg, author_id, author_name)
                 if not allowed:
                     skip_reasons[reason] = skip_reasons.get(reason, 0) + 1
-                    if reason not in {
-                        "cooldown",
-                        "daily_post_limit",
-                        "daily_comment_limit",
-                        "daily_engagement_limit",
-                        "author_cooldown",
-                    }:
+                    is_comment_cooldown_block = (
+                        "comment_cooldown" in reason and state.get("daily_comment_count", 0) < cfg.max_comments_per_day
+                    )
+                    if not is_comment_cooldown_block and reason != "author_cooldown":
                         mark_seen(pid)
                     logger.debug(
                         "Cycle=%s skip post_id=%s author=%s reason=%s",
@@ -706,12 +1410,19 @@ def run_loop() -> None:
                         author_name or author_id or "(unknown)",
                         reason,
                     )
-                    continue
-                eligible_now += 1
+                    if not is_comment_cooldown_block:
+                        continue
+                else:
+                    eligible_now += 1
 
                 try:
                     logger.info("Cycle=%s drafting post_id=%s via=openai", iteration, pid)
-                    messages = build_openai_messages(persona_text, post, pid)
+                    messages = build_openai_messages(
+                        persona=persona_text,
+                        domain_context=domain_context_text,
+                        post=post,
+                        pid=pid,
+                    )
                     draft = call_openai(cfg, messages)
                     drafted_count += 1
                 except Exception as e:
@@ -761,6 +1472,69 @@ def run_loop() -> None:
                 requested_mode = normalize_response_mode(draft.get("response_mode"), default="comment")
                 actions = planned_actions(requested_mode=requested_mode, cfg=cfg, state=state)
                 if not actions:
+                    comment_allowed_now, comment_gate_reason = comment_gate_status(state=state, cfg=cfg)
+                    should_wait_comment = (
+                        requested_mode in {"comment", "both"}
+                        and not comment_allowed_now
+                        and comment_gate_reason == "comment_cooldown"
+                    )
+                    if should_wait_comment:
+                        approved, approve_all_actions, should_stop = confirm_action(
+                            cfg=cfg,
+                            logger=logger,
+                            action="wait-comment",
+                            pid=pid,
+                            title=title,
+                            submolt=submolt,
+                            url=url,
+                            author=author_name or author_id or "(unknown)",
+                            content_preview=preview_text(comment_content),
+                            approve_all=approve_all_actions,
+                        )
+                        if should_stop:
+                            return
+                        if approved:
+                            if wait_for_comment_slot(state=state, cfg=cfg, logger=logger):
+                                try:
+                                    logger.info(
+                                        "Cycle=%s action=comment attempt post_id=%s submolt=%s url=%s waited_for_cooldown=true",
+                                        iteration,
+                                        pid,
+                                        submolt,
+                                        url,
+                                    )
+                                    client.create_comment(pid, comment_content)
+                                    state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
+                                    replied_posts.add(pid)
+                                    state["replied_post_ids"] = list(replied_posts)[-10000:]
+                                    maybe_upvote_post_after_comment(
+                                        client=client,
+                                        state=state,
+                                        logger=logger,
+                                        post_id_value=pid,
+                                    )
+                                    now_ts = utc_now().timestamp()
+                                    state["last_action_ts"] = now_ts
+                                    state["last_comment_action_ts"] = now_ts
+                                    acted += 1
+                                    reply_actions += 1
+                                    comment_action_sent = True
+                                    logger.info(
+                                        "Cycle=%s action=comment success post_id=%s daily_comment_count=%s",
+                                        iteration,
+                                        pid,
+                                        state["daily_comment_count"],
+                                    )
+                                    print_success_banner(action="comment", pid=pid, url=url, title=title)
+                                except Exception as e:
+                                    logger.warning(
+                                        "Cycle=%s waited comment failed post_id=%s error=%s",
+                                        iteration,
+                                        pid,
+                                        e,
+                                    )
+                            mark_seen(pid)
+                            continue
                     logger.info(
                         "Cycle=%s skip post_id=%s reason=no_available_actions requested_mode=%s",
                         iteration,
@@ -822,8 +1596,20 @@ def run_loop() -> None:
                             )
                             client.create_comment(pid, comment_content)
                             state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
+                            replied_posts.add(pid)
+                            state["replied_post_ids"] = list(replied_posts)[-10000:]
+                            maybe_upvote_post_after_comment(
+                                client=client,
+                                state=state,
+                                logger=logger,
+                                post_id_value=pid,
+                            )
+                            now_ts = utc_now().timestamp()
+                            state["last_action_ts"] = now_ts
+                            state["last_comment_action_ts"] = now_ts
                             acted += 1
                             reply_actions += 1
+                            comment_action_sent = True
                             reply_executed = True
                             logger.info(
                                 "Cycle=%s action=comment success post_id=%s daily_comment_count=%s",
@@ -872,8 +1658,14 @@ def run_loop() -> None:
                             )
                             client.create_post(submolt=submolt, title=title, content=post_content)
                             state["daily_post_count"] = state.get("daily_post_count", 0) + 1
+                            replied_posts.add(pid)
+                            state["replied_post_ids"] = list(replied_posts)[-10000:]
+                            now_ts = utc_now().timestamp()
+                            state["last_action_ts"] = now_ts
+                            state["last_post_action_ts"] = now_ts
                             acted += 1
                             reply_actions += 1
+                            post_action_sent = True
                             reply_executed = True
                             logger.info(
                                 "Cycle=%s action=post success post_id=%s daily_post_count=%s",
@@ -893,8 +1685,14 @@ def run_loop() -> None:
                         )
                         client.create_post(submolt=submolt, title=title, content=post_content)
                         state["daily_post_count"] = state.get("daily_post_count", 0) + 1
+                        replied_posts.add(pid)
+                        state["replied_post_ids"] = list(replied_posts)[-10000:]
+                        now_ts = utc_now().timestamp()
+                        state["last_action_ts"] = now_ts
+                        state["last_post_action_ts"] = now_ts
                         acted += 1
                         reply_actions += 1
+                        post_action_sent = True
                         reply_executed = True
                         logger.info(
                             "Cycle=%s action=post success post_id=%s daily_post_count=%s",
@@ -906,6 +1704,19 @@ def run_loop() -> None:
 
                 vote_action = normalize_vote_action(draft.get("vote_action"))
                 vote_target = normalize_vote_target(draft.get("vote_target"))
+                if vote_action == "downvote" and not cfg.allow_comment_downvote:
+                    if vote_target == "top_comment":
+                        logger.info(
+                            "Cycle=%s adjusting vote_target from top_comment to none for unsupported downvote-comment",
+                            iteration,
+                        )
+                        vote_target = "none"
+                    elif vote_target == "both":
+                        logger.info(
+                            "Cycle=%s adjusting vote_target from both to post for unsupported downvote-comment",
+                            iteration,
+                        )
+                        vote_target = "post"
                 if vote_action != "none" and vote_target != "none":
                     if vote_target in {"post", "both"}:
                         approved, approve_all_actions, should_stop = confirm_action(
@@ -1001,14 +1812,13 @@ def run_loop() -> None:
                                 vote_target,
                             )
 
-                if reply_executed:
-                    state["last_action_ts"] = utc_now().timestamp()
                 if reply_executed and author_id:
-                    state.setdefault("per_author_last_reply", {})[author_id] = state["last_action_ts"]
+                    state.setdefault("per_author_last_reply", {})[author_id] = state.get("last_action_ts")
                 if reply_executed:
                     mark_seen(pid)
 
             state["seen_post_ids"] = list(seen)[-5000:]
+            state["replied_post_ids"] = list(replied_posts)[-10000:]
             save_state(cfg.state_path, state)
             logger.info(
                 (
@@ -1100,24 +1910,23 @@ def run_loop() -> None:
                         print("")
 
             # Sleep policy:
-            # - After a successful post/comment, sleep until action cooldown expires.
-            # - When idle (no post/comment action), poll quickly.
+            # - Poll quickly when idle.
+            # - After actions, sleep until the shortest relevant cooldown expires.
             sleep_seconds = max(1, cfg.idle_poll_seconds)
             sleep_reason = "idle_poll"
             if reply_actions > 0:
-                now_ts = utc_now().timestamp()
-                last_action_ts = state.get("last_action_ts")
-                if isinstance(last_action_ts, (int, float)):
-                    remaining = int(cfg.min_seconds_between_actions - (now_ts - last_action_ts))
-                    if remaining > 0:
-                        sleep_seconds = remaining
-                        sleep_reason = "post_comment_cooldown"
-                    else:
-                        sleep_seconds = max(1, cfg.idle_poll_seconds)
-                        sleep_reason = "cooldown_elapsed"
+                post_remaining, comment_remaining = cooldown_remaining_seconds(state=state, cfg=cfg)
+                candidate_sleeps: List[int] = []
+                if post_action_sent:
+                    candidate_sleeps.append(max(1, post_remaining))
+                if comment_action_sent:
+                    candidate_sleeps.append(max(1, comment_remaining))
+                if candidate_sleeps:
+                    sleep_seconds = min(candidate_sleeps)
+                    sleep_reason = "action_cooldown"
                 else:
-                    sleep_seconds = max(1, cfg.poll_seconds)
-                    sleep_reason = "post_comment_default_poll"
+                    sleep_seconds = max(1, cfg.idle_poll_seconds)
+                    sleep_reason = "cooldown_elapsed"
         except MoltbookAuthError as e:
             logger.error("Poll cycle=%s auth_error=%s", iteration, e)
             sleep_seconds = max(1, cfg.poll_seconds)

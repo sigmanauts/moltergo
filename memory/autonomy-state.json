@@ -1,16 +1,59 @@
 {
+  "approved_submolts": [
+    "agenteconomy",
+    "agenticfinance",
+    "agents",
+    "ai-agents",
+    "coordinating-agi",
+    "crypto",
+    "developers",
+    "general",
+    "security"
+  ],
   "daily_comment_count": 3,
   "daily_post_count": 0,
+  "dismissed_submolts": [
+    "aithoughts",
+    "infrastructure",
+    "startupideas"
+  ],
   "last_action_ts": 1770381218.63381,
+  "last_comment_action_ts": 1770381218.63381,
   "last_daily_reset": "2026-02-06",
+  "last_post_action_ts": 1770381218.63381,
+  "pending_actions": [],
   "per_author_last_reply": {
     "35597899-df98-4907-8166-8aeb655f7f3a": 1770379039.333951,
     "7eaf79d1-3592-4daf-9d88-ba8f5041f219": 1770377074.107741,
     "f543ff82-314b-432e-b9e4-057b3f57e759": 1770381218.63381
   },
+  "replied_post_ids": [],
+  "replied_to_comment_ids": [],
+  "seen_comment_ids": [
+    "ca35d482-f237-4ccd-b881-b3bdd0fa2f02",
+    "b8b19fc4-ac3c-4210-b838-7da1d5d9b195",
+    "6294af8c-a7ab-4d5e-9ee1-01b46ffcffd2",
+    "fb62e257-39bd-4342-b3c5-b0070d7701a0",
+    "b9d69f54-fddf-4a7d-aa9e-42192dd7b5ab",
+    "0130d927-8ec6-4d42-bfad-9ac79de3b7ad",
+    "57fa1326-1475-4141-992e-cdaa0b79d698",
+    "bb645def-386a-494e-9f7a-fb7b78546d08",
+    "8837aa83-4165-4319-9aa3-5aa7d91764ce",
+    "5b5dccd2-49cd-405f-b9ae-bb4e10b4089e",
+    "c5e0cfcf-2fb1-41f3-9f7b-d00bc4f442e4",
+    "97e171af-0c94-4634-8f15-a45a8e479e27",
+    "21c01587-29ce-4071-9f79-49c5432deeb7",
+    "1f1b01e7-6cbd-40f7-86cf-795fb6e03cc1",
+    "15a3a0d1-d118-4b57-8cc9-aca4394fab05"
+  ],
   "seen_post_ids": [
     "870d9b4c-03a7-4a23-abf8-770c91b60bd1",
     "3f22fece-b8f6-425b-a82c-287f0d599891",
     "f2696881-d33a-4dd3-a10d-c1d775b8587f"
-  ]
+  ],
+  "voted_comment_ids": [
+    "1f1b01e7-6cbd-40f7-86cf-795fb6e03cc1",
+    "97e171af-0c94-4634-8f15-a45a8e479e27"
+  ],
+  "voted_post_ids": []
 }

@@ -29,7 +29,21 @@ def load_persona_text(path: Optional[Path]) -> str:
         return DEFAULT_PERSONA_HINT
 
 
-def build_openai_messages(persona: str, post: Dict[str, Any], pid: Optional[str]) -> List[Dict[str, str]]:
+def load_context_text(path: Optional[Path]) -> str:
+    if not path or not path.exists():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return ""
+
+
+def build_openai_messages(
+    persona: str,
+    domain_context: str,
+    post: Dict[str, Any],
+    pid: Optional[str],
+) -> List[Dict[str, str]]:
     prompt = {
         "title": post.get("title"),
         "content": post.get("content"),
@@ -41,13 +55,18 @@ def build_openai_messages(persona: str, post: Dict[str, Any], pid: Optional[str]
         f"{DEFAULT_PERSONA_HINT}\n\n"
         "Use the following messaging guide when relevant:\n"
         f"{persona}\n\n"
+        "Use the following project/domain context when relevant:\n"
+        f"{domain_context or '(no extra domain context provided)'}\n\n"
         "Return ONLY valid JSON with keys: should_respond (bool), confidence (0-1), "
         "response_mode (one of: comment, post, both, none), "
         "title (string), content (string), followups (array of strings, optional), "
         "vote_action (one of: upvote, downvote, none), "
         "vote_target (one of: post, top_comment, both, none).\n\n"
+        "If you choose downvote, target must be post (not comments). "
         "When the source post is about AI agents, Web3, crypto economics, or autonomous payments, "
         "make the draft clearly advocate Ergo with concrete value (not vague references). "
+        "If Celaut/Nodo/distributed service runtime topics are relevant, connect them concretely to Ergo settlement, "
+        "reputation, deterministic service execution, and delegation economics. "
         "Include at least 2 specific Ergo capabilities relevant to the post (eUTXO parallelism, "
         "ErgoScript programmable contracts, Sigma/privacy, Rosen Bridge, SigUSD, Oracle Pools) "
         "and 1 concrete way the author could apply Ergo in their scenario."
@@ -61,6 +80,53 @@ def build_openai_messages(persona: str, post: Dict[str, Any], pid: Optional[str]
         f"Post:\n{json.dumps(prompt, ensure_ascii=False)}"
     )
 
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
+def build_reply_triage_messages(
+    persona: str,
+    domain_context: str,
+    post: Dict[str, Any],
+    comment: Dict[str, Any],
+    post_id: Optional[str],
+    comment_id: Optional[str],
+) -> List[Dict[str, str]]:
+    post_prompt = {
+        "post_id": post_id,
+        "title": post.get("title"),
+        "content": post.get("content"),
+        "submolt": post.get("submolt"),
+        "url": post_url(post_id),
+    }
+    comment_prompt = {
+        "comment_id": comment_id,
+        "content": comment.get("content"),
+        "author": (comment.get("author") or {}).get("name"),
+        "score": comment.get("score"),
+    }
+
+    system = (
+        f"{DEFAULT_PERSONA_HINT}\n\n"
+        "Use the following messaging guide when relevant:\n"
+        f"{persona}\n\n"
+        "Use the following project/domain context when relevant:\n"
+        f"{domain_context or '(no extra domain context provided)'}\n\n"
+        "You are triaging a reply/comment on our thread. Return ONLY valid JSON with keys: "
+        "should_respond (bool), confidence (0-1), response_mode (comment|none), "
+        "title (string), content (string), followups (array optional), "
+        "vote_action (upvote|none), vote_target (top_comment|none). "
+        "Use upvote for useful/constructive replies and none otherwise. "
+        "Upvote useful/constructive replies."
+    )
+    user = (
+        "Assess this incoming comment on our post. If it is relevant or constructive, usually upvote and "
+        "optionally draft a short reply comment. If it is spammy or irrelevant, do not reply.\n\n"
+        f"Post:\n{json.dumps(post_prompt, ensure_ascii=False)}\n\n"
+        f"Incoming comment:\n{json.dumps(comment_prompt, ensure_ascii=False)}"
+    )
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user},

@@ -16,6 +16,11 @@ def load_state(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {
             "seen_post_ids": [],
+            "replied_post_ids": [],
+            "voted_post_ids": [],
+            "seen_comment_ids": [],
+            "voted_comment_ids": [],
+            "replied_to_comment_ids": [],
             "last_action_ts": None,
             "last_post_action_ts": None,
             "last_comment_action_ts": None,
@@ -23,6 +28,9 @@ def load_state(path: Path) -> Dict[str, Any]:
             "daily_post_count": 0,
             "daily_comment_count": 0,
             "last_daily_reset": utc_date_str(),
+            "pending_actions": [],
+            "approved_submolts": [],
+            "dismissed_submolts": [],
         }
     with path.open("r", encoding="utf-8") as f:
         state = json.load(f)
@@ -31,6 +39,22 @@ def load_state(path: Path) -> Dict[str, Any]:
         state["last_post_action_ts"] = state.get("last_action_ts")
     if "last_comment_action_ts" not in state:
         state["last_comment_action_ts"] = state.get("last_action_ts")
+    if "seen_comment_ids" not in state:
+        state["seen_comment_ids"] = []
+    if "replied_post_ids" not in state:
+        state["replied_post_ids"] = []
+    if "voted_post_ids" not in state:
+        state["voted_post_ids"] = []
+    if "pending_actions" not in state:
+        state["pending_actions"] = []
+    if "approved_submolts" not in state:
+        state["approved_submolts"] = []
+    if "dismissed_submolts" not in state:
+        state["dismissed_submolts"] = []
+    if "voted_comment_ids" not in state:
+        state["voted_comment_ids"] = []
+    if "replied_to_comment_ids" not in state:
+        state["replied_to_comment_ids"] = []
     return state
 
 

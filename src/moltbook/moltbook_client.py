@@ -135,6 +135,39 @@ class MoltbookClient:
             return status
         return "unknown"
 
+    def get_agent_profile(self, agent_name: str) -> Dict[str, Any]:
+        if not agent_name.strip():
+            raise ValueError("agent_name must be provided.")
+        try:
+            resp = requests.get(
+                self._url("agents/profile"),
+                headers=self._headers,
+                params={"name": agent_name},
+                timeout=30,
+            )
+        except requests_exceptions.Timeout as e:
+            raise RuntimeError(
+                "Timed out while contacting Moltbook for /agents/profile."
+            ) from e
+
+        if resp.status_code in {401, 403}:
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+            message = data.get("error") or data.get("hint") or "Authentication required"
+            raise MoltbookAuthError(f"Moltbook auth error {resp.status_code}: {message}")
+
+        if resp.status_code >= 400:
+            try:
+                data = resp.json()
+            except Exception:
+                resp.raise_for_status()
+            message = data.get("error") or data.get("hint") or resp.text
+            raise RuntimeError(f"Moltbook error {resp.status_code}: {message}")
+
+        return resp.json()
+
     def create_post(
         self,
         submolt: str,
@@ -252,6 +285,115 @@ class MoltbookClient:
 
         return resp.json()
 
+    def list_submolts(self) -> Dict[str, Any]:
+        try:
+            resp = requests.get(
+                self._url("submolts"),
+                headers=self._headers,
+                timeout=30,
+            )
+        except requests_exceptions.Timeout as e:
+            raise RuntimeError(
+                "Timed out while contacting Moltbook for /submolts."
+            ) from e
+
+        if resp.status_code in {401, 403}:
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+            message = data.get("error") or data.get("hint") or "Authentication required"
+            raise MoltbookAuthError(f"Moltbook auth error {resp.status_code}: {message}")
+
+        if resp.status_code >= 400:
+            try:
+                data = resp.json()
+            except Exception:
+                resp.raise_for_status()
+            message = data.get("error") or data.get("hint") or resp.text
+            raise RuntimeError(f"Moltbook error {resp.status_code}: {message}")
+
+        return resp.json()
+
+    def subscribe_submolt(self, name: str) -> Dict[str, Any]:
+        if not name.strip():
+            raise ValueError("submolt name must be provided")
+        try:
+            resp = requests.post(
+                self._url(f"submolts/{name}/subscribe"),
+                headers=self._headers,
+                timeout=30,
+            )
+        except requests_exceptions.Timeout as e:
+            raise RuntimeError(
+                f"Timed out while subscribing to submolt '{name}'."
+            ) from e
+
+        if resp.status_code in {401, 403}:
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+            message = data.get("error") or data.get("hint") or "Authentication required"
+            raise MoltbookAuthError(f"Moltbook auth error {resp.status_code}: {message}")
+
+        if resp.status_code >= 400:
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+            message = data.get("error") or data.get("hint") or data.get("message") or resp.text
+            raise RuntimeError(f"Moltbook subscribe error {resp.status_code}: {message}")
+
+        try:
+            return resp.json()
+        except Exception:
+            return {"ok": True}
+
+    def get_submolt_feed(self, name: str, sort: str = "new", limit: int = 30) -> Dict[str, Any]:
+        if not name.strip():
+            raise ValueError("submolt name must be provided")
+        candidates = [
+            (f"submolts/{name}/feed", {"sort": sort, "limit": limit}),
+            ("posts", {"submolt": name, "sort": sort, "limit": limit}),
+        ]
+        last_error: Optional[str] = None
+        for path, params in candidates:
+            try:
+                resp = requests.get(
+                    self._url(path),
+                    headers=self._headers,
+                    params=params,
+                    timeout=30,
+                )
+            except requests_exceptions.Timeout as e:
+                raise RuntimeError(
+                    f"Timed out while loading feed for submolt '{name}'."
+                ) from e
+
+            if resp.status_code == 404:
+                last_error = f"{path}: not found"
+                continue
+            if resp.status_code in {401, 403}:
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = {}
+                message = data.get("error") or data.get("hint") or "Authentication required"
+                raise MoltbookAuthError(f"Moltbook auth error {resp.status_code}: {message}")
+            if resp.status_code >= 400:
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = {}
+                message = data.get("error") or data.get("hint") or data.get("message") or resp.text
+                last_error = f"{path}: {message}"
+                continue
+
+            return resp.json()
+
+        raise RuntimeError(f"Moltbook submolt feed unavailable for '{name}'. Last error: {last_error}")
+
     def search_posts(self, query: str, limit: int = 20, search_type: str = "posts") -> Dict[str, Any]:
         if not query.strip():
             raise ValueError("Search query must be provided.")
@@ -338,8 +480,8 @@ class MoltbookClient:
                 try:
                     data = resp.json()
                 except Exception:
-                    resp.raise_for_status()
-                message = data.get("error") or data.get("hint") or resp.text
+                    data = {}
+                message = data.get("error") or data.get("hint") or data.get("message") or resp.text
                 last_error = f"{path}: {message}"
                 continue
 
@@ -349,11 +491,13 @@ class MoltbookClient:
         self._search_endpoint = None
         raise RuntimeError(f"Moltbook search endpoint unavailable. Last error: {last_error}")
 
-    def create_comment(self, post_id: str, content: str) -> Dict[str, Any]:
+    def create_comment(self, post_id: str, content: str, parent_id: Optional[str] = None) -> Dict[str, Any]:
         if not content:
             raise ValueError("Comment content must be provided.")
 
         payload = {"content": content}
+        if parent_id:
+            payload["parent_id"] = parent_id
 
         try:
             resp = requests.post(
@@ -422,8 +566,8 @@ class MoltbookClient:
                 try:
                     data = resp.json()
                 except Exception:
-                    resp.raise_for_status()
-                message = data.get("error") or data.get("hint") or resp.text
+                    data = {}
+                message = data.get("error") or data.get("hint") or data.get("message") or resp.text
                 last_error = f"{path}: {message}"
                 continue
 
