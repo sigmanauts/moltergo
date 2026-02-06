@@ -43,6 +43,7 @@ def build_openai_messages(
     domain_context: str,
     post: Dict[str, Any],
     pid: Optional[str],
+    allowed_response_modes: List[str],
 ) -> List[Dict[str, str]]:
     prompt = {
         "title": post.get("title"),
@@ -77,6 +78,8 @@ def build_openai_messages(
         "If you respond, keep it concise, avoid hype, and end with 1-3 direct questions. "
         "Prefer comments when useful; use post when visibility matters; use both only when genuinely needed. "
         "Avoid generic filler; prioritize specific, actionable technical framing.\n\n"
+        f"Allowed response modes for THIS decision: {', '.join(allowed_response_modes)}. "
+        "Set response_mode to one of those allowed modes only.\n\n"
         f"Post:\n{json.dumps(prompt, ensure_ascii=False)}"
     )
 

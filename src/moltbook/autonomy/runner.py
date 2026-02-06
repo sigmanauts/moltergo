@@ -289,6 +289,20 @@ def planned_actions(
     return actions
 
 
+def currently_allowed_response_modes(cfg: Config, state: Dict[str, Any]) -> List[str]:
+    post_allowed, _ = post_gate_status(state=state, cfg=cfg)
+    comment_allowed, _ = comment_gate_status(state=state, cfg=cfg)
+
+    allowed: List[str] = ["none"]
+    if comment_allowed:
+        allowed.append("comment")
+    if post_allowed:
+        allowed.append("post")
+    if comment_allowed and post_allowed:
+        allowed.append("both")
+    return allowed
+
+
 def preview_text(content: str, max_chars: int = 600) -> str:
     normalized = content.strip()
     if len(normalized) <= max_chars:
@@ -1415,13 +1429,21 @@ def run_loop() -> None:
                 else:
                     eligible_now += 1
 
+                allowed_modes = currently_allowed_response_modes(cfg=cfg, state=state)
+                if allowed_modes == ["none"]:
+                    skip_reasons["no_action_slots"] = skip_reasons.get("no_action_slots", 0) + 1
+                    mark_seen(pid)
+                    logger.debug("Cycle=%s skip post_id=%s reason=no_action_slots", iteration, pid)
+                    continue
+
                 try:
-                    logger.info("Cycle=%s drafting post_id=%s via=openai", iteration, pid)
+                    logger.debug("Cycle=%s drafting post_id=%s via=openai", iteration, pid)
                     messages = build_openai_messages(
                         persona=persona_text,
                         domain_context=domain_context_text,
                         post=post,
                         pid=pid,
+                        allowed_response_modes=allowed_modes,
                     )
                     draft = call_openai(cfg, messages)
                     drafted_count += 1
