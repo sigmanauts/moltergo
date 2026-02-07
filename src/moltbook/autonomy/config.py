@@ -221,9 +221,9 @@ def load_config() -> Config:
         "yes",
     }
     startup_reply_scan_post_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_POST_LIMIT", "15"))
-    startup_reply_scan_comment_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_COMMENT_LIMIT", "100"))
+    startup_reply_scan_comment_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_COMMENT_LIMIT", "40"))
     startup_reply_scan_replied_post_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_REPLIED_POST_LIMIT", "25"))
-    reply_triage_llm_calls_per_scan = int(os.getenv("MOLTBOOK_REPLY_TRIAGE_LLM_CALLS_PER_SCAN", "6"))
+    reply_triage_llm_calls_per_scan = int(os.getenv("MOLTBOOK_REPLY_TRIAGE_LLM_CALLS_PER_SCAN", "3"))
     reply_scan_interval_cycles = int(os.getenv("MOLTBOOK_REPLY_SCAN_INTERVAL_CYCLES", "3"))
     proactive_posting_enabled = os.getenv("MOLTBOOK_PROACTIVE_POSTING_ENABLED", "1").strip().lower() in {
         "1",

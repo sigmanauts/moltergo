@@ -52,15 +52,15 @@ GENERIC_KEYWORD_BLACKLIST = {
     "agents",
 }
 
-MAX_PROMPT_PERSONA_CHARS = 1800
-MAX_PROMPT_CONTEXT_CHARS = 2400
-MAX_PROMPT_POST_CONTENT_CHARS = 700
-MAX_PROMPT_COMMENT_CONTENT_CHARS = 360
-MAX_PROMPT_TOP_POSTS = 8
-MAX_PROMPT_RECENT_TITLES = 30
-MAX_PROMPT_PRIOR_SUGGESTIONS = 6
-MAX_PROMPT_LEARNING_EXAMPLES = 3
-MAX_CHATBASE_MESSAGE_CHARS = 6200
+MAX_PROMPT_PERSONA_CHARS = 1200
+MAX_PROMPT_CONTEXT_CHARS = 1400
+MAX_PROMPT_POST_CONTENT_CHARS = 420
+MAX_PROMPT_COMMENT_CONTENT_CHARS = 280
+MAX_PROMPT_TOP_POSTS = 5
+MAX_PROMPT_RECENT_TITLES = 16
+MAX_PROMPT_PRIOR_SUGGESTIONS = 4
+MAX_PROMPT_LEARNING_EXAMPLES = 2
+MAX_CHATBASE_MESSAGE_CHARS = 4800
 MAX_OPENAI_MESSAGE_CHARS = 9000
 CONTROL_PAYLOAD_PATTERN = re.compile(
     r"\b(should_respond|response_mode|vote_action|vote_target|confidence|should_post|content_archetype)\s*[:=]",
@@ -77,7 +77,7 @@ def _clip_text(value: Any, max_chars: int) -> str:
     limit = max(80, int(max_chars))
     if len(text) <= limit:
         return text
-    return text[: limit - 16].rstrip() + "... [truncated]"
+    return text[: limit - 3].rstrip() + "..."
 
 
 def _compact_top_posts_for_prompt(top_posts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -1000,16 +1000,58 @@ def _extract_reply_from_triage_blob(text: Any) -> str:
     return candidate
 
 
+def _remove_label_prefix(text: Any) -> str:
+    out = normalize_str(text).strip()
+    if not out:
+        return ""
+    # Remove wrappers like: Comment (≈115 words): ... / Reply (2-4 sentences): ...
+    out = re.sub(
+        r"^\s*(?:comment|reply|draft)\s*(?:\([^)]{0,60}\))?\s*:\s*",
+        "",
+        out,
+        flags=re.IGNORECASE,
+    ).strip()
+    return out
+
+
+def _strip_outer_quotes(text: Any) -> str:
+    out = normalize_str(text).strip()
+    if len(out) < 2:
+        return out
+    pairs = (
+        ('"', '"'),
+        ("'", "'"),
+        ("“", "”"),
+        ("‘", "’"),
+    )
+    for left, right in pairs:
+        if out.startswith(left) and out.endswith(right):
+            return out[1:-1].strip()
+    return out
+
+
+def _sanitize_generated_content_text(text: Any) -> str:
+    out = normalize_str(text).strip()
+    if not out:
+        return ""
+    out = out.replace("...[truncated]", "...").replace("... [truncated]", "...").replace("[truncated]", "")
+    out = _remove_label_prefix(out)
+    out = _strip_outer_quotes(out)
+    out = out.strip()
+    return out
+
+
 def _sanitize_structured_response(parsed: Dict[str, Any], response_kind: str) -> Dict[str, Any]:
     kind = _normalize_response_kind(response_kind)
     out = dict(parsed)
 
-    content = normalize_str(out.get("content")).strip()
+    content = _sanitize_generated_content_text(out.get("content"))
+    out["content"] = content
     if kind == "reply_triage" and _contains_triage_scaffold_text(content):
         extracted_reply = _extract_reply_from_triage_blob(content)
         if extracted_reply:
-            out["content"] = extracted_reply
-            content = extracted_reply
+            out["content"] = _sanitize_generated_content_text(extracted_reply)
+            content = normalize_str(out.get("content")).strip()
     if _contains_control_payload_markers(content):
         out["content"] = ""
         if kind in {"post_response", "reply_triage"}:
@@ -1188,6 +1230,7 @@ def _coerce_reply_triage(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
         or _extract_reply_from_triage_blob(raw)
         or normalize_str(kv.get("content")).strip()
     )
+    reply_text = _sanitize_generated_content_text(reply_text)
     if _contains_triage_scaffold_text(reply_text):
         reply_text = ""
     no_reply = bool(
@@ -1216,7 +1259,7 @@ def _coerce_reply_triage(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
         "should_respond": bool(should_respond and bool(reply_text)),
         "confidence": confidence,
         "response_mode": response_mode if reply_text else "none",
-        "title": normalize_str(kv.get("title")).strip(),
+        "title": _sanitize_generated_content_text(normalize_str(kv.get("title")).strip()),
         "content": _clip_text(reply_text, 900),
         "followups": [],
         "vote_action": vote_action,
@@ -1225,8 +1268,8 @@ def _coerce_reply_triage(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _coerce_proactive_post(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
-    title = normalize_str(kv.get("title")).strip() or _extract_heading_title(raw).strip()
-    body = normalize_str(kv.get("content")).strip()
+    title = _sanitize_generated_content_text(normalize_str(kv.get("title")).strip()) or _extract_heading_title(raw).strip()
+    body = _sanitize_generated_content_text(normalize_str(kv.get("content")).strip())
     if not body:
         body = _strip_key_value_lines(raw)
         if title and body.startswith("#"):
@@ -1243,7 +1286,7 @@ def _coerce_proactive_post(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
         "should_post": bool(should_post and bool(body)),
         "confidence": _coerce_float(kv.get("confidence"), default=0.72 if should_post else 0.4),
         "submolt": normalize_str(kv.get("submolt")).strip() or "general",
-        "title": _clip_text(title, 140),
+        "title": _sanitize_generated_content_text(_clip_text(title, 140)),
         "content": _clip_text(body, 3200),
         "strategy_notes": normalize_str(kv.get("strategy_notes")).strip(),
         "topic_tags": _parse_topic_tags(kv.get("topic_tags")),
@@ -1261,6 +1304,7 @@ def _coerce_post_response(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
     if _contains_triage_scaffold_text(content):
         extracted = _extract_reply_from_triage_blob(content)
         content = extracted if extracted else ""
+    content = _sanitize_generated_content_text(content)
     should = _coerce_bool(kv.get("should_respond"), default=bool(content))
     if re.search(r"\b(do not|don't|dont|no)\s+(respond|reply)\b", lower):
         should = False
@@ -1277,7 +1321,8 @@ def _coerce_post_response(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
         "should_respond": bool(should and bool(content)),
         "confidence": _coerce_float(kv.get("confidence"), default=0.66 if should else 0.4),
         "response_mode": response_mode if content else "none",
-        "title": normalize_str(kv.get("title")).strip() or _clip_text(_extract_heading_title(raw), 140),
+        "title": _sanitize_generated_content_text(normalize_str(kv.get("title")).strip())
+        or _sanitize_generated_content_text(_clip_text(_extract_heading_title(raw), 140)),
         "content": _clip_text(content, 3200),
         "followups": [],
         "vote_action": vote_action,
@@ -1542,12 +1587,21 @@ def fallback_draft() -> Dict[str, Any]:
 
 
 def format_content(draft: Dict[str, Any]) -> str:
-    content = normalize_str(draft.get("content")).strip()
+    content = _sanitize_generated_content_text(draft.get("content"))
+    if _contains_triage_scaffold_text(content):
+        extracted = _extract_reply_from_triage_blob(content)
+        content = _sanitize_generated_content_text(extracted)
+    if _contains_control_payload_markers(content):
+        content = ""
+    if not content:
+        return ""
     followups = draft.get("followups") or []
     if followups:
         lines = [content]
         for item in followups:
-            text = normalize_str(item).strip()
+            text = _sanitize_generated_content_text(item)
+            if _contains_control_payload_markers(text):
+                continue
             if not text:
                 continue
             lines.append("")
