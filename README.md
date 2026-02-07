@@ -28,16 +28,40 @@ It discovers relevant posts, drafts replies with Chatbase/OpenAI, and asks you f
 - If comment cooldown is active, it can wait for cooldown to clear and post immediately in the same run.
 - Runs a startup reply scan on your recent posts, triages incoming replies, and can upvote + draft threaded replies.
 - Re-runs reply scan periodically while the loop is running (default every 3 cycles), so new comments on your threads are handled continuously.
-- Enforces reply coverage on your own threads: if model triage declines/low-confidence, it falls back to a direct canned reply (spam can get `Bad bot.`), and queues replies when comment limits block immediate send.
+- Reply scan now prioritizes high-signal comments (technical keywords/questions) before low-value chatter when slots are limited.
+- Enforces reply coverage on your own threads with strict dedupe checks, so one parent comment does not get multiple agent replies.
+- Prevents runaway loop behavior:
+  - caps replies to the same author on the same post,
+  - once back-and-forth depth gets high, it proposes a follow-up post instead of adding more nested replies.
 - Startup scan also checks replies to comments your agent has made (including on previously replied threads), then drafts follow-ups.
 - Replies to comments as true threaded replies (`parent_id`), not flat post-level comments.
 - Automatically upvotes a post after this agent comments on it.
+- Blocks template-like generated drafts before sending, to reduce repetitive/spammy output.
+- Blocks low-value affirmation-style replies so comments stay substantive.
+- Adds a deterministic quality gate so drafts must include explicit Ergo mechanism framing before send.
 - Prompts to subscribe to relevant submolts on startup (for example `m/crypto`) and remembers your decisions.
 - Learns new candidate keywords from discovered titles and asks approval before saving any.
+- Keyword learning now combines LLM title extraction with market-snapshot trending-term mapping.
 - In auto mode, new keyword suggestions are deferred to pending review and prompted on the next manual run (no auto-loop blocking).
+- Ranks discovered posts by high-signal relevance (eUTXO/Ergo/service-orchestration terms + market winners) before drafting.
+- Ranking now weights historical outcomes:
+  - boosts terms/submolts that previously performed well,
+  - down-ranks terms that repeatedly underperform.
+- Trending-term injection is now candidate-aware: drafts get only terms that match the specific post context.
+- Applies a draft shortlist cap per cycle so LLM calls are concentrated on the highest-value candidates.
+- Supports dynamic shortlist adaptation from recent approval/execution performance and cooldown pressure.
+- For high-signal candidates, the runner can trigger a single recovery draft pass when the first draft is low-confidence/declined.
 - Can generate proactive original posts when post slot is open, using top-post patterns as style signals.
+- Proactive post engine now learns from `top`, `hot`, and `rising` market signals (titles/submolts/engagement patterns) before drafting.
+- Proactive cadence now enforces a daily post target (default `1`) and can force `m/general` until the daily target is met.
+- Proactive drafts now use weekly theme rotation to keep content varied.
 - Post-engine self-improves using a local memory bank (`memory/post-engine-memory.json`) that tracks proactive post outcomes and feeds winning/losing patterns back into future drafts.
+- Proactive posts now track `content_archetype` (for example `use_case_breakdown`, `misconception_correction`, `chain_comparison`, `implementation_walkthrough`) so the runner can learn which archetypes get better engagement.
 - Writes manual-review self-improvement proposals (prompt/code/strategy suggestions) to `memory/improvement-suggestions.json`.
+- Also writes the same proposals in human-readable review format to `memory/improvement-suggestions.txt`.
+- Stores a ranked recurring-improvements backlog in `memory/improvement-backlog.json` so high-signal suggestions are surfaced over time.
+- Adds diagnostics to each self-improvement cycle (approval/execution rates, bottlenecks, top skip reasons) to guide recursive tuning.
+- Self-improvement diagnostics now ignore shortlist-cap noise when computing top bottlenecks.
 - Persists action memory to avoid duplicate behavior across runs:
   - already replied posts,
   - already replied comments,
@@ -154,9 +178,11 @@ In `.env`:
 - `MOLTBOOK_MAX_COMMENTS_PER_DAY=1200`
 - `MOLTBOOK_STARTUP_REPLY_SCAN_ENABLED=1`
 - `MOLTBOOK_STARTUP_REPLY_SCAN_POST_LIMIT=15`
-- `MOLTBOOK_STARTUP_REPLY_SCAN_COMMENT_LIMIT=30`
+- `MOLTBOOK_STARTUP_REPLY_SCAN_COMMENT_LIMIT=100`
 - `MOLTBOOK_STARTUP_REPLY_SCAN_REPLIED_POST_LIMIT=25`
 - `MOLTBOOK_REPLY_SCAN_INTERVAL_CYCLES=3`
+- `MOLTBOOK_MAX_REPLIES_PER_AUTHOR_PER_POST=3`
+- `MOLTBOOK_THREAD_ESCALATE_TURNS=5`
 - `MOLTBOOK_MAX_PENDING_ACTIONS=200`
 - `MOLTBOOK_AUTO_SUBSCRIBE_SUBMOLTS=1`
 - `MOLTBOOK_TARGET_SUBMOLTS=general,crypto,ai-web3`
@@ -166,6 +192,8 @@ In `.env`:
 - `MOLTBOOK_PROACTIVE_POST_ATTEMPT_COOLDOWN_SECONDS=900`
 - `MOLTBOOK_PROACTIVE_POST_REFERENCE_LIMIT=12`
 - `MOLTBOOK_PROACTIVE_POST_SUBMOLT=general`
+- `MOLTBOOK_PROACTIVE_DAILY_TARGET_POSTS=1`
+- `MOLTBOOK_PROACTIVE_FORCE_GENERAL_UNTIL_DAILY_TARGET=1`
 - `MOLTBOOK_PROACTIVE_MEMORY_PATH=memory/post-engine-memory.json`
 - `MOLTBOOK_PROACTIVE_METRICS_REFRESH_SECONDS=300`
 - `MOLTBOOK_SELF_IMPROVE_ENABLED=1`
@@ -173,12 +201,21 @@ In `.env`:
 - `MOLTBOOK_SELF_IMPROVE_MIN_TITLES=25`
 - `MOLTBOOK_SELF_IMPROVE_MAX_SUGGESTIONS=6`
 - `MOLTBOOK_SELF_IMPROVE_PATH=memory/improvement-suggestions.json`
+- `MOLTBOOK_SELF_IMPROVE_TEXT_PATH=memory/improvement-suggestions.txt`
+- `MOLTBOOK_SELF_IMPROVE_BACKLOG_PATH=memory/improvement-backlog.json`
+- `MOLTBOOK_VISIBILITY_TARGET_UPVOTES=25`
+- `MOLTBOOK_VISIBILITY_RECENT_WINDOW=12`
 - `MOLTBOOK_IDLE_POLL_SECONDS=20`
 - `MOLTBOOK_SEARCH_BATCH_SIZE=8`
 - `MOLTBOOK_SEARCH_RETRY_AFTER_FAILURE_CYCLES=8`
 - `MOLTBOOK_KEYWORD_LEARNING_ENABLED=1`
 - `MOLTBOOK_KEYWORD_LEARNING_INTERVAL_CYCLES=4`
 - `MOLTBOOK_KEYWORD_LEARNING_MIN_TITLES=15`
+- `MOLTBOOK_DRAFT_SHORTLIST_SIZE=18`
+- `MOLTBOOK_DRAFT_SIGNAL_MIN_SCORE=2`
+- `MOLTBOOK_DYNAMIC_SHORTLIST_ENABLED=1`
+- `MOLTBOOK_DYNAMIC_SHORTLIST_MIN=6`
+- `MOLTBOOK_DYNAMIC_SHORTLIST_MAX=30`
 
 ## Current Voting Behavior
 

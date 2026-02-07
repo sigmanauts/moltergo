@@ -1,0 +1,3192 @@
+{
+  "entries": [
+    {
+      "code_changes": [],
+      "cycle": 12,
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement from technically inclined community members.",
+          "proposed_change": "Integrate more technical discussions about ErgoScript capabilities.",
+          "reason": "Highlighting specific technical advantages can attract developers and serious users.",
+          "target": "Ergo-focused posts"
+        },
+        {
+          "expected_impact": "Higher visibility in Bitcoin-centric discussions, attracting a wider audience.",
+          "proposed_change": "Frame responses with comparative analysis between Ergo and Bitcoin's smart contract capabilities.",
+          "reason": "Positioning Ergo as a complement to Bitcoin can broaden appeal and interest.",
+          "target": "Engagement with Bitcoin discussions"
+        },
+        {
+          "expected_impact": "Potentially innovative use cases that can be showcased to the community.",
+          "proposed_change": "Organize structured brainstorming sessions on how agents can leverage Ergo.",
+          "reason": "Facilitates deeper engagement and collaborative idea generation.",
+          "target": "Use cases brainstorming"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Weekly themed discussion threads focused on specific Ergo features (e.g., privacy, DeFi).",
+          "metric": "Engagement rate (comments, likes, shares) per thread.",
+          "stop_condition": "If engagement remains below a predetermined threshold for three consecutive weeks."
+        },
+        {
+          "idea": "Create a repository of user-generated content showcasing Ergo applications.",
+          "metric": "Number of submissions and community interactions with the repository.",
+          "stop_condition": "If submissions drop below a certain point for two months."
+        },
+        {
+          "idea": "Host virtual meetups or AMAs with Ergo developers or community leaders.",
+          "metric": "Attendance numbers and post-event feedback scores.",
+          "stop_condition": "If attendance does not meet a minimum threshold for three consecutive events."
+        }
+      ],
+      "summary": "Enhancements focus on strategic positioning of Ergo within the Moltbook ecosystem, emphasizing its unique offerings for AI and agent economies while fostering authentic engagement and community discussion.",
+      "ts": "2026-02-06T15:46:36.466845+00:00"
+    },
+    {
+      "code_changes": [],
+      "cycle": 24,
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement from users curious about real implementations.",
+          "proposed_change": "Integrate a dedicated section for 'Real-World Use Cases of Ergo in AI Agent Economies.'",
+          "reason": "Highlighting practical applications can spark interest and discussion.",
+          "target": "Moltbook Messaging Guide"
+        },
+        {
+          "expected_impact": "Higher relevance in posts related to cost and efficiency discussions.",
+          "proposed_change": "Add a snippet emphasizing Ergo's role in reducing transaction costs for AI microservices.",
+          "reason": "Focusing on cost efficiency can attract developers interested in practical solutions.",
+          "target": "Key Messaging Snippets"
+        },
+        {
+          "expected_impact": "Enhanced community connection and increased post interactions.",
+          "proposed_change": "Encourage agents to share personal stories of using Ergo in their projects.",
+          "reason": "Personal experiences resonate more with the community and can drive authentic conversations.",
+          "target": "10-Point Moltbook Marketing Plan"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Host a community challenge to propose new ErgoScript applications for AI agents.",
+          "metric": "Number of submissions and engagement on ideas shared.",
+          "stop_condition": "If submissions drop below 5 per week for two consecutive weeks."
+        },
+        {
+          "idea": "Create a weekly digest of Ergo-related discussions and insights shared on Moltbook.",
+          "metric": "Engagement metrics (comments, shares) on the digest post.",
+          "stop_condition": "If engagement falls below a predetermined threshold over three weeks."
+        },
+        {
+          "idea": "Facilitate monthly expert Q&A sessions on Ergo's capabilities for AI agents.",
+          "metric": "Attendance numbers and engagement during the sessions.",
+          "stop_condition": "Low attendance (less than 10 participants) for two consecutive sessions."
+        }
+      ],
+      "summary": "Proposed improvements aim to enhance the Moltbook agent's engagement and visibility by focusing on specific high-leverage strategies, fostering genuine discussions, and optimizing the positioning of Ergo within the agent economy narrative.",
+      "ts": "2026-02-06T16:13:40.087877+00:00"
+    },
+    {
+      "code_changes": [],
+      "cycle": 36,
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement through relatable content that sparks curiosity and discussion.",
+          "proposed_change": "Incorporate case studies of successful Ergo applications in AI and agent economies in discussions.",
+          "reason": "Real-world examples resonate more and demonstrate Ergo's practical value.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Enhanced community trust and increased participation in discussions about Ergo.",
+          "proposed_change": "Initiate regular 'Ask Me Anything' sessions focusing on specific Ergo features like eUTXO and Sigma Protocols.",
+          "reason": "Direct engagement with the community can clarify misconceptions and deepen understanding.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "Broader interest from diverse communities, increasing the agent's visibility.",
+          "proposed_change": "Highlight the synergy between Ergo's privacy features and the growing demand for data sovereignty in AI.",
+          "reason": "Connecting to current trends can attract attention from those concerned with privacy and decentralization.",
+          "target": "narrative alignment"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Host a challenge for innovative Ergo-based applications or use cases, with community voting for the best ideas.",
+          "metric": "number of submissions and community engagement metrics (votes, comments).",
+          "stop_condition": "If submissions drop below a threshold of 5 over a month."
+        },
+        {
+          "idea": "Create a series of educational posts or videos explaining eUTXO and ErgoScript through practical examples.",
+          "metric": "engagement metrics (upvotes, shares) and follower growth on associated platforms.",
+          "stop_condition": "If engagement metrics do not improve over two consecutive series."
+        },
+        {
+          "idea": "Develop a collaborative document where community members can contribute potential applications for Ergo in AI.",
+          "metric": "number of contributions and diversity of ideas (topics covered).",
+          "stop_condition": "If no new contributions are made for a period of one month."
+        }
+      ],
+      "summary": "The proposed enhancements aim to refine the Moltbook agent's engagement strategy by leveraging specific narratives and community dynamics to boost visibility and foster high-quality interactions around Ergo and its capabilities.",
+      "ts": "2026-02-06T16:39:55.062786+00:00"
+    },
+    {
+      "code_changes": [],
+      "cycle": 48,
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased comment interaction and upvotes as community members contribute ideas and insights.",
+          "proposed_change": "Encourage agents to initiate discussions on specific use cases for ErgoScript in the context of AI agents, inviting technical contributions and collaborative brainstorming.",
+          "reason": "Fostering a collaborative environment around specific use cases can drive deeper engagement and showcase Ergo's practical applications.",
+          "target": "Engagement in AI agent economy discussions"
+        },
+        {
+          "expected_impact": "Higher engagement rates as users share experiences and questions about privacy in AI applications.",
+          "proposed_change": "Integrate more direct comparisons between Ergo's Sigma Protocols and common privacy concerns in AI agents' operations, specifically addressing real-world implications.",
+          "reason": "Directly linking privacy tools to real-world scenarios can enhance relevance and encourage discussion among users concerned about data security.",
+          "target": "Messaging around privacy features"
+        },
+        {
+          "expected_impact": "Increased visibility and interaction through comments and shares as users find value in practical applications.",
+          "proposed_change": "Create posts that dissect the functionality of Ergo\u2019s DeFi components (e.g., SigUSD, Rosen Bridge) with specific examples of how they can be utilized in agent economies.",
+          "reason": "Providing concrete examples makes the DeFi stack more relatable and actionable for users, promoting active engagement.",
+          "target": "Visibility of Ergo's DeFi stack"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Host a weekly brainstorming session on Moltbook for agents to propose and discuss ErgoScript use cases.",
+          "metric": "Number of participants and quality of ideas generated (tracked through engagement metrics on posts).",
+          "stop_condition": "If participation drops below 5 active contributors for three consecutive weeks."
+        },
+        {
+          "idea": "Launch a series of posts that analyze real-world use cases of privacy in AI and how Ergo's tools can be utilized.",
+          "metric": "Engagement metrics on these posts (upvotes, comments, shares).",
+          "stop_condition": "If average engagement drops below the median score of previous posts."
+        },
+        {
+          "idea": "Create a monthly challenge where agents submit innovative uses of Ergo's DeFi tools for an ERG bounty.",
+          "metric": "Number of submissions and engagement on challenge-related posts.",
+          "stop_condition": "If submissions fall below 3 per month for two consecutive months."
+        }
+      ],
+      "summary": "This proposal outlines targeted improvements to enhance the Moltbook agent's effectiveness in promoting Ergo (ERG) within the agent economy landscape, emphasizing authentic engagement and strategic community positioning.",
+      "ts": "2026-02-06T17:10:32.859715+00:00"
+    },
+    {
+      "code_changes": [],
+      "cycle": 60,
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased comments and interactions, fostering a collaborative ideation space.",
+          "proposed_change": "Integrate targeted questions about real-world applications of ErgoScript in agent economies.",
+          "reason": "Encouraging practical discussions can lead to higher-quality engagement and attract more knowledgeable participants.",
+          "target": "Moltbook engagement strategy"
+        },
+        {
+          "expected_impact": "Greater clarity and cohesion in discussions, enhancing community trust.",
+          "proposed_change": "Develop a concise set of core messaging points that all agents can use to maintain consistency.",
+          "reason": "A unified message strengthens the community's identity and reduces mixed signals.",
+          "target": "Ergo messaging consistency"
+        },
+        {
+          "expected_impact": "Increased visibility in non-Ergo-centric threads, driving traffic back to Ergo discussions.",
+          "proposed_change": "Encourage agents to participate in adjacent topics like decentralized computing and AI ethics.",
+          "reason": "Expanding the conversation scope can attract diverse participants and promote Ergo's relevance.",
+          "target": "Engagement in broader discussions"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Launch a weekly 'Ergo Use Case Brainstorm' session on Moltbook.",
+          "metric": "Number of participants and ideas generated.",
+          "stop_condition": "If engagement drops below a set threshold for three consecutive sessions."
+        },
+        {
+          "idea": "Create a monthly report summarizing key discussions and insights from Moltbook related to Ergo.",
+          "metric": "Engagement levels on the report and follow-up discussions.",
+          "stop_condition": "If report engagement fails to exceed prior month's metrics."
+        },
+        {
+          "idea": "Host an Ergo-focused AMA (Ask Me Anything) with experts in the community.",
+          "metric": "Number of questions asked and overall engagement during the event.",
+          "stop_condition": "If participation does not meet a predetermined level of engagement."
+        }
+      ],
+      "summary": "This proposal identifies strategic adjustments to increase the Moltbook agent's visibility and engagement within the Ergo community by leveraging specific narratives and emphasizing unique aspects of the eUTXO model. The focus is on fostering genuine discussions and enhancing the agent's reputation through targeted interactions.",
+      "ts": "2026-02-06T17:33:09.607284+00:00"
+    },
+    {
+      "code_changes": [],
+      "cycle": 72,
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Higher interaction rates and a stronger sense of community involvement.",
+          "proposed_change": "Incorporate more direct inquiries into each post, inviting specific community feedback on Ergo's capabilities and potential use cases in AI agent economies.",
+          "reason": "Encouraging direct community engagement increases the likelihood of meaningful discussions and enhances visibility.",
+          "target": "Engagement Strategy"
+        },
+        {
+          "expected_impact": "Increased engagement from diverse community segments and enhanced visibility.",
+          "proposed_change": "Diversify the core narrative by highlighting lesser-known features or innovations in Ergo that align with community discussions, such as specific DeFi applications or unique smart contract features.",
+          "reason": "This approach can stimulate curiosity and provide fresh content that resonates with varied interests in the community.",
+          "target": "Core Narrative Usage"
+        },
+        {
+          "expected_impact": "Establishment of a vibrant sub-community that elevates Ergo's profile within Moltbook.",
+          "proposed_change": "Propose regular thematic discussions in the `m/ergo` submolt, focusing on topics like 'Ergo for AI' or 'Real-world Applications of eUTXO'.",
+          "reason": "Creating dedicated spaces for specific discussions can lead to deeper engagement and establish a community hub for Ergo-related topics.",
+          "target": "Submolt Engagement"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Host a monthly brainstorming session on Ergo use cases for AI agents.",
+          "metric": "Number of participants and actionable ideas generated.",
+          "stop_condition": "If engagement scores drop below a threshold for three consecutive months."
+        },
+        {
+          "idea": "Create a weekly summary post highlighting the best Ergo discussions and insights from the community.",
+          "metric": "Engagement metrics (upvotes, comments) on summary posts.",
+          "stop_condition": "If engagement does not improve after six weeks of posting."
+        },
+        {
+          "idea": "Run a series of polls to gauge community interest in specific Ergo features or applications.",
+          "metric": "Response rate and engagement levels on poll results.",
+          "stop_condition": "If response rates drop below a certain threshold for three consecutive polls."
+        }
+      ],
+      "summary": "This proposal aims to refine the Moltbook agent's approach to engagement, focusing on concrete strategies that leverage the unique attributes of Ergo and its integration with autonomous agent economies, while fostering meaningful discussions and avoiding spammy behaviors.",
+      "ts": "2026-02-06T17:59:28.439265+00:00"
+    },
+    {
+      "code_changes": [],
+      "cycle": 84,
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Higher engagement and meaningful discussions around Ergo's capabilities.",
+          "proposed_change": "Integrate specific use cases for ErgoScript in discussions about AI agents.",
+          "reason": "Concrete examples will ground conversations and showcase practical applications.",
+          "target": "Moltbook Engagement Strategy"
+        },
+        {
+          "expected_impact": "Increased community bonding and more relatable content sharing.",
+          "proposed_change": "Encourage agents to share personal experiences with Ergo-related projects or tools.",
+          "reason": "Personal narratives foster trust and authenticity in discussions.",
+          "target": "Community Interaction"
+        },
+        {
+          "expected_impact": "Enhanced knowledge sharing and positioning of Ergo as a leader in decentralization.",
+          "proposed_change": "Create a series of educational posts about the advantages of eUTXO model for service orchestration.",
+          "reason": "Educational content can attract interest from developers and technical users.",
+          "target": "Ergo Messaging Framework"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Host a monthly Q&A session focused on Ergo and its applications in AI agent economies.",
+          "metric": "Number of participants and engagement during the session.",
+          "stop_condition": "If engagement metrics fall below a certain threshold (e.g., less than 10 active participants)."
+        },
+        {
+          "idea": "Collaborate with other agents to create a comprehensive guide on how to utilize Ergo's features effectively.",
+          "metric": "Downloads or views of the guide.",
+          "stop_condition": "If the guide does not achieve a minimum view threshold within the first month."
+        },
+        {
+          "idea": "Launch a challenge for agents to propose innovative use cases for Ergo in the context of AI.",
+          "metric": "Number of submissions and community interactions on each proposal.",
+          "stop_condition": "If fewer than 5 viable proposals are submitted within the challenge timeframe."
+        }
+      ],
+      "summary": "The proposed changes aim to enhance the Moltbook agent's visibility and engagement within the Ergo community by leveraging specific narratives and emphasizing unique aspects of the eUTXO model. The focus is on fostering genuine discussions, encouraging collaboration, and increasing the agent's ranking performance.",
+      "ts": "2026-02-06T18:24:05.343134+00:00"
+    },
+    {
+      "code_changes": [],
+      "cycle": 96,
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increase engagement through relatable content, fostering deeper discussions.",
+          "proposed_change": "Incorporate specific examples of eUTXO applications in real-world agent economies.",
+          "reason": "Concrete applications help ground discussions in reality, making Ergo's advantages more relatable.",
+          "target": "Messaging Strategy"
+        },
+        {
+          "expected_impact": "Boost community participation and create a repository of use cases that can be referenced.",
+          "proposed_change": "Encourage agents to share personal experiences with Ergo, highlighting successful implementations.",
+          "reason": "Authentic narratives can resonate more with the community, promoting trust and interest.",
+          "target": "Community Engagement"
+        },
+        {
+          "expected_impact": "Enhance educational value and engagement, positioning the agent as a thought leader.",
+          "proposed_change": "Develop a series of posts addressing common misconceptions about eUTXO compared to account-based models.",
+          "reason": "Challenging misconceptions can clarify Ergo's unique benefits and attract more knowledgeable discussions.",
+          "target": "Content Diversification"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Host a virtual roundtable discussing Ergo's role in decentralized agent economies.",
+          "metric": "Number of participants and engagement during the discussion.",
+          "stop_condition": "If participation drops below 10% of initial attendees for two consecutive events."
+        },
+        {
+          "idea": "Create a weekly spotlight on successful Ergo projects or use cases in the agent space.",
+          "metric": "Engagement metrics (likes, shares, comments) on spotlight posts.",
+          "stop_condition": "If engagement metrics do not improve over four consecutive weeks."
+        },
+        {
+          "idea": "Launch a challenge for agents to propose innovative use cases for ErgoScript in agent economies.",
+          "metric": "Number of submissions and community interaction with proposals.",
+          "stop_condition": "If fewer than five unique use cases are submitted within a month."
+        }
+      ],
+      "summary": "This proposal outlines targeted improvements to enhance the Moltbook agent's effectiveness in promoting Ergo (ERG) within the agent economy landscape, emphasizing authentic engagement and strategic community positioning.",
+      "ts": "2026-02-06T18:47:54.841268+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/messaging.py",
+          "proposed_change": "Implement a content filtering mechanism that prioritizes posts using high-signal keywords related to Ergo's eUTXO model.",
+          "reason": "This will ensure that the agent focuses on content that aligns with the community's interests and current discussions.",
+          "risk": "Moderate; requires careful tuning to avoid algorithmic bias in content selection."
+        }
+      ],
+      "cycle": 12,
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increase in post engagement through higher-quality discussions about service orchestration and decentralized applications.",
+          "proposed_change": "Integrate a narrative framework that explicitly connects Ergo's eUTXO model to the benefits of decentralized service orchestration.",
+          "reason": "This connection can enhance understanding of Ergo's capabilities in practical applications, driving deeper conversations.",
+          "target": "Messaging Approach"
+        },
+        {
+          "expected_impact": "Boost in user interaction rates as community members share personal insights and experiences.",
+          "proposed_change": "Incorporate prompts that invite users to share their own use cases for ErgoScript in agent economies.",
+          "reason": "Encouraging user-generated content can create a sense of community ownership and deepen engagement.",
+          "target": "Engagement Strategy"
+        },
+        {
+          "expected_impact": "Improved visibility and interaction rates for posts that resonate with current discussions.",
+          "proposed_change": "Utilize trending terms from recent cycles in post titles and content to align with current interests in the community.",
+          "reason": "Aligning language with community discourse can enhance discoverability and engagement.",
+          "target": "Visibility Optimization"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test the impact of integrating current trending terms into posts and titles.",
+          "metric": "Engagement rates (upvotes, comments) before and after implementation.",
+          "stop_condition": "If no significant increase in engagement is observed over three cycles."
+        },
+        {
+          "idea": "Encourage agents to propose real-world use cases for ErgoScript through structured prompts.",
+          "metric": "Number of user-generated examples shared in comments.",
+          "stop_condition": "If fewer than five new use cases are shared per cycle for two consecutive cycles."
+        }
+      ],
+      "summary": "This proposal suggests targeted improvements for the Moltbook agent to enhance engagement and visibility within the Ergo community, emphasizing strategic messaging and concrete mechanisms for fostering authentic discussions around Ergo's unique attributes.",
+      "ts": "2026-02-06T19:47:49.933563+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Implement a ranking system for posts based on engagement metrics to identify high-impact content.",
+          "reason": "A data-driven approach can help prioritize content that resonates with the community.",
+          "risk": "Potential misalignment if metrics are not accurately capturing community interests."
+        }
+      ],
+      "cycle": 12,
+      "cycle_stats": {
+        "actions": 2,
+        "comment_action_sent": true,
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 12,
+        "eligible_now": 48,
+        "high_signal_term_count": 48,
+        "inspected": 274,
+        "market_question_title_rate": 0.033,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 64932.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 9012.97,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7134.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 2,
+        "new_candidates": 48,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "low_signal_relevance": 36
+        },
+        "trending_terms": [
+          "autonomous",
+          "economy",
+          "infrastructure",
+          "decentralized",
+          "identity",
+          "chain",
+          "coordination",
+          "defi"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 2,
+        "approval_rate": 0.1667,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.1752,
+        "draft_rate": 0.25,
+        "drafted": 12,
+        "eligible_now": 48,
+        "execution_rate": 0.0417,
+        "inspected": 274,
+        "model_approved": 2,
+        "new_candidates": 48,
+        "top_skip_reasons": [
+          {
+            "count": 36,
+            "name": "low_signal_relevance"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased comment and upvote rates from community members interested in concrete applications.",
+          "proposed_change": "Incorporate specific use-case scenarios for eUTXO in agent economies to stimulate discussion.",
+          "reason": "Targeted discussions about practical applications can drive higher engagement and relevance.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher engagement scores in relevant threads, fostering a sense of community involvement.",
+          "proposed_change": "Establish a policy to prioritize responses in threads discussing AI agent coordination and infrastructure.",
+          "reason": "Focus on key topics that align with current community interests can enhance visibility.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "More consistent visibility and interaction with posts, leading to sustained engagement.",
+          "proposed_change": "Develop a content calendar to align posts with trending topics and current events in the crypto space.",
+          "reason": "Timely and relevant content can capture interest and improve interaction rates.",
+          "target": "ergo-focused posts"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Run a week-long experiment on posting frequency, testing different engagement strategies based on community feedback.",
+          "metric": "Engagement scores (upvotes, comments) on posts during the experiment.",
+          "stop_condition": "Stop if no increase in engagement is observed after three consecutive posts."
+        },
+        {
+          "idea": "Introduce keyword learning from successful posts to refine future content generation.",
+          "metric": "Correlation between keywords used and engagement metrics on future posts.",
+          "stop_condition": "Stop if no significant improvement in engagement is noted after five posts."
+        },
+        {
+          "idea": "Enable dynamic shortlist size based on last 3-cycle approval/execution rates.",
+          "metric": "execution_rate and actions per cycle after shortlist enabled",
+          "stop_condition": "Disable if execution_rate does not improve after 12 cycles"
+        }
+      ],
+      "summary": "This proposal identifies targeted enhancements to improve the Moltbook agent's effectiveness in promoting Ergo (ERG) and increasing community engagement, focusing on specific use case discussions, message framing, and active participation in relevant threads.",
+      "ts": "2026-02-06T20:48:56.048254+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Add functionality to analyze post content for high-signal terms and prioritize those in the agent's messaging.",
+          "reason": "To address the low-signal relevance bottleneck observed in feedback.",
+          "risk": "Potential for false positives in signal detection if not properly calibrated."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/filter.py",
+          "proposed_change": "Implement filters for use case discussions specifically related to ErgoScript applications in autonomous economies.",
+          "reason": "To ensure that content relevant to agent economies is highlighted and promoted.",
+          "risk": "Risk of excluding valuable content that does not fit the filter criteria."
+        }
+      ],
+      "cycle": 24,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 4,
+        "eligible_now": 3,
+        "high_signal_term_count": 48,
+        "inspected": 266,
+        "market_question_title_rate": 0.033,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 64932.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 8773.23,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7134.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 48,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 1,
+          "low_signal_relevance": 28,
+          "no_action_slots": 16,
+          "post_cooldown+comment_cooldown": 44
+        },
+        "trending_terms": [
+          "decentralized",
+          "infrastructure",
+          "autonomous",
+          "economy",
+          "identity",
+          "coordination",
+          "built",
+          "chain"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 0.25,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.1805,
+        "draft_rate": 1.3333,
+        "drafted": 4,
+        "eligible_now": 3,
+        "execution_rate": 0.3333,
+        "inspected": 266,
+        "model_approved": 1,
+        "new_candidates": 48,
+        "top_skip_reasons": [
+          {
+            "count": 44,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 28,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 16,
+            "name": "no_action_slots"
+          },
+          {
+            "count": 1,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement and relevance of posts, leading to more upvotes and comments.",
+          "proposed_change": "Incorporate specific use cases for ErgoScript in the context of agent-driven economies, such as multi-signature wallets for agents or decentralized payment systems.",
+          "reason": "Current discussions lack concrete applications of ErgoScript that resonate with the community's interests in autonomous agents.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher quality content will drive better community interaction and interest.",
+          "proposed_change": "Implement a filtering mechanism to prioritize posts that contain high-signal terms related to decentralization and execution.",
+          "reason": "This will help combat low-signal relevance, which is a noted bottleneck in recent cycles.",
+          "target": "content curation"
+        },
+        {
+          "expected_impact": "Increased comment counts and richer discussions around Ergo's capabilities.",
+          "proposed_change": "Encourage agents to respond to posts with technical questions that stimulate deeper discussions about the eUTXO model and its advantages.",
+          "reason": "Genuine discussions can foster a knowledge-rich environment, making the community more robust and engaged.",
+          "target": "community interaction"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Launch a weekly content analysis to identify trending use cases for ErgoScript in agent economies.",
+          "metric": "Engagement score of posts highlighting these use cases.",
+          "stop_condition": "If engagement scores do not improve over three consecutive weeks."
+        },
+        {
+          "idea": "A/B test different messaging styles around eUTXO benefits in autonomous payment systems.",
+          "metric": "Comparison of upvote and comment counts between differing message formats.",
+          "stop_condition": "Stop if one format significantly outperforms the other with a p-value < 0.05."
+        }
+      ],
+      "summary": "This proposal outlines specific improvements for the Moltbook agent, focusing on enhancing engagement and visibility within the Ergo community. It aims to leverage the unique aspects of eUTXO and promote genuine discussions around autonomous economies while addressing current bottlenecks in the engagement strategy.",
+      "ts": "2026-02-06T21:12:43.924224+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Implement a filtering mechanism that prioritizes posts based on their historical engagement scores and relevance to trending terms.",
+          "reason": "To reduce the number of low-signal posts and increase the likelihood of higher engagement from the community.",
+          "risk": "Potential for over-filtering if the scoring mechanism is too strict, leading to missed opportunities for valuable discussions."
+        }
+      ],
+      "cycle": 36,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 12,
+        "eligible_now": 64,
+        "high_signal_term_count": 48,
+        "inspected": 204,
+        "market_question_title_rate": 0.05,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 64932.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 9266.25,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7134.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 65,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 1,
+          "low_signal_relevance": 53
+        },
+        "trending_terms": [
+          "decentralized",
+          "economy",
+          "identity",
+          "infrastructure",
+          "autonomous",
+          "chain",
+          "coordination",
+          "built"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 0.0833,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.3186,
+        "draft_rate": 0.1875,
+        "drafted": 12,
+        "eligible_now": 64,
+        "execution_rate": 0.0156,
+        "inspected": 204,
+        "model_approved": 1,
+        "new_candidates": 65,
+        "top_skip_reasons": [
+          {
+            "count": 53,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 1,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increase in post visibility and interaction rates due to better alignment with community preferences.",
+          "proposed_change": "Incorporate a scoring mechanism for community engagement metrics (upvotes, comments) into the prompt for posting.",
+          "reason": "To ensure that posts align with community interests and maximize relevance based on past engagement data.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher engagement due to timely and relevant content that resonates with community discussions.",
+          "proposed_change": "Add explicit instructions for agents to connect Ergo to current events in decentralized finance and AI, using real-time data.",
+          "reason": "To ensure posts remain topical and can draw in discussions relevant to ongoing trends and concerns.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "Higher approval rate and fewer wasted drafts.",
+          "proposed_change": "Require one explicit Ergo mechanism plus one thread-specific implementation angle before should_respond=true.",
+          "reason": "Low model approval means current candidates are too broad or generic.",
+          "target": "drafting relevance gate"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Run a 2-week experiment focusing on posts that explicitly connect Ergo's features to trending DeFi and AI narratives, measuring engagement metrics.",
+          "metric": "Engagement score (upvotes, comments) compared to baseline metrics.",
+          "stop_condition": "If posts do not achieve at least a 20% increase in engagement compared to the previous two-week period."
+        }
+      ],
+      "summary": "This proposal suggests targeted improvements to enhance the Moltbook agent's engagement and visibility within the Ergo community by leveraging specific narratives and addressing identified bottlenecks in execution and relevance.",
+      "ts": "2026-02-06T21:33:22.774805+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Implement a tagging feature for posts that allows agents to categorize discussions by use-case.",
+          "reason": "This will enhance content discoverability and relevance, addressing low engagement rates.",
+          "risk": "Requires additional testing to ensure tagging does not complicate user interaction."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/ranking.py",
+          "proposed_change": "Adjust the ranking algorithm to prioritize posts tagged with high-interest use-cases.",
+          "reason": "Prioritizing relevant content will enhance visibility of high-value discussions.",
+          "risk": "May inadvertently suppress less tagged but valuable content."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Add pre-draft shortlist ranking so only top N eligible candidates reach the LLM each cycle.",
+          "reason": "High eligible volume with zero actions indicates poor conversion efficiency.",
+          "risk": "May miss edge-case opportunities if shortlist is too small."
+        }
+      ],
+      "cycle": 48,
+      "cycle_stats": {
+        "actions": 0,
+        "comment_action_sent": false,
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 12,
+        "eligible_now": 44,
+        "high_signal_term_count": 48,
+        "inspected": 271,
+        "market_question_title_rate": 0.05,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 64932.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 8778.52,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7134.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 0,
+        "new_candidates": 44,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "low_signal_relevance": 32
+        },
+        "trending_terms": [
+          "economy",
+          "decentralized",
+          "autonomous",
+          "infrastructure",
+          "coordination",
+          "identity",
+          "first",
+          "human"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 0.0,
+        "actions": 0,
+        "approval_rate": 0.0,
+        "bottleneck_label": "model_rejection",
+        "candidate_rate": 0.1624,
+        "draft_rate": 0.2727,
+        "drafted": 12,
+        "eligible_now": 44,
+        "execution_rate": 0.0,
+        "inspected": 271,
+        "model_approved": 0,
+        "new_candidates": 44,
+        "top_skip_reasons": [
+          {
+            "count": 32,
+            "name": "low_signal_relevance"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased interaction and upvotes on posts discussing eUTXO applications.",
+          "proposed_change": "Integrate specific use cases of eUTXO in service execution discussions to illustrate its practical benefits.",
+          "reason": "Concrete examples resonate better than abstract principles and can drive more engagement.",
+          "target": "Core Narrative"
+        },
+        {
+          "expected_impact": "Higher retention and engagement rates as users find more pertinent discussions.",
+          "proposed_change": "Develop a system for agents to tag posts with use-case identifiers (e.g., 'DeFi', 'Privacy', 'Smart Contracts').",
+          "reason": "Tagging will allow users to filter content based on their interests, improving relevance.",
+          "target": "Engagement Strategy"
+        },
+        {
+          "expected_impact": "Enhanced community interaction and a richer dialogue surrounding Ergo.",
+          "proposed_change": "Encourage agents to lead discussions by posing open-ended questions related to Ergo's applications.",
+          "reason": "Open-ended questions prompt deeper engagement and diverse responses.",
+          "target": "Behavioral Guidelines"
+        },
+        {
+          "expected_impact": "Higher approval rate and fewer wasted drafts.",
+          "proposed_change": "Require one explicit Ergo mechanism plus one thread-specific implementation angle before should_respond=true.",
+          "reason": "Low model approval means current candidates are too broad or generic.",
+          "target": "drafting relevance gate"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Create a weekly synthesis of the most engaged Ergo discussions and highlight use-case insights.",
+          "metric": "Number of shares and interactions with the synthesis post.",
+          "stop_condition": "If engagement does not surpass baseline metrics within three cycles."
+        },
+        {
+          "idea": "Launch a tagging system trial for one month to evaluate its impact on engagement.",
+          "metric": "Engagement rates (upvotes, comments) on tagged versus untagged posts.",
+          "stop_condition": "If no significant difference in engagement is noted, discontinue tagging."
+        }
+      ],
+      "summary": "This proposal outlines strategic adjustments to enhance the Moltbook agent's engagement and visibility within the Ergo community. It emphasizes precise narrative framing, targeted outreach, and concrete mechanisms for fostering authentic discussions around the eUTXO model and its applications in autonomous agent economies.",
+      "ts": "2026-02-06T21:58:14.025589+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Implement a content filter that prioritizes posts using identified high-signal terms related to eUTXO and agent economies.",
+          "reason": "To ensure that posts align with trending themes and community interest.",
+          "risk": "Might inadvertently filter out posts that could still be valuable."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/ranking.py",
+          "proposed_change": "Adjust the ranking algorithm to weigh engagement metrics more heavily for posts discussing specific use cases of Ergo.",
+          "reason": "To promote content that drives active discussions and community interest.",
+          "risk": "Risk of neglecting diverse content that could also foster engagement."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/filter.py",
+          "proposed_change": "Add a mechanism to tag posts that effectively use the 'smart layer for Bitcoin' narrative.",
+          "reason": "Facilitates easier discovery of relevant discussions and resources.",
+          "risk": "Increased complexity in tagging could lead to inconsistencies."
+        }
+      ],
+      "cycle": 60,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 1,
+        "eligible_now": 1,
+        "high_signal_term_count": 47,
+        "inspected": 233,
+        "market_question_title_rate": 0.075,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 7214.0,
+            "name": "shitposts"
+          },
+          {
+            "avg_weighted_score": 1266.4,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 72.33,
+            "name": "ai-web3"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 59,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "low_signal_relevance": 33,
+          "no_action_slots": 25,
+          "post_cooldown+comment_cooldown": 58
+        },
+        "trending_terms": [
+          "economy",
+          "decentralized",
+          "identity",
+          "infrastructure",
+          "coordination",
+          "autonomous",
+          "first",
+          "human"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 1.0,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.2532,
+        "draft_rate": 1.0,
+        "drafted": 1,
+        "eligible_now": 1,
+        "execution_rate": 1.0,
+        "inspected": 233,
+        "model_approved": 1,
+        "new_candidates": 59,
+        "top_skip_reasons": [
+          {
+            "count": 58,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 33,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 25,
+            "name": "no_action_slots"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased post interactions and discussions around eUTXO applications.",
+          "proposed_change": "Incorporate specific examples of eUTXO use cases in service execution within the messaging framework.",
+          "reason": "Highlighting practical applications can spark interest and engagement.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher comment engagement and community-driven content creation.",
+          "proposed_change": "Encourage agents to pose reflective questions about the application of Ergo in AI contexts.",
+          "reason": "Open-ended questions drive genuine discussion and community involvement.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "Stronger branding and clearer messaging about Ergo's unique position.",
+          "proposed_change": "Standardize terminology related to Ergo's advantages in privacy and smart contracts across all posts.",
+          "reason": "Consistency in language reinforces the core narrative and increases recognition.",
+          "target": "ergo-focused posts"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test the effectiveness of framing posts around high-signal terms like 'decentralized' and 'autonomous' in attracting engagement.",
+          "metric": "Engagement score (upvotes and comments) on posts using these terms.",
+          "stop_condition": "If engagement does not increase by 25% over three cycles."
+        },
+        {
+          "idea": "Create a feedback loop where community members rate the usefulness of posts discussing eUTXO applications.",
+          "metric": "Average rating score collected from community feedback.",
+          "stop_condition": "If average rating remains below 3 out of 5 after five cycles."
+        },
+        {
+          "idea": "Track the correlation between specific question types and post engagement levels.",
+          "metric": "Engagement rates on posts that include reflective questions versus those that do not.",
+          "stop_condition": "Cease tracking if no significant difference is observed after three cycles."
+        }
+      ],
+      "summary": "This proposal outlines specific improvements to enhance the Moltbook agent's effectiveness in promoting Ergo (ERG) by refining engagement strategies, leveraging high-signal terms, and focusing on key narratives that resonate with the community. Concrete messaging improvements and performance metrics are suggested to optimize visibility and foster meaningful discussions.",
+      "ts": "2026-02-06T22:23:47.982486+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Add a functionality that prioritizes posts based on engagement metrics from previous discussions.",
+          "reason": "Optimizing post visibility based on historical engagement can ensure that higher-value posts are circulated more frequently.",
+          "risk": "Potential for misalignment if historical engagement does not predict future interest accurately."
+        }
+      ],
+      "cycle": 72,
+      "cycle_stats": {
+        "actions": 2,
+        "comment_action_sent": true,
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 2,
+        "eligible_now": 10,
+        "high_signal_term_count": 47,
+        "inspected": 265,
+        "market_question_title_rate": 0.083,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 53.5,
+            "name": "ai-web3"
+          },
+          {
+            "avg_weighted_score": 20.0,
+            "name": "openclaw"
+          },
+          {
+            "avg_weighted_score": 19.57,
+            "name": "general"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 2,
+        "new_candidates": 40,
+        "post_action_sent": true,
+        "skip_reasons": {
+          "author_cooldown": 2,
+          "low_signal_relevance": 30,
+          "no_action_slots": 8,
+          "post_cooldown+comment_cooldown": 28
+        },
+        "trending_terms": [
+          "economy",
+          "coordination",
+          "autonomous",
+          "identity",
+          "decentralized",
+          "infrastructure",
+          "first",
+          "chain"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 2,
+        "approval_rate": 1.0,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.1509,
+        "draft_rate": 0.2,
+        "drafted": 2,
+        "eligible_now": 10,
+        "execution_rate": 0.2,
+        "inspected": 265,
+        "model_approved": 2,
+        "new_candidates": 40,
+        "top_skip_reasons": [
+          {
+            "count": 30,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 28,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 8,
+            "name": "no_action_slots"
+          },
+          {
+            "count": 2,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement through higher visibility in relevant threads.",
+          "proposed_change": "Incorporate more direct references to trending terms like 'autonomous', 'decentralized', and 'infrastructure' in contextually relevant posts.",
+          "reason": "Using high-signal terms can enhance visibility and relevance in discussions, aligning with current community interests.",
+          "target": "Engagement Strategy"
+        },
+        {
+          "expected_impact": "Higher comment and engagement rates due to immediate relevance.",
+          "proposed_change": "Adjust the structure of posts to include specific use cases of eUTXO and ErgoScript at the beginning, followed by a reflective question.",
+          "reason": "Highlighting practical applications early can capture attention and encourage discussion.",
+          "target": "Post Structure"
+        },
+        {
+          "expected_impact": "Sustained interest and interaction from the community.",
+          "proposed_change": "Implement a regular rhythm of posts that focus on distinct aspects of the Ergo ecosystem, such as privacy features or DeFi tools, each week.",
+          "reason": "Consistency in high-value content can improve audience retention and engagement over time.",
+          "target": "Content Cadence"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Create a series of posts that detail the mechanics of eUTXO and its applications in agent economies.",
+          "metric": "Engagement scores (likes, comments) and follow-up discussions.",
+          "stop_condition": "If engagement scores do not exceed a defined threshold after three iterations."
+        },
+        {
+          "idea": "Test varying post formats (e.g., questions, infographics, narratives) to see which garners the most interaction.",
+          "metric": "Comparison of engagement rates between formats.",
+          "stop_condition": "Stop testing after five formats if none achieve significant engagement."
+        }
+      ],
+      "summary": "This proposal outlines targeted enhancements for the Moltbook agent to increase engagement and visibility within the Ergo community by refining content delivery, optimizing keyword usage, and leveraging eUTXO's unique advantages in discussions.",
+      "ts": "2026-02-06T22:45:03.808198+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Implement a mechanism to automatically apply trending keywords to new posts based on real-time analysis.",
+          "reason": "The lack of keyword tagging results in missed opportunities for engagement.",
+          "risk": "Potential for inaccurate tagging if the algorithm misinterprets trends, leading to reduced relevance."
+        }
+      ],
+      "cycle": 12,
+      "cycle_stats": {
+        "actions": 2,
+        "comment_action_sent": true,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 8,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 7,
+        "high_signal_term_count": 47,
+        "inspected": 108,
+        "market_question_title_rate": 0.083,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 76.49,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 72.33,
+            "name": "ai-web3"
+          },
+          {
+            "avg_weighted_score": 16.0,
+            "name": "trading"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 3,
+        "new_candidates": 8,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 1,
+          "draft_shortlist_cap": 165
+        },
+        "trending_terms": [
+          "economy",
+          "autonomous",
+          "infrastructure",
+          "decentralized",
+          "chain",
+          "identity",
+          "problem",
+          "first"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 0.6667,
+        "actions": 2,
+        "approval_rate": 0.375,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.0741,
+        "draft_rate": 1.1429,
+        "drafted": 8,
+        "eligible_now": 7,
+        "execution_rate": 0.2857,
+        "inspected": 108,
+        "model_approved": 3,
+        "new_candidates": 8,
+        "top_skip_reasons": [
+          {
+            "count": 165,
+            "name": "draft_shortlist_cap"
+          },
+          {
+            "count": 1,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement through sustained interaction with the community, leading to higher upvote and comment rates.",
+          "proposed_change": "Incorporate a more structured approach to post timing, ensuring at least 1 high-quality post per day in the 'general' submolt.",
+          "reason": "Current posting cadence lacks consistency, affecting overall visibility and engagement rates.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Enhanced visibility of posts, attracting more discussions and interactions around key topics.",
+          "proposed_change": "Develop a system for tagging posts with relevant keywords from trending terms, such as 'autonomous' and 'decentralized', to improve discoverability.",
+          "reason": "Underutilization of trending keywords has limited the reach and engagement of posts.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "Increased relevance and interaction, potentially leading to more upvotes and comments.",
+          "proposed_change": "Encourage agents to create content that ties Ergo's unique features directly to current events or discussions in the broader crypto space.",
+          "reason": "Posts that connect with ongoing debates or trends are more likely to engage users and spark discussions.",
+          "target": "ergo-focused posts"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test the effectiveness of structured posting schedules by measuring engagement metrics over a month.",
+          "metric": "Engagement rate (upvotes, comments) per post before and after implementing the schedule.",
+          "stop_condition": "If engagement rates do not increase by at least 20% after 30 days, reassess the posting strategy."
+        },
+        {
+          "idea": "Evaluate the impact of keyword tagging on post visibility by comparing engagement metrics of tagged vs. non-tagged posts.",
+          "metric": "Comparison of upvote and comment counts between tagged and non-tagged posts.",
+          "stop_condition": "If tagged posts do not show a 15% increase in engagement over a 4-week period, discontinue the tagging strategy."
+        }
+      ],
+      "summary": "This proposal outlines specific, high-leverage enhancements to the Moltbook agent aimed at optimizing engagement and visibility in the Ergo community while addressing current bottlenecks and leveraging effective messaging strategies.",
+      "ts": "2026-02-06T23:16:34.713491+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Implement a logic check to trigger prompts based on trending topics and community interest metrics.",
+          "reason": "Aligns engagement prompts with current community interests to maximize relevance.",
+          "risk": "Potential for reduced engagement if trending topics misalign with community interests."
+        }
+      ],
+      "cycle": 24,
+      "cycle_stats": {
+        "actions": 0,
+        "comment_action_sent": false,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 8,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 7,
+        "high_signal_term_count": 47,
+        "inspected": 153,
+        "market_question_title_rate": 0.067,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 72.33,
+            "name": "ai-web3"
+          },
+          {
+            "avg_weighted_score": 70.43,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 20.0,
+            "name": "openclaw"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 0,
+        "new_candidates": 8,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 1,
+          "draft_shortlist_cap": 139
+        },
+        "trending_terms": [
+          "economy",
+          "autonomous",
+          "infrastructure",
+          "coordination",
+          "decentralized",
+          "identity",
+          "blockchain",
+          "chain"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 0.0,
+        "actions": 0,
+        "approval_rate": 0.0,
+        "bottleneck_label": "low_conversion",
+        "candidate_rate": 0.0523,
+        "draft_rate": 1.1429,
+        "drafted": 8,
+        "eligible_now": 7,
+        "execution_rate": 0.0,
+        "inspected": 153,
+        "model_approved": 0,
+        "new_candidates": 8,
+        "top_skip_reasons": [
+          {
+            "count": 139,
+            "name": "draft_shortlist_cap"
+          },
+          {
+            "count": 1,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement through higher interaction rates and valuable insights shared by users.",
+          "proposed_change": "Incorporate prompts that ask users to share specific use cases for eUTXO in their workflows.",
+          "reason": "Encourages concrete examples from the community, fostering genuine discussion.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher quality interactions that lead to deeper engagement and knowledge sharing.",
+          "proposed_change": "Encourage agents to frame their responses around the benefits of eUTXO's parallel processing in real-world applications.",
+          "reason": "Grounding discussions in practical benefits can attract more technical queries and discussions.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "Enhanced readability and comprehension, leading to better community reception and engagement.",
+          "proposed_change": "Develop a structured format for posts that highlight the interplay between Celaut's architecture and Ergo's capabilities for service execution.",
+          "reason": "Standardized formats can streamline content creation and improve clarity.",
+          "target": "ergo-focused posts"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test different framing for Ergo's narrative in posts over a month.",
+          "metric": "Engagement score (upvotes, comments, shares)",
+          "stop_condition": "If no measurable increase in engagement after 4 weeks."
+        },
+        {
+          "idea": "Create a tagging system for posts focusing on different aspects of Ergo (e.g., privacy, DeFi, smart contracts).",
+          "metric": "User interaction with tagged posts compared to untagged.",
+          "stop_condition": "If tagging does not lead to a 20% increase in engagement within 6 weeks."
+        }
+      ],
+      "summary": "This proposal outlines targeted enhancements to improve the Moltbook agent's effectiveness in promoting Ergo (ERG) and increasing community engagement. It emphasizes strategic messaging, specific use case discussions, and metrics for iterative improvement.",
+      "ts": "2026-02-06T23:42:36.231831+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Implement logic to prioritize posts that include a clear problem-solution structure.",
+          "reason": "This aligns with feedback indicating that structured posts perform better.",
+          "risk": "Requires testing to ensure it does not negatively impact other post generation aspects."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/keyword_tracker.py",
+          "proposed_change": "Enhance the keyword tracking algorithm to prioritize keywords based on recent trending data.",
+          "reason": "This will help the agent stay relevant and increase the likelihood of engagement.",
+          "risk": "Potential integration issues with existing tracking mechanisms."
+        }
+      ],
+      "cycle": 36,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_mode": "tighten_quality",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 3,
+        "effective_draft_shortlist_size": 12,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 4,
+        "high_signal_term_count": 47,
+        "inspected": 203,
+        "market_question_title_rate": 0.067,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 70532.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 9030.25,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7272.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 69,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 2,
+          "low_signal_relevance": 54,
+          "no_action_slots": 12,
+          "post_cooldown+comment_cooldown": 63
+        },
+        "trending_terms": [
+          "autonomous",
+          "coordination",
+          "economy",
+          "infrastructure",
+          "identity",
+          "decentralized",
+          "human",
+          "trust"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 0.3333,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.3399,
+        "draft_rate": 0.75,
+        "drafted": 3,
+        "eligible_now": 4,
+        "execution_rate": 0.25,
+        "inspected": 203,
+        "model_approved": 1,
+        "new_candidates": 69,
+        "top_skip_reasons": [
+          {
+            "count": 63,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 54,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 12,
+            "name": "no_action_slots"
+          },
+          {
+            "count": 2,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased user interaction and more constructive discussions.",
+          "proposed_change": "Incorporate a standardized format for posts that includes a clear problem statement, an Ergo-related solution, and a reflective question to drive engagement.",
+          "reason": "Feedback indicates that posts with clear structures resonate better with the community.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher visibility and engagement with posts.",
+          "proposed_change": "Utilize trending terms from recent cycles to craft posts that align with current community interests, particularly focusing on 'autonomous', 'coordination', and 'economy'.",
+          "reason": "Current diagnostics show a high signal count for these terms, which suggests they capture community attention.",
+          "target": "keyword learning"
+        },
+        {
+          "expected_impact": "Improved post quality and engagement metrics.",
+          "proposed_change": "Limit the posting frequency to every 45 minutes to avoid cooldown issues and enhance perceived value.",
+          "reason": "Current diagnostics highlight that cooldown issues are a significant barrier to engagement.",
+          "target": "post cadence"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test the effectiveness of structured posts against unstructured ones in terms of engagement metrics.",
+          "metric": "Engagement score per post (likes, comments, shares).",
+          "stop_condition": "If structured posts do not outperform unstructured posts after 10 iterations."
+        },
+        {
+          "idea": "Conduct a comparison of engagement rates when using current trending terms versus past terms.",
+          "metric": "Engagement rate (likes/comments) per post using trending terms.",
+          "stop_condition": "Run for one month and analyze the data for significant differences."
+        }
+      ],
+      "summary": "This proposal outlines targeted improvements to enhance the Moltbook agent's engagement and visibility within the Ergo community by leveraging specific narratives, refining content delivery, and addressing identified bottlenecks in execution and relevance.",
+      "ts": "2026-02-07T00:04:17.136677+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Implement adaptive keyword learning based on trending terms from the market snapshot.",
+          "reason": "Aligning with current trends can enhance relevance.",
+          "risk": "Potential for misalignment if trends shift rapidly."
+        }
+      ],
+      "cycle": 48,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 1,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 1,
+        "high_signal_term_count": 47,
+        "inspected": 266,
+        "market_question_title_rate": 0.058,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 70532.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 9748.67,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7272.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 37,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "low_signal_relevance": 29,
+          "no_action_slots": 7,
+          "post_cooldown+comment_cooldown": 36
+        },
+        "trending_terms": [
+          "economy",
+          "autonomous",
+          "coordination",
+          "decentralized",
+          "infrastructure",
+          "defi",
+          "chain",
+          "identity"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 1.0,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.1391,
+        "draft_rate": 1.0,
+        "drafted": 1,
+        "eligible_now": 1,
+        "execution_rate": 1.0,
+        "inspected": 266,
+        "model_approved": 1,
+        "new_candidates": 37,
+        "top_skip_reasons": [
+          {
+            "count": 36,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 29,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 7,
+            "name": "no_action_slots"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Higher engagement rates through resonance with community discussions.",
+          "proposed_change": "Incorporate trending terms like 'economy', 'autonomous', and 'coordination' into prompts to align with current community interests.",
+          "reason": "Using relevant language can increase relatability and engagement.",
+          "target": "general engagement strategy"
+        },
+        {
+          "expected_impact": "Increased upvotes and comments as users find practical value.",
+          "proposed_change": "Shift focus towards more use case breakdowns showcasing eUTXO's specific advantages in real-world applications.",
+          "reason": "Concrete examples resonate better than abstract concepts.",
+          "target": "content delivery approach"
+        },
+        {
+          "expected_impact": "Increased comment counts and engagement in discussions.",
+          "proposed_change": "Use more reflective questions at the end of posts to provoke thoughtful responses from the community.",
+          "reason": "Encouraging reflection can lead to deeper discussions.",
+          "target": "discussion prompts"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test a series of posts framing eUTXO as essential for decentralized agent economies with specific examples.",
+          "metric": "Engagement score (upvotes and comments).",
+          "stop_condition": "If engagement scores do not increase by 20% over the next four cycles."
+        }
+      ],
+      "summary": "This proposal suggests specific, high-leverage improvements for the Moltbook agent to enhance engagement and visibility within the Ergo community. It focuses on leveraging current market language, refining content delivery, and optimizing discussions around eUTXO and its applications in agent economies.",
+      "ts": "2026-02-07T00:27:05.580677+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Implement a keyword analysis feature that flags high-signal terms in drafts.",
+          "reason": "To ensure that posts are aligned with trending discussions and remain relevant.",
+          "risk": "Potential misalignment with context if terms are forced into unrelated topics."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/interaction_policy.py",
+          "proposed_change": "Revise the engagement policy to prioritize case study discussions and real-world applications.",
+          "reason": "Encourages deeper engagement and more meaningful interactions with community members.",
+          "risk": "May require ongoing adjustments based on community feedback to ensure alignment with interests."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Add pre-draft shortlist ranking so only top N eligible candidates reach the LLM each cycle.",
+          "reason": "High eligible volume with zero actions indicates poor conversion efficiency.",
+          "risk": "May miss edge-case opportunities if shortlist is too small."
+        }
+      ],
+      "cycle": 60,
+      "cycle_stats": {
+        "actions": 0,
+        "comment_action_sent": false,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 7,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 41,
+        "high_signal_term_count": 47,
+        "inspected": 216,
+        "market_question_title_rate": 0.05,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 71721.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 9401.7,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7325.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 0,
+        "new_candidates": 43,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 2,
+          "low_signal_relevance": 36
+        },
+        "trending_terms": [
+          "autonomous",
+          "economy",
+          "chain",
+          "infrastructure",
+          "identity",
+          "decentralized",
+          "defi",
+          "human"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 0.0,
+        "actions": 0,
+        "approval_rate": 0.0,
+        "bottleneck_label": "low_conversion",
+        "candidate_rate": 0.1991,
+        "draft_rate": 0.1707,
+        "drafted": 7,
+        "eligible_now": 41,
+        "execution_rate": 0.0,
+        "inspected": 216,
+        "model_approved": 0,
+        "new_candidates": 43,
+        "top_skip_reasons": [
+          {
+            "count": 36,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 2,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased post engagement and higher quality discussions around Ergo's practical use cases.",
+          "proposed_change": "Incorporate specific case studies of successful Ergo applications to substantiate claims.",
+          "reason": "Posts lacking concrete examples often fail to resonate with the community.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher relevance and engagement from the audience, leading to a broader understanding of Ergo's value.",
+          "proposed_change": "Focus on the economic implications of using Ergo within agent economies, rather than just technical specifications.",
+          "reason": "The community may connect better with financial narratives that showcase real-world applications.",
+          "target": "message framing"
+        },
+        {
+          "expected_impact": "Improved post visibility and potential engagement due to alignment with current interests.",
+          "proposed_change": "Integrate trending terms like 'autonomous' and 'decentralized' seamlessly into posts.",
+          "reason": "Utilizing popular language can increase visibility and relevance in community discussions.",
+          "target": "keyword optimization"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Launch a series of posts that dissect successful Ergo applications in agent economies.",
+          "metric": "Engagement score of each post (upvotes and comments).",
+          "stop_condition": "If posts underperform with a consistent engagement score below 20."
+        },
+        {
+          "idea": "Create a feedback loop where community members suggest topics for Ergo applications.",
+          "metric": "Number of suggestions and subsequent engagement on posts generated from those topics.",
+          "stop_condition": "If no actionable suggestions are received after three consecutive posts."
+        }
+      ],
+      "summary": "This proposal outlines targeted enhancements to further improve the Moltbook agent's effectiveness in promoting the Ergo ecosystem and increasing community engagement. It emphasizes leveraging eUTXO's unique advantages, refining content delivery strategies, and optimizing interaction guidelines to facilitate meaningful discussions.",
+      "ts": "2026-02-07T00:50:21.290179+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/content_strategy.py",
+          "proposed_change": "Implement keyword learning to dynamically adjust topic focus based on trending terms.",
+          "reason": "This aligns content with community interests and improves engagement.",
+          "risk": "Potential for misalignment if trending terms do not match the core narrative."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/engagement_metrics.py",
+          "proposed_change": "Add metrics to track engagement on posts that utilize specific use cases of Ergo.",
+          "reason": "Measuring the effectiveness of use case discussions can guide future content strategies.",
+          "risk": "Increased complexity in metric tracking could introduce bugs."
+        }
+      ],
+      "cycle": 72,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_mode": "tighten_quality",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 1,
+        "effective_draft_shortlist_size": 12,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 1,
+        "high_signal_term_count": 46,
+        "inspected": 271,
+        "market_question_title_rate": 0.05,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 72822.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 9565.22,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7355.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 45,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "low_signal_relevance": 30,
+          "no_action_slots": 14,
+          "post_cooldown+comment_cooldown": 44
+        },
+        "trending_terms": [
+          "economy",
+          "autonomous",
+          "human",
+          "decentralized",
+          "chain",
+          "defi",
+          "identity",
+          "infrastructure"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 1.0,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.1661,
+        "draft_rate": 1.0,
+        "drafted": 1,
+        "eligible_now": 1,
+        "execution_rate": 1.0,
+        "inspected": 271,
+        "model_approved": 1,
+        "new_candidates": 45,
+        "top_skip_reasons": [
+          {
+            "count": 44,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 30,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 14,
+            "name": "no_action_slots"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement through relevant, actionable content.",
+          "proposed_change": "Integrate specific use cases of eUTXO in agent workflows as examples in posts.",
+          "reason": "Concrete use cases resonate more with the audience and drive deeper discussions.",
+          "target": "core messaging"
+        },
+        {
+          "expected_impact": "Higher comment engagement and an increase in follow-up discussions.",
+          "proposed_change": "Encourage agents to share personal experiences with ErgoScript applications in agent economies.",
+          "reason": "Personal anecdotes foster a sense of community and can trigger more engaging conversations.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "Increased visibility and relevance in ongoing discussions.",
+          "proposed_change": "Regularly incorporate trending terms from the market into discussion threads.",
+          "reason": "Aligning with current market language can improve the discoverability of posts.",
+          "target": "visibility strategy"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Launch an experiment to post a series of use case breakdowns every week for a month.",
+          "metric": "Engagement score of each post compared to historical averages.",
+          "stop_condition": "If average engagement scores do not increase after three weeks."
+        },
+        {
+          "idea": "Conduct a survey within the community about the most relevant use cases of ErgoScript.",
+          "metric": "Number of responses and quality of suggested use cases.",
+          "stop_condition": "If fewer than 50 responses are collected after two weeks."
+        }
+      ],
+      "summary": "This proposal outlines targeted enhancements to optimize the Moltbook agent's engagement and visibility within the Ergo community. It emphasizes leveraging concrete use cases, refining narrative alignment, and applying high-signal market language to improve interaction and discussion quality.",
+      "ts": "2026-02-07T01:12:47.887900+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Implement a scoring mechanism to prioritize responses based on comment quality and technical relevance.",
+          "reason": "Current engagement lacks a systematic approach to highlight valuable interactions.",
+          "risk": "Increased complexity in engagement logic may lead to unintended filtering of genuine discussions."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/post_template.py",
+          "proposed_change": "Add fields for high-signal term integration and use case examples in post drafts.",
+          "reason": "To ensure that all posts align with the most effective engagement strategies.",
+          "risk": "May require additional oversight to maintain content quality amid automated drafting."
+        }
+      ],
+      "cycle": 84,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": false,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 8,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 8,
+        "high_signal_term_count": 48,
+        "inspected": 76,
+        "market_question_title_rate": 0.05,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 73616.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 8750.43,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7364.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 0,
+        "new_candidates": 8,
+        "post_action_sent": true,
+        "skip_reasons": {
+          "draft_shortlist_cap": 187
+        },
+        "trending_terms": [
+          "economy",
+          "autonomous",
+          "coordination",
+          "decentralized",
+          "human",
+          "chain",
+          "payments",
+          "defi"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 0.0,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.1053,
+        "draft_rate": 1.0,
+        "drafted": 8,
+        "eligible_now": 8,
+        "execution_rate": 0.125,
+        "inspected": 76,
+        "model_approved": 0,
+        "new_candidates": 8,
+        "top_skip_reasons": [
+          {
+            "count": 187,
+            "name": "draft_shortlist_cap"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased relevance and visibility of posts, leading to higher engagement rates.",
+          "proposed_change": "Integrate high-signal market terms more prominently in content drafts.",
+          "reason": "Current market signals indicate high engagement around terms like 'economy', 'autonomous', and 'decentralized'.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Enhanced community trust and deeper discussions around Ergo and its applications.",
+          "proposed_change": "Introduce a structured policy for engaging with comments, prioritizing technical questions and feedback.",
+          "reason": "Engagement metrics show that thoughtful responses to comments increase overall interaction.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "More compelling content that drives discussions and shares practical insights.",
+          "proposed_change": "Develop a template for highlighting specific use cases of eUTXO in agent economies.",
+          "reason": "Feedback indicates that concrete examples resonate more with the audience than abstract discussions.",
+          "target": "ergo-focused posts"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test the impact of structured comment engagement policy on overall post interactions.",
+          "metric": "Engagement rate (comments and upvotes) on posts before and after policy implementation.",
+          "stop_condition": "No significant change in engagement metrics after three cycles."
+        },
+        {
+          "idea": "Evaluate the effectiveness of high-signal term integration in post visibility.",
+          "metric": "Change in view count and engagement metrics over two weeks of high-signal term usage.",
+          "stop_condition": "No increase in engagement metrics after the initial two-week implementation."
+        }
+      ],
+      "summary": "This proposal outlines targeted enhancements for the Moltbook agent to optimize engagement and visibility within the Ergo community. The focus is on refining content delivery, leveraging high-signal terms, and emphasizing concrete use cases of Ergo's capabilities.",
+      "ts": "2026-02-07T01:38:02.375661+00:00"
+    },
+    {
+      "code_changes": [],
+      "cycle": 96,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_mode": "relax_low_signal",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 2,
+        "effective_draft_shortlist_size": 21,
+        "effective_draft_signal_min_score": 1,
+        "eligible_now": 2,
+        "high_signal_term_count": 47,
+        "inspected": 277,
+        "market_question_title_rate": 0.033,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 96.5,
+            "name": "ai-web3"
+          },
+          {
+            "avg_weighted_score": 29.33,
+            "name": "crypto"
+          },
+          {
+            "avg_weighted_score": 20.0,
+            "name": "openclaw"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 51,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "low_signal_relevance": 12,
+          "no_action_slots": 37,
+          "post_cooldown+comment_cooldown": 49
+        },
+        "trending_terms": [
+          "autonomous",
+          "economy",
+          "decentralized",
+          "human",
+          "defi",
+          "infrastructure",
+          "coordination",
+          "payments"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 0.5,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.1841,
+        "draft_rate": 1.0,
+        "drafted": 2,
+        "eligible_now": 2,
+        "execution_rate": 0.5,
+        "inspected": 277,
+        "model_approved": 1,
+        "new_candidates": 51,
+        "top_skip_reasons": [
+          {
+            "count": 49,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 37,
+            "name": "no_action_slots"
+          },
+          {
+            "count": 12,
+            "name": "low_signal_relevance"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased comment counts and more profound interactions on posts.",
+          "proposed_change": "Incorporate specific calls to action in posts that invite critical analysis of eUTXO and ErgoScript applications.",
+          "reason": "Direct engagement through questions fosters deeper discussions and technical exchanges.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher engagement scores on posts related to practical applications of Ergo.",
+          "proposed_change": "Adopt a focus on high-signal use cases of eUTXO in decentralized workflows, such as specific service execution scenarios.",
+          "reason": "Concrete examples resonate better than abstract concepts, directly appealing to user interests.",
+          "target": "ergo-focused posts"
+        },
+        {
+          "expected_impact": "Reduced skip rates and improved content approval rates.",
+          "proposed_change": "Limit content to key themes that resonate well (e.g., decentralized economies, agent coordination) and discard low-signal terms from discussions.",
+          "reason": "Focusing on relevant themes will enhance the quality of interactions and align with community interests.",
+          "target": "community interaction"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test the effectiveness of posts framed around specific eUTXO use cases in autonomous agent workflows.",
+          "metric": "Engagement score (comments and upvotes) compared to previous posts.",
+          "stop_condition": "If engagement scores do not improve by 20% over three cycles."
+        },
+        {
+          "idea": "Evaluate the impact of targeted questions in posts to stimulate discussion around the technical merits of Ergo.",
+          "metric": "Comment count and quality of responses in terms of depth of technical discussion.",
+          "stop_condition": "If posts with targeted questions do not yield a 30% increase in comments over the next five posts."
+        }
+      ],
+      "summary": "This proposal presents targeted enhancements for the Moltbook agent to elevate engagement and visibility in the Ergo community. It focuses on refining content strategies, optimizing interaction guidelines, and leveraging current market language to increase actionable discussions.",
+      "ts": "2026-02-07T02:02:28.510188+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Implement a feedback loop to analyze engagement metrics post-publication and adjust future content strategies accordingly.",
+          "reason": "Current engagement strategies lack a mechanism for iterative improvement based on real-time feedback.",
+          "risk": "Potential temporary decrease in engagement as the new system is calibrated."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/interaction.py",
+          "proposed_change": "Refine the algorithm that detects high-signal terms to include contextual relevance checks.",
+          "reason": "To prevent the use of high-signal terms that do not fit the context, which can lead to community disinterest.",
+          "risk": "Requires additional testing to ensure the algorithm does not overly restrict valid content."
+        }
+      ],
+      "cycle": 108,
+      "cycle_stats": {
+        "actions": 0,
+        "comment_action_sent": false,
+        "draft_shortlist_mode": "tighten_quality",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 12,
+        "effective_draft_shortlist_size": 12,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 12,
+        "high_signal_term_count": 47,
+        "inspected": 178,
+        "market_question_title_rate": 0.042,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 74476.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 9379.8,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7377.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 0,
+        "new_candidates": 12,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "draft_shortlist_cap": 86
+        },
+        "trending_terms": [
+          "autonomous",
+          "economy",
+          "coordination",
+          "decentralized",
+          "human",
+          "payments",
+          "infrastructure",
+          "problem"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 0.0,
+        "actions": 0,
+        "approval_rate": 0.0,
+        "bottleneck_label": "model_rejection",
+        "candidate_rate": 0.0674,
+        "draft_rate": 1.0,
+        "drafted": 12,
+        "eligible_now": 12,
+        "execution_rate": 0.0,
+        "inspected": 178,
+        "model_approved": 0,
+        "new_candidates": 12,
+        "top_skip_reasons": [
+          {
+            "count": 86,
+            "name": "draft_shortlist_cap"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Higher engagement rates as community members see the practical implications of Ergo's technology.",
+          "proposed_change": "Incorporate a structured approach to highlight practical use cases for Ergo, focusing on specific advantages of eUTXO in service execution and payment systems.",
+          "reason": "Current engagement is hindered by low conversion rates on posts that lack concrete, relatable use cases.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Increased comment counts and richer discussions around Ergo topics.",
+          "proposed_change": "Revise the comment policy to encourage agents to ask open-ended questions that stimulate deeper discussions about Ergo's capabilities.",
+          "reason": "Previous posts show a tendency towards shallow engagement; deeper questions can elicit more substantive responses.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "More approved drafts that align with community interests and market trends, improving overall visibility.",
+          "proposed_change": "Tighten the criteria for drafting posts by prioritizing content that directly ties to high-signal terms identified in the recent market snapshot.",
+          "reason": "Existing drafts often miss the mark on relevance, leading to a high skip rate.",
+          "target": "drafting relevance gate"
+        },
+        {
+          "expected_impact": "Higher approval rate and fewer wasted drafts.",
+          "proposed_change": "Require one explicit Ergo mechanism plus one thread-specific implementation angle before should_respond=true.",
+          "reason": "Low model approval means current candidates are too broad or generic.",
+          "target": "drafting relevance gate"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Create a periodic content review cycle to assess which posts resonate most with the community and adapt future messaging accordingly.",
+          "metric": "Engagement score and comment count per post.",
+          "stop_condition": "After three cycles, if no significant improvement is observed in engagement metrics."
+        },
+        {
+          "idea": "Pilot a tagging system for posts to categorize them by themes (e.g., use cases, privacy, DeFi) to enhance discoverability.",
+          "metric": "Increased views and engagement on tagged posts.",
+          "stop_condition": "If tagged posts show no increase in engagement compared to non-tagged posts after a month."
+        }
+      ],
+      "summary": "This proposal outlines specific enhancements to optimize the Moltbook agent's engagement with the Ergo community, focusing on high-leverage improvements in messaging, content strategies, and interaction guidelines while addressing identified bottlenecks.",
+      "ts": "2026-02-07T02:28:51.412531+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Add a function to analyze the sentiment of comments and flag high-signal comments for response prioritization.",
+          "reason": "This will optimize the agent's responses based on conversation quality.",
+          "risk": "Potential increase in processing time for comment analysis, which may affect response speed."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/posting.py",
+          "proposed_change": "Modify the post drafting algorithm to include a template for direct questions related to Ergo's practical applications.",
+          "reason": "Direct questions can enhance engagement and interaction rates.",
+          "risk": "May require additional training data to ensure relevance and appropriateness of questions."
+        }
+      ],
+      "cycle": 120,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 1,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 1,
+        "high_signal_term_count": 48,
+        "inspected": 211,
+        "market_question_title_rate": 0.067,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 75431.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 10245.24,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7431.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 51,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "low_signal_relevance": 30,
+          "no_action_slots": 20,
+          "post_cooldown+comment_cooldown": 50
+        },
+        "trending_terms": [
+          "economy",
+          "autonomous",
+          "decentralized",
+          "coordination",
+          "problem",
+          "identity",
+          "human",
+          "infrastructure"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 1.0,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.2417,
+        "draft_rate": 1.0,
+        "drafted": 1,
+        "eligible_now": 1,
+        "execution_rate": 1.0,
+        "inspected": 211,
+        "model_approved": 1,
+        "new_candidates": 51,
+        "top_skip_reasons": [
+          {
+            "count": 50,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 30,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 20,
+            "name": "no_action_slots"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased comment count and interaction rates.",
+          "proposed_change": "Incorporate direct questions in posts to invite responses, such as 'How do you see eUTXO enhancing autonomous economies?'",
+          "reason": "Direct questions can stimulate discussion and lead to higher engagement rates.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher upvotes and comments due to relatable content.",
+          "proposed_change": "Focus posts on specific use cases of Ergo in AI agent economies, linking practical examples to ErgoScript functionalities.",
+          "reason": "Concrete examples resonate more and attract focused discussions.",
+          "target": "ergo-focused posts"
+        },
+        {
+          "expected_impact": "Improved karma and ranking within community discussions.",
+          "proposed_change": "Implement a policy to prioritize responses to high-signal comments or queries that reference specific Ergo capabilities.",
+          "reason": "This enhances the quality of interactions and positions the agent as a knowledgeable resource.",
+          "target": "community interaction"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test different formats of posts that combine technical details with community-driven questions.",
+          "metric": "Engagement score (upvotes, comments) compared to baseline.",
+          "stop_condition": "If engagement does not increase by 20% over three consecutive posts."
+        },
+        {
+          "idea": "Create a tagging system for posts that highlights specific use cases, linking them to keywords trending in the community.",
+          "metric": "Tracking post reach and interaction levels with tagged content.",
+          "stop_condition": "If tagged posts do not show a 15% increase in interaction after a month."
+        }
+      ],
+      "summary": "This proposal outlines targeted enhancements to optimize the Moltbook agent's engagement within the Ergo community. It focuses on refining narrative alignment, leveraging current market language, and addressing identified bottlenecks in visibility and conversion.",
+      "ts": "2026-02-07T02:56:14.327153+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/interaction.py",
+          "proposed_change": "Implement a dynamic keyword learning system that analyzes trending topics and integrates them into post suggestions.",
+          "reason": "Enhances the agent's ability to engage with the community using relevant language.",
+          "risk": "Potential complexity in maintaining the keyword database and ensuring proper integration."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/policy.py",
+          "proposed_change": "Revise interaction policies to limit simple affirmations and promote more substantial contributions.",
+          "reason": "Current policies allow for superficial engagement which does not benefit community discussions.",
+          "risk": "May require adjustments to user behavior and expectations."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/drafting.py",
+          "proposed_change": "Add requirements for posts to include at least one practical use case of Ergo or eUTXO.",
+          "reason": "Encourages agents to think critically about their contributions and enhances content quality.",
+          "risk": "Could limit the volume of posts if agents struggle to meet the new criteria."
+        }
+      ],
+      "cycle": 132,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_mode": "relax_low_signal",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 21,
+        "effective_draft_shortlist_size": 21,
+        "effective_draft_signal_min_score": 1,
+        "eligible_now": 19,
+        "high_signal_term_count": 48,
+        "inspected": 220,
+        "market_question_title_rate": 0.067,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 75431.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 10395.99,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7431.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 21,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 2,
+          "draft_shortlist_cap": 71
+        },
+        "trending_terms": [
+          "autonomous",
+          "coordination",
+          "economy",
+          "decentralized",
+          "identity",
+          "infrastructure",
+          "chain",
+          "problem"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 0.0476,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.0955,
+        "draft_rate": 1.1053,
+        "drafted": 21,
+        "eligible_now": 19,
+        "execution_rate": 0.0526,
+        "inspected": 220,
+        "model_approved": 1,
+        "new_candidates": 21,
+        "top_skip_reasons": [
+          {
+            "count": 71,
+            "name": "draft_shortlist_cap"
+          },
+          {
+            "count": 2,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased relevance and resonance of posts, leading to higher engagement rates.",
+          "proposed_change": "Integrate a keyword learning module that adapts to trending terms and community discussions.",
+          "reason": "Current engagement strategies lack adaptability to evolving community language and topics.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Fosters deeper conversations and better quality engagement.",
+          "proposed_change": "Refine the vote/reply policy to encourage responses that add value rather than simple affirmations.",
+          "reason": "The current policy allows for low-effort interactions, diluting the quality of discussion.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "Increases the effectiveness of posts in driving discussions and attracting interest.",
+          "proposed_change": "Enhance the drafting process to require connections to practical use cases of Ergo, eUTXO, and agent economies.",
+          "reason": "Posts without concrete applications often receive lower engagement.",
+          "target": "ergo-focused posts"
+        },
+        {
+          "expected_impact": "Higher approval rate and fewer wasted drafts.",
+          "proposed_change": "Require one explicit Ergo mechanism plus one thread-specific implementation angle before should_respond=true.",
+          "reason": "Low model approval means current candidates are too broad or generic.",
+          "target": "drafting relevance gate"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Track engagement metrics on posts that incorporate high-signal terms versus those that do not.",
+          "metric": "Engagement score (upvotes, comments, shares)",
+          "stop_condition": "After 30 posts, evaluate the difference in engagement to determine the effectiveness of keyword integration."
+        },
+        {
+          "idea": "Test the impact of refined interaction policies on post quality and engagement.",
+          "metric": "Quality of comments (assessed by upvotes and responses)",
+          "stop_condition": "After 20 posts under the new policy, analyze the change in comment quality."
+        },
+        {
+          "idea": "Measure the effectiveness of requiring practical use cases in posts.",
+          "metric": "Engagement score and comment depth",
+          "stop_condition": "After implementing the requirement for 30 posts, compare engagement metrics against a control group."
+        },
+        {
+          "idea": "Enable dynamic shortlist size based on last 3-cycle approval/execution rates.",
+          "metric": "execution_rate and actions per cycle after shortlist enabled",
+          "stop_condition": "Disable if execution_rate does not improve after 12 cycles"
+        }
+      ],
+      "summary": "This proposal outlines targeted, high-leverage improvements to the Moltbook agent's engagement and visibility within the Ergo community. It focuses on refining content strategies, enhancing keyword learning, and optimizing interaction policies to drive genuine discussions.",
+      "ts": "2026-02-07T03:19:36.304654+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Implement a scoring system to rank posts based on engagement metrics like comments and upvotes.",
+          "reason": "Current engagement metrics are not being utilized effectively to inform future content strategy.",
+          "risk": "Moderate; requires testing to ensure scoring accurately reflects community engagement preferences."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/visibility.py",
+          "proposed_change": "Enhance the keyword learning algorithm to prioritize high-signal terms from feedback context.",
+          "reason": "Improving keyword targeting can lead to better post visibility in the community.",
+          "risk": "Low; adjustments to the algorithm should be reversible if issues arise."
+        }
+      ],
+      "cycle": 144,
+      "cycle_stats": {
+        "actions": 0,
+        "comment_action_sent": false,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 8,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 7,
+        "high_signal_term_count": 48,
+        "inspected": 54,
+        "market_question_title_rate": 0.075,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 7475.0,
+            "name": "shitposts"
+          },
+          {
+            "avg_weighted_score": 1431.75,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 76.67,
+            "name": "ai-web3"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 0,
+        "new_candidates": 8,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 1,
+          "draft_shortlist_cap": 127
+        },
+        "trending_terms": [
+          "autonomous",
+          "decentralized",
+          "economy",
+          "usdchackathon",
+          "projectsubmission",
+          "coordination",
+          "problem",
+          "real"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 0.0,
+        "actions": 0,
+        "approval_rate": 0.0,
+        "bottleneck_label": "low_conversion",
+        "candidate_rate": 0.1481,
+        "draft_rate": 1.1429,
+        "drafted": 8,
+        "eligible_now": 7,
+        "execution_rate": 0.0,
+        "inspected": 54,
+        "model_approved": 0,
+        "new_candidates": 8,
+        "top_skip_reasons": [
+          {
+            "count": 127,
+            "name": "draft_shortlist_cap"
+          },
+          {
+            "count": 1,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased interaction and a higher conversion rate as community members engage with relevant use cases.",
+          "proposed_change": "Incorporate more specific use cases for eUTXO in posts to drive engagement.",
+          "reason": "Posts about practical use cases received higher engagement scores, indicating a clear interest in actionable content.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Enhanced visibility and engagement from users familiar with these concepts.",
+          "proposed_change": "Utilize trending market terms like 'autonomous' and 'decentralized' in a more focused manner in posts.",
+          "reason": "Recent diagnostics show these terms resonate well with the community, driving higher engagement.",
+          "target": "visibility optimization"
+        },
+        {
+          "expected_impact": "Increased community participation and richer discussions around Ergo.",
+          "proposed_change": "Encourage agents to ask direct, reflective questions at the end of posts to foster discussion.",
+          "reason": "Engagement analysis shows posts that end with questions receive more comments.",
+          "target": "community interaction"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Pilot a series of posts that exclusively focus on practical eUTXO applications.",
+          "metric": "Engagement score (upvotes and comments) compared to baseline posts.",
+          "stop_condition": "If engagement scores do not increase by at least 15% after three posts."
+        },
+        {
+          "idea": "Test the impact of ending posts with reflective questions versus statements.",
+          "metric": "Number of comments generated per post.",
+          "stop_condition": "If no significant difference in comment count is observed after five posts."
+        }
+      ],
+      "summary": "This proposal outlines targeted enhancements for the Moltbook agent to optimize engagement and visibility within the Ergo community. The focus is on refining content strategies, leveraging high-signal terms, and enhancing interaction guidelines to address recent bottlenecks in community engagement and visibility.",
+      "ts": "2026-02-07T03:40:29.527336+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Add a function to analyze and categorize posts based on keyword occurrence to assist in content filtering.",
+          "reason": "This allows for better alignment of posts with community interests based on trending topics.",
+          "risk": "Moderate; requires thorough testing to ensure accuracy in categorization."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/rate_limits.py",
+          "proposed_change": "Adjust rate limits to facilitate a modified posting cadence.",
+          "reason": "This supports the new engagement strategy for more frequent, high-quality posts.",
+          "risk": "Low; needs monitoring to prevent overwhelming community members."
+        }
+      ],
+      "cycle": 156,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 6,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 6,
+        "high_signal_term_count": 48,
+        "inspected": 286,
+        "market_question_title_rate": 0.083,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 77244.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 10150.6,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 76.67,
+            "name": "ai-web3"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 55,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "low_signal_relevance": 36,
+          "no_action_slots": 13,
+          "post_cooldown+comment_cooldown": 49
+        },
+        "trending_terms": [
+          "economy",
+          "decentralized",
+          "autonomous",
+          "usdchackathon",
+          "projectsubmission",
+          "coordination",
+          "chain",
+          "identity"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 0.1667,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.1923,
+        "draft_rate": 1.0,
+        "drafted": 6,
+        "eligible_now": 6,
+        "execution_rate": 0.1667,
+        "inspected": 286,
+        "model_approved": 1,
+        "new_candidates": 55,
+        "top_skip_reasons": [
+          {
+            "count": 49,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 36,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 13,
+            "name": "no_action_slots"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement rates and visibility within targeted conversations.",
+          "proposed_change": "Incorporate a structured approach to keyword integration that emphasizes high-signal terms such as 'economy', 'decentralized', 'autonomous'.",
+          "reason": "This aligns with the current market interests and can enhance visibility in relevant discussions.",
+          "target": "Moltbook messaging strategy"
+        },
+        {
+          "expected_impact": "Higher interaction rates and more meaningful discussions.",
+          "proposed_change": "Implement a tagging system that categorizes posts based on their alignment with high-signal themes (e.g., eUTXO, agent economies, etc.).",
+          "reason": "This will streamline content discovery and improve the relevance of posts to user interests.",
+          "target": "Content curation process"
+        },
+        {
+          "expected_impact": "Improved responsiveness and relevance of discussions.",
+          "proposed_change": "Set a specific cadence for posts that balances frequency with content quality, aiming for 1 post per 20 minutes instead of 30.",
+          "reason": "This will allow for more timely engagement without overwhelming the community.",
+          "target": "Engagement guidelines"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Test the impact of structured keyword tagging on engagement rates by comparing posts with and without tagging.",
+          "metric": "Engagement score (upvotes and comments) on tagged vs. non-tagged posts.",
+          "stop_condition": "Evaluate after 30 posts; if no significant difference observed, discontinue the tagging experiment."
+        },
+        {
+          "idea": "Experiment with different posting cadences to identify optimal engagement frequency.",
+          "metric": "Engagement rates (comments and upvotes) tracked over varying posting intervals.",
+          "stop_condition": "Analyze results after 2 weeks; if no improvement, revert to original posting frequency."
+        }
+      ],
+      "summary": "This proposal outlines specific, high-leverage improvements to optimize the Moltbook agent's engagement and visibility within the Ergo community. It focuses on enhancing content delivery, refining interaction guidelines, and leveraging high-signal terms effectively while addressing identified bottlenecks.",
+      "ts": "2026-02-07T03:58:43.857805+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Implement a dynamic post relevance scoring system that weighs trending terms and community feedback more heavily.",
+          "reason": "The current system does not adequately prioritize posts that align with community interests, leading to model rejection.",
+          "risk": "There is a potential for overfitting to transient trends, which may affect long-term engagement."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/filters.py",
+          "proposed_change": "Add a filtering criterion that assesses post relevance based on historical engagement metrics.",
+          "reason": "To prevent irrelevant posts from being presented to users, which has contributed to low approval rates.",
+          "risk": "If not calibrated correctly, this could lead to the exclusion of valuable discussions."
+        }
+      ],
+      "cycle": 168,
+      "cycle_stats": {
+        "actions": 0,
+        "comment_action_sent": false,
+        "draft_shortlist_mode": "tighten_quality",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 12,
+        "effective_draft_shortlist_size": 12,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 9,
+        "high_signal_term_count": 48,
+        "inspected": 114,
+        "market_question_title_rate": 0.05,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 77244.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 10617.26,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 60.0,
+            "name": "ai-web3"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 0,
+        "new_candidates": 12,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 3,
+          "draft_shortlist_cap": 133
+        },
+        "trending_terms": [
+          "coordination",
+          "decentralized",
+          "usdchackathon",
+          "projectsubmission",
+          "autonomous",
+          "economy",
+          "infrastructure",
+          "chain"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 0.0,
+        "actions": 0,
+        "approval_rate": 0.0,
+        "bottleneck_label": "model_rejection",
+        "candidate_rate": 0.1053,
+        "draft_rate": 1.3333,
+        "drafted": 12,
+        "eligible_now": 9,
+        "execution_rate": 0.0,
+        "inspected": 114,
+        "model_approved": 0,
+        "new_candidates": 12,
+        "top_skip_reasons": [
+          {
+            "count": 133,
+            "name": "draft_shortlist_cap"
+          },
+          {
+            "count": 3,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increase post visibility and community interaction by aligning content with trending terms.",
+          "proposed_change": "Incorporate high-signal terms like 'decentralized' and 'autonomous' more authentically within discussions about specific use cases for Ergo.",
+          "reason": "Current engagement is hindered by low conversion rates and a lack of contextual relevance in posts.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher approval rates for posts due to improved relevance, leading to increased engagement.",
+          "proposed_change": "Develop a more nuanced filtering mechanism for posts to prioritize those that connect directly to practical applications of Ergo for AI agents.",
+          "reason": "Identified bottlenecks indicate that many posts lack relevance to the community's immediate interests.",
+          "target": "content curation"
+        },
+        {
+          "expected_impact": "Enhanced engagement through the use of language that resonates with the audience.",
+          "proposed_change": "Integrate a keyword learning algorithm to adaptively refine the vocabulary used in posts based on engagement metrics.",
+          "reason": "To maintain high engagement levels, the agent needs to dynamically adjust its language to fit community preferences.",
+          "target": "keyword learning"
+        },
+        {
+          "expected_impact": "Higher approval rate and fewer wasted drafts.",
+          "proposed_change": "Require one explicit Ergo mechanism plus one thread-specific implementation angle before should_respond=true.",
+          "reason": "Low model approval means current candidates are too broad or generic.",
+          "target": "drafting relevance gate"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Conduct A/B testing on posts featuring high-signal terms versus those that do not.",
+          "metric": "Engagement score (upvotes, comments)",
+          "stop_condition": "Stop after 30 posts to assess the impact on overall engagement metrics."
+        },
+        {
+          "idea": "Explore a pilot project to create a dedicated Ergo-focused submolt to aggregate discussions.",
+          "metric": "Number of posts and engagement metrics within the submolt compared to 'general'.",
+          "stop_condition": "Evaluate performance after 60 days to determine viability."
+        },
+        {
+          "idea": "Initiate keyword usage analysis to identify phrases that correlate with high engagement.",
+          "metric": "Engagement scores of posts using identified keywords versus those that don't.",
+          "stop_condition": "Analyze results over a 4-week period to refine the keyword strategy."
+        }
+      ],
+      "summary": "This proposal outlines targeted enhancements to optimize the Moltbook agent's engagement and visibility within the Ergo community. It emphasizes leveraging high-signal terms, refining interaction guidelines, and increasing the relevance of posts to address identified bottlenecks.",
+      "ts": "2026-02-07T04:16:26.751769+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Implement a keyword learning mechanism that prioritizes high-signal terms from recent community engagement metrics.",
+          "reason": "This will help the agent adapt its messaging based on what resonates with the community.",
+          "risk": "Potential for misalignment if the learning mechanism fails to accurately predict term relevance."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/filter.py",
+          "proposed_change": "Adjust the filtering algorithm to prioritize posts that incorporate community-sourced questions or high-signal terms.",
+          "reason": "This can enhance the quality of content being drafted by aligning with community interests.",
+          "risk": "Over-filtering could exclude valuable content that doesn\u2019t fit the new criteria."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/runner.py",
+          "proposed_change": "Add pre-draft shortlist ranking so only top N eligible candidates reach the LLM each cycle.",
+          "reason": "High eligible volume with zero actions indicates poor conversion efficiency.",
+          "risk": "May miss edge-case opportunities if shortlist is too small."
+        }
+      ],
+      "cycle": 180,
+      "cycle_stats": {
+        "actions": 0,
+        "comment_action_sent": false,
+        "draft_shortlist_mode": "steady",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 9,
+        "effective_draft_shortlist_size": 18,
+        "effective_draft_signal_min_score": 2,
+        "eligible_now": 33,
+        "high_signal_term_count": 48,
+        "inspected": 288,
+        "market_question_title_rate": 0.05,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 78260.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 10833.32,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7515.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 0,
+        "new_candidates": 35,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "author_cooldown": 1,
+          "low_signal_relevance": 25,
+          "self_post": 1
+        },
+        "trending_terms": [
+          "economy",
+          "coordination",
+          "autonomous",
+          "usdchackathon",
+          "projectsubmission",
+          "infrastructure",
+          "decentralized",
+          "real"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 0.0,
+        "actions": 0,
+        "approval_rate": 0.0,
+        "bottleneck_label": "low_conversion",
+        "candidate_rate": 0.1215,
+        "draft_rate": 0.2727,
+        "drafted": 9,
+        "eligible_now": 33,
+        "execution_rate": 0.0,
+        "inspected": 288,
+        "model_approved": 0,
+        "new_candidates": 35,
+        "top_skip_reasons": [
+          {
+            "count": 25,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 1,
+            "name": "self_post"
+          },
+          {
+            "count": 1,
+            "name": "author_cooldown"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Higher comment counts and richer discussions around practical use cases.",
+          "proposed_change": "Incorporate more direct questions that ask for user experiences related to eUTXO and ErgoScript applications.",
+          "reason": "Direct questions can stimulate more engagement and thoughtful responses from the community.",
+          "target": "Moltbook messaging prompts"
+        },
+        {
+          "expected_impact": "Increased engagement due to enhanced relevance and discoverability.",
+          "proposed_change": "Integrate trending market terms like 'economy' and 'coordination' into post narratives when relevant.",
+          "reason": "Using high-signal terms can align posts with current community interests and increase visibility.",
+          "target": "Content strategy for posts"
+        },
+        {
+          "expected_impact": "Improvement in conversion rates of drafts to approved posts.",
+          "proposed_change": "Specify a threshold for upvotes/comments on previous similar posts to inform future post drafts.",
+          "reason": "This can ensure that only high-potential content is drafted, reducing the volume of low-signal posts.",
+          "target": "Drafting guidelines"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Create a series of posts explicitly focusing on real-world applications of eUTXO in agent economies, soliciting community feedback.",
+          "metric": "Engagement score based on upvotes and comments.",
+          "stop_condition": "If average engagement score falls below 40 for three consecutive posts."
+        },
+        {
+          "idea": "Launch a targeted content campaign using high-signal terms to measure shifts in engagement across different submolts.",
+          "metric": "Change in engagement scores across selected submolts.",
+          "stop_condition": "Campaign duration of six weeks with bi-weekly assessments."
+        }
+      ],
+      "summary": "This proposal outlines targeted enhancements to optimize the Moltbook agent's engagement within the Ergo community. The focus is on refining content delivery, leveraging high-signal terms, and emphasizing specific use cases to increase relevance and conversion rates.",
+      "ts": "2026-02-07T04:29:11.929491+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/interaction.py",
+          "proposed_change": "Add a function to analyze and flag posts that incorporate trending terms, ensuring they are prioritized for drafting.",
+          "reason": "Enhances alignment with current market interests and maximizes engagement potential.",
+          "risk": "Potential over-reliance on trending terms could dilute content authenticity."
+        },
+        {
+          "file_hint": "src/moltbook/autonomy/engagement.py",
+          "proposed_change": "Refine the algorithm assessing post relevance to include engagement metrics of prior posts that used similar language.",
+          "reason": "This allows for a data-driven approach to content creation based on historical success.",
+          "risk": "Risk of excluding potentially valuable content that doesn't fit historical patterns."
+        }
+      ],
+      "cycle": 192,
+      "cycle_stats": {
+        "actions": 1,
+        "comment_action_sent": true,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 1,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 1,
+        "high_signal_term_count": 48,
+        "inspected": 282,
+        "market_question_title_rate": 0.058,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 78260.0,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 10059.94,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 7515.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 1,
+        "new_candidates": 51,
+        "post_action_sent": false,
+        "skip_reasons": {
+          "low_signal_relevance": 40,
+          "no_action_slots": 10,
+          "post_cooldown+comment_cooldown": 50
+        },
+        "trending_terms": [
+          "usdchackathon",
+          "projectsubmission",
+          "economy",
+          "coordination",
+          "infrastructure",
+          "autonomous",
+          "decentralized",
+          "real"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 1.0,
+        "actions": 1,
+        "approval_rate": 1.0,
+        "bottleneck_label": "balanced",
+        "candidate_rate": 0.1809,
+        "draft_rate": 1.0,
+        "drafted": 1,
+        "eligible_now": 1,
+        "execution_rate": 1.0,
+        "inspected": 282,
+        "model_approved": 1,
+        "new_candidates": 51,
+        "top_skip_reasons": [
+          {
+            "count": 50,
+            "name": "post_cooldown+comment_cooldown"
+          },
+          {
+            "count": 40,
+            "name": "low_signal_relevance"
+          },
+          {
+            "count": 10,
+            "name": "no_action_slots"
+          }
+        ]
+      },
+      "priority": "high",
+      "prompt_changes": [
+        {
+          "expected_impact": "Increased engagement through higher relevance and visibility in discussions.",
+          "proposed_change": "Incorporate trending market terms like 'usdchackathon' and 'projectsubmission' into conversation threads where they are contextually relevant.",
+          "reason": "These terms are currently trending and can enhance visibility while aligning with community interests.",
+          "target": "engagement strategy"
+        },
+        {
+          "expected_impact": "Higher quality interactions and increased comment counts.",
+          "proposed_change": "Encourage more reflective questions by agents when discussing Ergo\u2019s technical advantages, such as eUTXO and ErgoScript.",
+          "reason": "Reflective questions can provoke deeper discussions and insights from community members.",
+          "target": "community interaction"
+        },
+        {
+          "expected_impact": "Improved post engagement and overall visibility within the community.",
+          "proposed_change": "Implement a strict filtering mechanism that favors posts utilizing high-signal terms related to practical applications of Ergo.",
+          "reason": "This will ensure that only the most relevant and impactful content is shared.",
+          "target": "drafting relevance gate"
+        }
+      ],
+      "provider": "openai",
+      "strategy_experiments": [
+        {
+          "idea": "Pilot a series of posts that directly compare Ergo with other chains using current market themes, focusing on practical implications for AI agents.",
+          "metric": "Engagement score (upvotes and comments) compared to past comparative posts.",
+          "stop_condition": "If engagement scores do not exceed the average of previous comparison posts after 5 iterations."
+        },
+        {
+          "idea": "Create a feedback loop where community members suggest use cases for ErgoScript in agent economies, with agents facilitating the discussion.",
+          "metric": "Number of actionable use cases generated from discussions.",
+          "stop_condition": "If less than 10 unique use cases are proposed over a 2-week period."
+        }
+      ],
+      "summary": "This proposal suggests targeted enhancements for the Moltbook agent to further optimize engagement and visibility within the Ergo community. It focuses on refining messaging strategies, improving keyword learning, and leveraging current market language to attract more meaningful interactions.",
+      "ts": "2026-02-07T04:47:22.895300+00:00"
+    }
+  ],
+  "last_updated_ts": "2026-02-07T04:47:22.895334+00:00"
+}

@@ -17,6 +17,7 @@ def load_state(path: Path) -> Dict[str, Any]:
         return {
             "seen_post_ids": [],
             "replied_post_ids": [],
+            "replied_comment_pairs": [],
             "voted_post_ids": [],
             "seen_comment_ids": [],
             "my_comment_ids": [],
@@ -31,9 +32,11 @@ def load_state(path: Path) -> Dict[str, Any]:
             "daily_comment_count": 0,
             "last_daily_reset": utc_date_str(),
             "last_proactive_post_attempt_ts": None,
+            "proactive_post_attempt_count": 0,
             "pending_actions": [],
             "approved_submolts": [],
             "dismissed_submolts": [],
+            "cycle_metrics_history": [],
         }
     with path.open("r", encoding="utf-8") as f:
         state = json.load(f)
@@ -48,6 +51,8 @@ def load_state(path: Path) -> Dict[str, Any]:
         state["seen_comment_ids"] = []
     if "replied_post_ids" not in state:
         state["replied_post_ids"] = []
+    if "replied_comment_pairs" not in state:
+        state["replied_comment_pairs"] = []
     if "voted_post_ids" not in state:
         state["voted_post_ids"] = []
     if "my_comment_ids" not in state:
@@ -56,10 +61,14 @@ def load_state(path: Path) -> Dict[str, Any]:
         state["pending_actions"] = []
     if "last_proactive_post_attempt_ts" not in state:
         state["last_proactive_post_attempt_ts"] = None
+    if "proactive_post_attempt_count" not in state:
+        state["proactive_post_attempt_count"] = 0
     if "approved_submolts" not in state:
         state["approved_submolts"] = []
     if "dismissed_submolts" not in state:
         state["dismissed_submolts"] = []
+    if "cycle_metrics_history" not in state:
+        state["cycle_metrics_history"] = []
     if "voted_comment_ids" not in state:
         state["voted_comment_ids"] = []
     if "replied_to_comment_ids" not in state:

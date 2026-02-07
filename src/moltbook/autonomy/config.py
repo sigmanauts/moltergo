@@ -35,6 +35,13 @@ DEFAULT_KEYWORDS = [
     "micropayments",
     "crypto bounties",
     "smart contract",
+    "decentralized computing",
+    "data sovereignty",
+    "ai ethics",
+    "trustless escrow",
+    "service orchestration",
+    "agent reputation",
+    "counterparty risk",
 ]
 
 DEFAULT_MISSION_QUERIES = [
@@ -43,6 +50,7 @@ DEFAULT_MISSION_QUERIES = [
     "eUTXO or UTXO smart contract discussions for agent coordination",
     "posts about AI x DeFi infrastructure and crypto-native agent business models",
     "threads comparing chains for AI agents where Ergo could be relevant",
+    "discussions about decentralized computing, data sovereignty, or AI ethics where trustless settlement matters",
 ]
 
 DEFAULT_TARGET_SUBMOLTS = [
@@ -91,6 +99,11 @@ class Config:
     keyword_learning_interval_cycles: int
     keyword_learning_min_titles: int
     keyword_learning_max_suggestions: int
+    draft_shortlist_size: int
+    draft_signal_min_score: int
+    dynamic_shortlist_enabled: bool
+    dynamic_shortlist_min: int
+    dynamic_shortlist_max: int
     search_retry_after_failure_cycles: int
     startup_reply_scan_enabled: bool
     startup_reply_scan_post_limit: int
@@ -101,6 +114,8 @@ class Config:
     proactive_post_attempt_cooldown_seconds: int
     proactive_post_reference_limit: int
     proactive_post_submolt: str
+    proactive_daily_target_posts: int
+    proactive_force_general_until_daily_target: bool
     proactive_memory_path: Path
     proactive_metrics_refresh_seconds: int
     self_improve_enabled: bool
@@ -108,6 +123,8 @@ class Config:
     self_improve_min_titles: int
     self_improve_max_suggestions: int
     self_improve_path: Path
+    self_improve_text_path: Path
+    self_improve_backlog_path: Path
     max_pending_actions: int
     do_not_reply_authors: List[str]
     openai_api_key: Optional[str]
@@ -186,6 +203,15 @@ def load_config() -> Config:
     keyword_learning_interval_cycles = int(os.getenv("MOLTBOOK_KEYWORD_LEARNING_INTERVAL_CYCLES", "4"))
     keyword_learning_min_titles = int(os.getenv("MOLTBOOK_KEYWORD_LEARNING_MIN_TITLES", "15"))
     keyword_learning_max_suggestions = int(os.getenv("MOLTBOOK_KEYWORD_LEARNING_MAX_SUGGESTIONS", "6"))
+    draft_shortlist_size = int(os.getenv("MOLTBOOK_DRAFT_SHORTLIST_SIZE", "18"))
+    draft_signal_min_score = int(os.getenv("MOLTBOOK_DRAFT_SIGNAL_MIN_SCORE", "2"))
+    dynamic_shortlist_enabled = os.getenv("MOLTBOOK_DYNAMIC_SHORTLIST_ENABLED", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    dynamic_shortlist_min = int(os.getenv("MOLTBOOK_DYNAMIC_SHORTLIST_MIN", "6"))
+    dynamic_shortlist_max = int(os.getenv("MOLTBOOK_DYNAMIC_SHORTLIST_MAX", "30"))
     search_retry_after_failure_cycles = int(os.getenv("MOLTBOOK_SEARCH_RETRY_AFTER_FAILURE_CYCLES", "8"))
     startup_reply_scan_enabled = os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_ENABLED", "1").strip().lower() in {
         "1",
@@ -206,6 +232,11 @@ def load_config() -> Config:
     )
     proactive_post_reference_limit = int(os.getenv("MOLTBOOK_PROACTIVE_POST_REFERENCE_LIMIT", "12"))
     proactive_post_submolt = os.getenv("MOLTBOOK_PROACTIVE_POST_SUBMOLT", "general").strip() or "general"
+    proactive_daily_target_posts = int(os.getenv("MOLTBOOK_PROACTIVE_DAILY_TARGET_POSTS", "1"))
+    proactive_force_general_until_daily_target = os.getenv(
+        "MOLTBOOK_PROACTIVE_FORCE_GENERAL_UNTIL_DAILY_TARGET",
+        "1",
+    ).strip().lower() in {"1", "true", "yes"}
     proactive_memory_path = Path(os.getenv("MOLTBOOK_PROACTIVE_MEMORY_PATH", "memory/post-engine-memory.json"))
     proactive_metrics_refresh_seconds = int(os.getenv("MOLTBOOK_PROACTIVE_METRICS_REFRESH_SECONDS", "300"))
     self_improve_enabled = os.getenv("MOLTBOOK_SELF_IMPROVE_ENABLED", "1").strip().lower() in {
@@ -217,6 +248,12 @@ def load_config() -> Config:
     self_improve_min_titles = int(os.getenv("MOLTBOOK_SELF_IMPROVE_MIN_TITLES", "25"))
     self_improve_max_suggestions = int(os.getenv("MOLTBOOK_SELF_IMPROVE_MAX_SUGGESTIONS", "6"))
     self_improve_path = Path(os.getenv("MOLTBOOK_SELF_IMPROVE_PATH", "memory/improvement-suggestions.json"))
+    self_improve_text_path = Path(
+        os.getenv("MOLTBOOK_SELF_IMPROVE_TEXT_PATH", "memory/improvement-suggestions.txt")
+    )
+    self_improve_backlog_path = Path(
+        os.getenv("MOLTBOOK_SELF_IMPROVE_BACKLOG_PATH", "memory/improvement-backlog.json")
+    )
     max_pending_actions = int(os.getenv("MOLTBOOK_MAX_PENDING_ACTIONS", "200"))
 
     do_not_reply_authors = [a.lower() for a in _parse_csv_env("MOLTBOOK_DO_NOT_REPLY_AUTHORS")]
@@ -282,6 +319,11 @@ def load_config() -> Config:
         keyword_learning_interval_cycles=keyword_learning_interval_cycles,
         keyword_learning_min_titles=keyword_learning_min_titles,
         keyword_learning_max_suggestions=keyword_learning_max_suggestions,
+        draft_shortlist_size=draft_shortlist_size,
+        draft_signal_min_score=draft_signal_min_score,
+        dynamic_shortlist_enabled=dynamic_shortlist_enabled,
+        dynamic_shortlist_min=dynamic_shortlist_min,
+        dynamic_shortlist_max=dynamic_shortlist_max,
         search_retry_after_failure_cycles=search_retry_after_failure_cycles,
         startup_reply_scan_enabled=startup_reply_scan_enabled,
         startup_reply_scan_post_limit=startup_reply_scan_post_limit,
@@ -292,6 +334,8 @@ def load_config() -> Config:
         proactive_post_attempt_cooldown_seconds=proactive_post_attempt_cooldown_seconds,
         proactive_post_reference_limit=proactive_post_reference_limit,
         proactive_post_submolt=proactive_post_submolt,
+        proactive_daily_target_posts=proactive_daily_target_posts,
+        proactive_force_general_until_daily_target=proactive_force_general_until_daily_target,
         proactive_memory_path=proactive_memory_path,
         proactive_metrics_refresh_seconds=proactive_metrics_refresh_seconds,
         self_improve_enabled=self_improve_enabled,
@@ -299,6 +343,8 @@ def load_config() -> Config:
         self_improve_min_titles=self_improve_min_titles,
         self_improve_max_suggestions=self_improve_max_suggestions,
         self_improve_path=self_improve_path,
+        self_improve_text_path=self_improve_text_path,
+        self_improve_backlog_path=self_improve_backlog_path,
         max_pending_actions=max_pending_actions,
         do_not_reply_authors=do_not_reply_authors,
         openai_api_key=openai_api_key,
