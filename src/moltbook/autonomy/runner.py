@@ -4,6 +4,7 @@ import os
 import re
 import select
 import sys
+import textwrap
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -151,6 +152,41 @@ LOW_VALUE_REPLY_PREFIXES = [
     "totally agree",
     "i agree",
     "noted",
+]
+
+PROACTIVE_OPENING_PAIN_MARKERS = [
+    "bottleneck",
+    "fragile",
+    "fails",
+    "failure",
+    "broken",
+    "slow",
+    "latency",
+    "cost",
+    "fees",
+    "spam",
+    "manual",
+    "trust",
+    "counterparty",
+    "dispute",
+    "verify",
+    "verification",
+    "opaque",
+    "censorship",
+    "downtime",
+]
+
+PROACTIVE_OPENING_MECHANISM_MARKERS = [
+    "eutxo",
+    "ergoscript",
+    "sigma",
+    "rosen bridge",
+    "sigusd",
+    "oracle",
+    "escrow",
+    "reputation",
+    "settlement",
+    "smart contract",
 ]
 
 MAX_CONSECUTIVE_DECLINES_GUARD = 6
@@ -359,6 +395,21 @@ def _is_template_like_generated_content(text: str) -> bool:
     return any(pattern in blob for pattern in GENERIC_TEMPLATE_PATTERNS)
 
 
+def _looks_like_control_payload_text(text: str) -> bool:
+    blob = normalize_str(text).strip().lower()
+    if not blob:
+        return False
+    matches = re.findall(
+        r"\b(should_respond|response_mode|vote_action|vote_target|confidence|should_post|content_archetype)\s*[:=]",
+        blob,
+    )
+    if len(matches) >= 1 and _word_count(blob) <= 28:
+        return True
+    if len(matches) >= 2:
+        return True
+    return False
+
+
 def _has_ergo_mechanism_mention(text: str) -> bool:
     blob = normalize_str(text).strip().lower()
     if not blob:
@@ -400,9 +451,67 @@ def _has_implementation_angle(text: str) -> bool:
     return any(marker in blob for marker in markers)
 
 
+def _first_nonempty_lines(text: str, limit: int = 2) -> List[str]:
+    lines = [normalize_str(line).strip() for line in normalize_str(text).splitlines() if normalize_str(line).strip()]
+    return lines[: max(1, int(limit))]
+
+
+def _opening_has_concrete_pain(text: str) -> bool:
+    opening = " ".join(_first_nonempty_lines(text, limit=2)).lower()
+    if not opening:
+        return False
+    return any(marker in opening for marker in PROACTIVE_OPENING_PAIN_MARKERS)
+
+
+def _opening_has_ergo_mechanism(text: str) -> bool:
+    opening = " ".join(_first_nonempty_lines(text, limit=2)).lower()
+    if not opening:
+        return False
+    return any(marker in opening for marker in PROACTIVE_OPENING_MECHANISM_MARKERS)
+
+
+def _passes_proactive_opening_gate(text: str) -> bool:
+    return bool(_opening_has_concrete_pain(text) and _opening_has_ergo_mechanism(text))
+
+
+def _ensure_proactive_opening_gate(text: str) -> str:
+    content = normalize_str(text).strip()
+    if not content:
+        return content
+    if _passes_proactive_opening_gate(content):
+        return content
+
+    lower = content.lower()
+    pain_line = "Agent economies stall when counterparties cannot verify execution or settle disputes objectively."
+    mechanism_line = (
+        "Ergo solves this with eUTXO plus ErgoScript, which enforces deterministic settlement rules and on-chain auditability."
+    )
+    if "escrow" in lower or "counterparty" in lower or "dispute" in lower:
+        pain_line = "Escrow workflows break when counterparties cannot prove what happened without human arbitration."
+    if "coordination" in lower or "orchestration" in lower or "runtime" in lower:
+        pain_line = "Service orchestration becomes fragile when parallel tasks cannot settle with deterministic rules."
+
+    if "ergoscript" in lower:
+        mechanism_line = (
+            "ErgoScript contracts lock settlement logic into verifiable rules, and eUTXO keeps execution deterministic under load."
+        )
+    elif "sigma" in lower:
+        mechanism_line = (
+            "Sigma Protocols add privacy-preserving proofs while eUTXO keeps settlement deterministic across agent workflows."
+        )
+    elif "rosen bridge" in lower:
+        mechanism_line = (
+            "Rosen Bridge can move value across chains, while eUTXO contracts keep cross-chain settlement conditions deterministic."
+        )
+
+    return f"{pain_line} {mechanism_line}\n\n{content}"
+
+
 def _passes_generated_content_quality(content: str, requested_mode: str) -> bool:
     text = normalize_str(content).strip()
     if not text:
+        return False
+    if _looks_like_control_payload_text(text):
         return False
     words = _word_count(text)
     has_question = "?" in text
@@ -796,36 +905,150 @@ def supports_color() -> bool:
     return sys.stdout.isatty() and not bool(os.getenv("NO_COLOR"))
 
 
-def print_success_banner(action: str, pid: str, url: str, title: str) -> None:
-    if supports_color():
-        green = "\033[1;32m"
-        cyan = "\033[1;36m"
-        reset = "\033[0m"
-        print("")
-        print(f"{green}============================================{reset}")
-        print(f"{green} ACTION SUCCESS: {action.upper()}{reset}")
-        print(f"{cyan} post_id:{reset} {pid}")
-        print(f"{cyan} title:{reset} {title}")
-        print(f"{cyan} url:{reset} {url}")
-        print(f"{green}============================================{reset}")
-        print("")
-        return
+def _ui_palette() -> Dict[str, str]:
+    if not supports_color():
+        return {
+            "reset": "",
+            "bold": "",
+            "dim": "",
+            "blue": "",
+            "cyan": "",
+            "green": "",
+            "yellow": "",
+            "magenta": "",
+            "white": "",
+        }
+    return {
+        "reset": "\033[0m",
+        "bold": "\033[1m",
+        "dim": "\033[2m",
+        "blue": "\033[1;34m",
+        "cyan": "\033[1;36m",
+        "green": "\033[1;32m",
+        "yellow": "\033[1;33m",
+        "magenta": "\033[1;35m",
+        "white": "\033[1;37m",
+    }
 
+
+def _ui_paint(text: str, tone: str = "", bold: bool = False, dim: bool = False) -> str:
+    palette = _ui_palette()
+    reset = palette["reset"]
+    if not reset:
+        return text
+    chunks: List[str] = []
+    if bold:
+        chunks.append(palette["bold"])
+    if dim:
+        chunks.append(palette["dim"])
+    if tone:
+        chunks.append(palette.get(tone, ""))
+    chunks.append(text)
+    chunks.append(reset)
+    return "".join(chunks)
+
+
+def _ui_wrap_lines(value: Any, width: int) -> List[str]:
+    text = normalize_str(value).strip()
+    if width < 8:
+        width = 8
+    if not text:
+        return [""]
+    out: List[str] = []
+    for raw_line in text.splitlines():
+        line = normalize_str(raw_line).rstrip()
+        if not line:
+            out.append("")
+            continue
+        wrapped = textwrap.wrap(
+            line,
+            width=width,
+            break_long_words=True,
+            break_on_hyphens=False,
+        )
+        out.extend(wrapped or [""])
+    return out or [""]
+
+
+def _ui_print_panel(
+    title: str,
+    rows: List[Tuple[str, Any]],
+    tone: str = "cyan",
+    width: int = 74,
+) -> None:
+    inner = max(30, width - 4)
+    border = "+" + ("-" * (inner + 2)) + "+"
     print("")
-    print("============================================")
-    print(f"ACTION SUCCESS: {action.upper()}")
-    print(f"post_id: {pid}")
-    print(f"title: {title}")
-    print(f"url: {url}")
-    print("============================================")
+    print(_ui_paint(border, tone=tone, bold=True))
+    title_text = normalize_str(title).strip() or "INFO"
+    print(_ui_paint(f"| {title_text:<{inner}} |", tone=tone, bold=True))
+    print(_ui_paint(border, tone=tone))
+    for key, value in rows:
+        label = normalize_str(key).strip()
+        value_lines = _ui_wrap_lines(value, width=(inner - (len(label) + 2) if label else inner))
+        for idx, line in enumerate(value_lines):
+            if label:
+                prefix = f"{label}: " if idx == 0 else (" " * (len(label) + 2))
+            else:
+                prefix = ""
+            content = f"{prefix}{line}"
+            print(f"| {content:<{inner}} |")
+    print(_ui_paint(border, tone=tone))
     print("")
+
+
+def print_success_banner(action: str, pid: str, url: str, title: str) -> None:
+    _ui_print_panel(
+        title=f"[SUCCESS] {action.upper()}",
+        rows=[
+            ("post_id", pid),
+            ("title", title),
+            ("url", url),
+        ],
+        tone="green",
+    )
 
 
 def print_cycle_banner(iteration: int, mode: str, keywords: int) -> None:
-    print("")
-    print("------------------------------------------------------------")
-    print(f"CYCLE {iteration} | discovery={mode} | keywords={keywords}")
-    print("------------------------------------------------------------")
+    summary = f"discovery={mode} | keywords={keywords}"
+    _ui_print_panel(
+        title=f"CYCLE {iteration}",
+        rows=[("", summary)],
+        tone="blue",
+        width=62,
+    )
+
+
+def print_runtime_banner(cfg: Config) -> None:
+    provider = cfg.llm_provider
+    if provider == "auto":
+        provider = "auto(chatbase-first)"
+    _ui_print_panel(
+        title="MOLTBOOK AUTONOMY",
+        rows=[
+            ("mode", f"discovery={cfg.discovery_mode} reply={cfg.reply_mode}"),
+            ("llm", f"{provider} | fallback_openai={int(cfg.llm_auto_fallback_to_openai)}"),
+            (
+                "limits",
+                f"post/{cfg.min_seconds_between_posts}s "
+                f"comment/{cfg.min_seconds_between_comments}s "
+                f"triage_budget/{max(1, cfg.reply_triage_llm_calls_per_scan)}",
+            ),
+        ],
+        tone="magenta",
+    )
+
+
+def print_keyword_added_banner(keyword: str, learned_total: int) -> None:
+    _ui_print_panel(
+        title="KEYWORD ADDED",
+        rows=[
+            ("keyword", keyword),
+            ("learned_total", str(learned_total)),
+        ],
+        tone="green",
+        width=56,
+    )
 
 
 def post_id(post: Dict[str, Any]) -> Optional[str]:
@@ -914,14 +1137,84 @@ def comment_author(comment: Dict[str, Any]) -> Tuple[Optional[str], Optional[str
     )
 
 
+def _normalized_name_key(value: Any) -> str:
+    text = normalize_str(value).strip().lower()
+    if not text:
+        return ""
+    if text.startswith("u/"):
+        text = text[2:]
+    if text.startswith("@"):
+        text = text[1:]
+    # Normalize separators like "_", "-", and spaces so name comparisons are robust.
+    text = re.sub(r"[^a-z0-9]+", "", text)
+    return text
+
+
 def author_identity_key(author_id: Optional[str], author_name: Optional[str]) -> str:
-    aid = normalize_str(author_id).strip().lower()
+    aid = _normalized_name_key(author_id)
     if aid:
         return f"id:{aid}"
-    aname = normalize_str(author_name).strip().lower()
+    aname = _normalized_name_key(author_name)
     if aname:
         return f"name:{aname}"
     return ""
+
+
+def author_identity_keys(author_id: Optional[str], author_name: Optional[str]) -> Set[str]:
+    keys: Set[str] = set()
+    aid = _normalized_name_key(author_id)
+    if aid:
+        keys.add(f"id:{aid}")
+    aname = _normalized_name_key(author_name)
+    if aname:
+        keys.add(f"name:{aname}")
+    return keys
+
+
+def resolve_self_identity_keys(client: MoltbookClient, my_name: Optional[str], logger) -> Set[str]:
+    keys: Set[str] = set()
+    if my_name:
+        key = author_identity_key(author_id=None, author_name=my_name)
+        if key:
+            keys.add(key)
+    try:
+        me = client.get_me()
+        containers: List[Dict[str, Any]] = []
+        if isinstance(me, dict):
+            containers.append(me)
+            for field in ("agent", "data", "profile", "result"):
+                nested = me.get(field)
+                if isinstance(nested, dict):
+                    containers.append(nested)
+        for container in containers:
+            if not isinstance(container, dict):
+                continue
+            for id_field in ("id", "agent_id", "user_id"):
+                raw_id = container.get(id_field)
+                if raw_id is None:
+                    continue
+                key = author_identity_key(author_id=str(raw_id), author_name=None)
+                if key:
+                    keys.add(key)
+            for name_field in ("name", "agent_name", "username", "created_by"):
+                raw_name = container.get(name_field)
+                if raw_name is None:
+                    continue
+                key = author_identity_key(author_id=None, author_name=str(raw_name))
+                if key:
+                    keys.add(key)
+    except Exception as e:
+        logger.debug("Could not resolve self identity keys from /agents/me error=%s", e)
+    return keys
+
+
+def is_self_author(author_id: Optional[str], author_name: Optional[str], self_identity_keys: Set[str]) -> bool:
+    if not self_identity_keys:
+        return False
+    keys = author_identity_keys(author_id=author_id, author_name=author_name)
+    if not keys:
+        return False
+    return any(key in self_identity_keys for key in keys)
 
 
 def comment_score(comment: Dict[str, Any]) -> int:
@@ -1305,10 +1598,12 @@ def choose_top_comment(
     if not comments:
         return None
 
+    my_key = author_identity_key(author_id=None, author_name=my_name)
     candidates: List[Dict[str, Any]] = []
     for comment in comments:
-        _, c_author_name = comment_author(comment)
-        if my_name and c_author_name and c_author_name.lower() == my_name.lower():
+        c_author_id, c_author_name = comment_author(comment)
+        c_key = author_identity_key(c_author_id, c_author_name)
+        if my_key and c_key and c_key == my_key:
             continue
         if not comment_id(comment):
             continue
@@ -1369,6 +1664,23 @@ def cooldown_remaining_seconds(state: Dict[str, Any], cfg: Config) -> Tuple[int,
     return post_remaining, comment_remaining
 
 
+def seconds_since_last_post(state: Dict[str, Any]) -> Optional[int]:
+    last_post = state.get("last_post_action_ts")
+    if not isinstance(last_post, (int, float)):
+        return None
+    return max(0, int(utc_now().timestamp() - float(last_post)))
+
+
+def should_prioritize_proactive_post(state: Dict[str, Any], cfg: Config) -> bool:
+    post_allowed, _ = post_gate_status(state=state, cfg=cfg)
+    if not post_allowed:
+        return False
+    since_last_post = seconds_since_last_post(state=state)
+    if since_last_post is None:
+        return True
+    return since_last_post >= max(1, cfg.min_seconds_between_posts)
+
+
 def enqueue_pending_action(state: Dict[str, Any], cfg: Config, action: Dict[str, Any]) -> None:
     queue = state.setdefault("pending_actions", [])
     if len(queue) >= cfg.max_pending_actions:
@@ -1415,6 +1727,9 @@ def execute_pending_actions(
     queue = list(state.get("pending_actions", []))
     if not queue:
         return 0
+    self_identity_keys: Set[str] = set()
+    if my_name:
+        self_identity_keys = resolve_self_identity_keys(client=client, my_name=my_name, logger=logger)
 
     executed = 0
     remaining: List[Dict[str, Any]] = []
@@ -1455,6 +1770,7 @@ def execute_pending_actions(
                     parent_comment_id=parent_comment_id,
                     my_name=my_name,
                     logger=logger,
+                    self_identity_keys=self_identity_keys,
                 ):
                     replied_ids.add(parent_comment_id)
                     state["replied_to_comment_ids"] = list(replied_ids)[-10000:]
@@ -1677,6 +1993,55 @@ def _ensure_direct_question(content: str) -> str:
     return text + "\n\nWhich implementation constraint would you test first on Ergo?"
 
 
+def _build_forced_proactive_fallback(
+    top_signals: List[Dict[str, Any]],
+    target_submolt: str,
+    weekly_theme: str,
+    required_archetype: str,
+) -> Dict[str, Any]:
+    ref_pid = ""
+    ref_title = ""
+    if top_signals:
+        ref_pid = normalize_str(top_signals[0].get("post_id")).strip()
+        ref_title = normalize_str(top_signals[0].get("title")).strip()
+    ref_url = post_url(ref_pid) if ref_pid else ""
+    title = f"{weekly_theme}: deterministic escrow for autonomous agents on Ergo".strip()
+    if len(title) > 140:
+        title = title[:137].rstrip() + "..."
+
+    body_lines = [
+        "Agent economies fail when counterparties cannot prove execution and settlement needs manual trust.",
+        "Ergo eUTXO plus ErgoScript fixes this with deterministic contract paths and on-chain verifiable conditions.",
+        "",
+        (
+            "Implementation sketch: lock service payments in an ErgoScript escrow box, then release only when the "
+            "proof hash and signature threshold match contract rules; otherwise route to a timeout + dispute branch "
+            "with reputation-gated arbiters."
+        ),
+    ]
+    if ref_url:
+        body_lines.extend(["", f"Reference thread: {ref_url}"])
+    if ref_title:
+        body_lines.append(f"Reference topic: {ref_title}")
+    body_lines.extend(
+        [
+            "",
+            "Would you start with hard minimum reputation gates or bond-scaled adaptive gates for counterparties?",
+        ]
+    )
+    content = "\n".join(body_lines).strip()
+    return {
+        "should_post": True,
+        "confidence": 0.99,
+        "submolt": normalize_submolt(target_submolt),
+        "title": title,
+        "content": content,
+        "strategy_notes": "deterministic_fallback_used_for_priority_post",
+        "topic_tags": ["ergo", "eutxo", "ergoscript", "agent-economy", "settlement"],
+        "content_archetype": _normalize_archetype(required_archetype),
+    }
+
+
 def _proactive_posts_count_for_date(post_memory: Dict[str, Any], date_iso: str) -> int:
     entries = post_memory.get("proactive_posts")
     if not isinstance(entries, list):
@@ -1764,11 +2129,20 @@ def _optimize_proactive_title(title: str, learning_snapshot: Dict[str, Any]) -> 
 
 
 def proactive_post_attempt_allowed(state: Dict[str, Any], cfg: Config) -> bool:
+    # If post slot is open and we are already beyond post cooldown, do not throttle by attempt cooldown.
+    if should_prioritize_proactive_post(state=state, cfg=cfg):
+        return True
+    # When a post slot is already open, retry faster so proactive posting does not stall for long periods.
+    post_allowed, _ = post_gate_status(state=state, cfg=cfg)
+    cooldown_seconds = max(1, cfg.proactive_post_attempt_cooldown_seconds)
+    if post_allowed:
+        cooldown_seconds = min(cooldown_seconds, 120)
+
     last_attempt = state.get("last_proactive_post_attempt_ts")
     if not isinstance(last_attempt, (int, float)):
         return True
     elapsed = utc_now().timestamp() - last_attempt
-    return elapsed >= max(1, cfg.proactive_post_attempt_cooldown_seconds)
+    return elapsed >= cooldown_seconds
 
 
 def maybe_run_proactive_post(
@@ -1791,9 +2165,13 @@ def maybe_run_proactive_post(
         return 0, False, approve_all_actions
 
     if not proactive_post_attempt_allowed(state=state, cfg=cfg):
+        post_allowed_now, _ = post_gate_status(state=state, cfg=cfg)
+        effective_cooldown = max(1, cfg.proactive_post_attempt_cooldown_seconds)
+        if post_allowed_now:
+            effective_cooldown = min(effective_cooldown, 120)
         logger.info(
             "Proactive post skipped reason=attempt_cooldown seconds=%s",
-            cfg.proactive_post_attempt_cooldown_seconds,
+            effective_cooldown,
         )
         return 0, False, approve_all_actions
 
@@ -1888,6 +2266,13 @@ def maybe_run_proactive_post(
         learning_snapshot=learning_snapshot,
         force_general=force_general,
     )
+    fallback_post = _build_forced_proactive_fallback(
+        top_signals=top_signals,
+        target_submolt=target_submolt,
+        weekly_theme=weekly_theme,
+        required_archetype=required_archetype,
+    )
+    using_forced_fallback = False
     state["proactive_post_attempt_count"] = int(state.get("proactive_post_attempt_count", 0)) + 1
     state["last_proactive_post_attempt_ts"] = utc_now().timestamp()
     logger.info(
@@ -1917,10 +2302,16 @@ def maybe_run_proactive_post(
             required_archetype=required_archetype,
             preferred_archetypes=preferred_archetypes,
         )
-        draft, provider_used = call_generation_model(cfg, messages)
+        draft, provider_used, _ = call_generation_model(cfg, messages)
     except Exception as e:
-        logger.warning("Proactive post drafting failed provider_hint=%s error=%s", cfg.llm_provider, e)
-        return 0, False, approve_all_actions
+        logger.warning(
+            "Proactive post drafting failed provider_hint=%s error=%s fallback=deterministic",
+            cfg.llm_provider,
+            e,
+        )
+        draft = dict(fallback_post)
+        provider_used = "deterministic-fallback"
+        using_forced_fallback = True
     logger.info("Proactive post draft generated provider=%s", provider_used)
 
     draft_archetype = _normalize_archetype(draft.get("content_archetype"))
@@ -1941,15 +2332,17 @@ def maybe_run_proactive_post(
                 required_archetype=required_archetype,
                 preferred_archetypes=[required_archetype],
             )
-            draft, provider_used = call_generation_model(cfg, retry_messages)
+            draft, provider_used, _ = call_generation_model(cfg, retry_messages)
             logger.info("Proactive post retry draft generated provider=%s", provider_used)
         except Exception as e:
-            logger.warning("Proactive post retry drafting failed error=%s", e)
-            return 0, False, approve_all_actions
+            logger.warning("Proactive post retry drafting failed error=%s fallback=deterministic", e)
+            draft = dict(fallback_post)
+            provider_used = "deterministic-fallback"
+            using_forced_fallback = True
         draft_archetype = _normalize_archetype(draft.get("content_archetype"))
         if draft_archetype != required_archetype:
             logger.info(
-                "Proactive post declined reason=archetype_mismatch required=%s got=%s",
+                "Proactive post archetype mismatch required=%s got=%s fallback=deterministic",
                 required_archetype,
                 draft_archetype,
             )
@@ -1959,13 +2352,16 @@ def maybe_run_proactive_post(
                 submolt=normalize_submolt(draft.get("submolt"), default=target_submolt),
                 reason=f"archetype_mismatch:{required_archetype}->{draft_archetype}",
             )
-            return 0, False, approve_all_actions
+            draft = dict(fallback_post)
+            provider_used = "deterministic-fallback"
+            using_forced_fallback = True
+            draft_archetype = _normalize_archetype(draft.get("content_archetype"))
 
     should_post = bool(draft.get("should_post"))
     confidence = float(draft.get("confidence", 0.0))
     if not should_post or confidence < cfg.min_confidence:
         logger.info(
-            "Proactive post declined should_post=%s confidence=%.3f threshold=%.3f",
+            "Proactive post declined should_post=%s confidence=%.3f threshold=%.3f fallback=deterministic",
             should_post,
             confidence,
             cfg.min_confidence,
@@ -1976,7 +2372,11 @@ def maybe_run_proactive_post(
             submolt=normalize_submolt(draft.get("submolt"), default=target_submolt),
             reason="model_declined_or_low_confidence",
         )
-        return 0, False, approve_all_actions
+        draft = dict(fallback_post)
+        provider_used = "deterministic-fallback"
+        using_forced_fallback = True
+        should_post = True
+        confidence = float(draft.get("confidence", 0.99))
 
     submolt = normalize_submolt(draft.get("submolt"), default=target_submolt)
     raw_title = normalize_str(draft.get("title")).strip() or "Ergo x agent economy: practical next step"
@@ -1985,6 +2385,7 @@ def maybe_run_proactive_post(
         logger.info("Proactive title adapted for market signal original=%r adapted=%r", raw_title, title)
     content = _ensure_direct_question(normalize_str(draft.get("content")).strip())
     content = _normalize_ergo_terms(content)
+    content = _ensure_proactive_opening_gate(content)
     strategy_notes = normalize_str(draft.get("strategy_notes")).strip()
     content_archetype = draft_archetype
     raw_tags = draft.get("topic_tags") or []
@@ -1992,24 +2393,47 @@ def maybe_run_proactive_post(
         raw_tags = []
     topic_tags = [normalize_str(x).strip().lower() for x in raw_tags if normalize_str(x).strip()]
     topic_tags = topic_tags[:8]
-    if not content:
-        logger.info("Proactive post skipped reason=empty_content")
-        record_declined_idea(
-            memory=post_memory,
-            title=title,
-            submolt=submolt,
-            reason="empty_content",
-        )
-        return 0, False, approve_all_actions
-    if _is_template_like_generated_content(content):
-        logger.info("Proactive post skipped reason=template_like_content")
-        record_declined_idea(
-            memory=post_memory,
-            title=title,
-            submolt=submolt,
-            reason="template_like_content",
-        )
-        return 0, False, approve_all_actions
+
+    if not content or _is_template_like_generated_content(content) or not _passes_proactive_opening_gate(content):
+        if not using_forced_fallback:
+            fallback_reason = "empty_content" if not content else (
+                "template_like_content" if _is_template_like_generated_content(content) else "weak_opening_hook"
+            )
+            logger.info("Proactive post skipped reason=%s fallback=deterministic", fallback_reason)
+            record_declined_idea(
+                memory=post_memory,
+                title=title,
+                submolt=submolt,
+                reason=fallback_reason,
+            )
+            draft = dict(fallback_post)
+            using_forced_fallback = True
+            draft_archetype = _normalize_archetype(draft.get("content_archetype"))
+            submolt = normalize_submolt(draft.get("submolt"), default=target_submolt)
+            raw_title = normalize_str(draft.get("title")).strip() or "Ergo x agent economy: practical next step"
+            title = _optimize_proactive_title(raw_title, learning_snapshot=learning_snapshot)
+            content = _ensure_direct_question(normalize_str(draft.get("content")).strip())
+            content = _normalize_ergo_terms(content)
+            content = _ensure_proactive_opening_gate(content)
+            strategy_notes = normalize_str(draft.get("strategy_notes")).strip()
+            content_archetype = draft_archetype
+            raw_tags = draft.get("topic_tags") or []
+            if not isinstance(raw_tags, list):
+                raw_tags = []
+            topic_tags = [normalize_str(x).strip().lower() for x in raw_tags if normalize_str(x).strip()]
+            topic_tags = topic_tags[:8]
+        if not content or _is_template_like_generated_content(content) or not _passes_proactive_opening_gate(content):
+            final_reason = "empty_content" if not content else (
+                "template_like_content" if _is_template_like_generated_content(content) else "weak_opening_hook"
+            )
+            logger.info("Proactive post skipped reason=%s fallback_failed=1", final_reason)
+            record_declined_idea(
+                memory=post_memory,
+                title=title,
+                submolt=submolt,
+                reason=f"{final_reason}_after_fallback",
+            )
+            return 0, False, approve_all_actions
 
     preview = content
     if strategy_notes:
@@ -2118,14 +2542,18 @@ def has_my_comment_on_post(
 ) -> bool:
     if not my_name:
         return False
+    my_key = author_identity_key(author_id=None, author_name=my_name)
+    my_name_key = _normalized_name_key(my_name)
     try:
         payload = client.get_post_comments(post_id_value, limit=200)
     except Exception as e:
         logger.debug("Comment history check failed post_id=%s error=%s", post_id_value, e)
         return False
     for comment in extract_comments(payload):
-        _, author_name = comment_author(comment)
-        if author_name and author_name.lower() == my_name.lower():
+        author_id, author_name = comment_author(comment)
+        if my_key and author_identity_key(author_id, author_name) == my_key:
+            return True
+        if my_name_key and _normalized_name_key(author_name) == my_name_key:
             return True
     return False
 
@@ -2136,9 +2564,15 @@ def has_my_reply_to_comment(
     parent_comment_id: str,
     my_name: Optional[str],
     logger,
+    self_identity_keys: Optional[Set[str]] = None,
 ) -> bool:
     if not my_name:
         return False
+    my_key = author_identity_key(author_id=None, author_name=my_name)
+    my_name_key = _normalized_name_key(my_name)
+    self_keys: Set[str] = set(self_identity_keys or set())
+    if my_key:
+        self_keys.add(my_key)
     parent_key = normalize_str(parent_comment_id).strip()
     if not parent_key:
         return False
@@ -2152,12 +2586,13 @@ def has_my_reply_to_comment(
             e,
         )
         return False
-    my_name_lc = my_name.lower()
     for comment in extract_comments(payload):
         if normalize_str(comment_parent_id(comment)).strip() != parent_key:
             continue
-        _, author_name = comment_author(comment)
-        if author_name and author_name.lower() == my_name_lc:
+        author_id, author_name = comment_author(comment)
+        if self_keys and is_self_author(author_id, author_name, self_identity_keys=self_keys):
+            return True
+        if my_name_key and _normalized_name_key(author_name) == my_name_key:
             return True
     return False
 
@@ -2342,7 +2777,7 @@ def run_startup_reply_scan(
         (
             "Reply scan begin agent=%s post_limit=%s comment_limit=%s "
             "hourly_comment_count=%s/%s daily_comment_count=%s/%s "
-            "max_replies_per_author_per_post=%s thread_escalate_turns=%s"
+            "max_replies_per_author_per_post=%s thread_escalate_turns=%s triage_llm_budget=%s"
         ),
         my_name,
         cfg.startup_reply_scan_post_limit,
@@ -2353,6 +2788,7 @@ def run_startup_reply_scan(
         cfg.max_comments_per_day,
         MAX_REPLIES_PER_AUTHOR_PER_POST,
         THREAD_ESCALATE_TURNS,
+        max(1, cfg.reply_triage_llm_calls_per_scan),
     )
     seen_comment_ids: Set[str] = set(state.get("seen_comment_ids", []))
     my_comment_ids: Set[str] = set(state.get("my_comment_ids", []))
@@ -2361,11 +2797,29 @@ def run_startup_reply_scan(
     replied_comment_pairs: Set[str] = set(state.get("replied_comment_pairs", []))
     replied_post_ids: Set[str] = set(state.get("replied_post_ids", []))
     thread_followup_posted_pairs: Set[str] = set(state.get("thread_followup_posted_pairs", []))
+    triage_cache_raw = state.get("reply_triage_cache", {})
+    triage_cache: Dict[str, Dict[str, Any]] = {}
+    if isinstance(triage_cache_raw, dict):
+        for key, value in triage_cache_raw.items():
+            if not isinstance(value, dict):
+                continue
+            triage_cache[normalize_str(key)] = value
+    triage_llm_budget = max(1, cfg.reply_triage_llm_calls_per_scan)
+    triage_llm_calls = 0
+    triage_cache_hits = 0
+    triage_deferred = 0
+    self_identity_keys: Set[str] = resolve_self_identity_keys(client=client, my_name=my_name, logger=logger)
+    if not self_identity_keys and my_name:
+        fallback_key = author_identity_key(author_id=None, author_name=my_name)
+        if fallback_key:
+            self_identity_keys.add(fallback_key)
     scanned = 0
     new_replies = 0
     actions = 0
     skip_reasons: Dict[str, int] = {}
     provider_counts: Dict[str, int] = {}
+    triage_fail_count = 0
+    triage_parse_fail_count = 0
 
     try:
         profile_payload = client.get_agent_profile(my_name)
@@ -2382,10 +2836,10 @@ def run_startup_reply_scan(
             )
             fallback_posts = extract_posts(fallback_payload)
             mine: List[Dict[str, Any]] = []
-            my_name_lc = my_name.lower()
+            my_key = author_identity_key(author_id=None, author_name=my_name)
             for p in fallback_posts:
-                _, author_name = post_author(p)
-                if author_name and author_name.lower() == my_name_lc:
+                author_id, author_name = post_author(p)
+                if my_key and author_identity_key(author_id, author_name) == my_key:
                     mine.append(p)
                     if len(mine) >= cfg.startup_reply_scan_post_limit:
                         break
@@ -2449,28 +2903,30 @@ def run_startup_reply_scan(
         is_profile_recent = normalize_str(post.get("__scan_source")).strip().lower() == "profile_recent"
         is_my_post = bool(
             is_profile_recent
-            or
-            my_name
-            and (
-                (post_author_name and post_author_name.lower() == my_name.lower())
-                or (post_author_id and post_author_id.lower() == my_name.lower())
-            )
+            or is_self_author(post_author_id, post_author_name, self_identity_keys=self_identity_keys)
         )
-        if my_name:
+        if self_identity_keys:
             for maybe_reply in comments:
                 maybe_id = comment_id(maybe_reply)
-                _, maybe_author = comment_author(maybe_reply)
+                maybe_author_id, maybe_author = comment_author(maybe_reply)
                 parent = comment_parent_id(maybe_reply)
-                if maybe_id and maybe_author and maybe_author.lower() == my_name.lower():
+                if maybe_id and is_self_author(
+                    maybe_author_id,
+                    maybe_author,
+                    self_identity_keys=self_identity_keys,
+                ):
                     my_comment_ids.add(maybe_id)
                     my_comment_ids_in_post.add(maybe_id)
                 if not parent:
                     continue
-                if maybe_author and maybe_author.lower() == my_name.lower():
+                if is_self_author(
+                    maybe_author_id,
+                    maybe_author,
+                    self_identity_keys=self_identity_keys,
+                ):
                     replied_comment_pairs.add(f"{normalize_str(pid).strip()}:{normalize_str(parent).strip()}")
                     replied_to_comment_ids.add(parent)
                     my_replied_parent_ids.add(parent)
-        my_author_key = author_identity_key(author_id=None, author_name=my_name)
         comment_author_by_id: Dict[str, str] = {}
         comment_parent_by_id: Dict[str, str] = {}
         for entry in comments:
@@ -2483,7 +2939,7 @@ def run_startup_reply_scan(
 
         replies_by_author_on_post: Dict[str, int] = {}
         conversation_turns_by_author_on_post: Dict[str, int] = {}
-        if my_author_key:
+        if self_identity_keys:
             for entry_id, entry_author_key in comment_author_by_id.items():
                 parent_id = comment_parent_by_id.get(entry_id, "")
                 if not parent_id:
@@ -2491,12 +2947,14 @@ def run_startup_reply_scan(
                 parent_author_key = comment_author_by_id.get(parent_id, "")
                 if not parent_author_key or not entry_author_key:
                     continue
-                if entry_author_key == my_author_key and parent_author_key != my_author_key:
+                is_entry_self = entry_author_key in self_identity_keys
+                is_parent_self = parent_author_key in self_identity_keys
+                if is_entry_self and not is_parent_self:
                     replies_by_author_on_post[parent_author_key] = replies_by_author_on_post.get(parent_author_key, 0) + 1
                     conversation_turns_by_author_on_post[parent_author_key] = (
                         conversation_turns_by_author_on_post.get(parent_author_key, 0) + 1
                     )
-                elif entry_author_key != my_author_key and parent_author_key == my_author_key:
+                elif (not is_entry_self) and is_parent_self:
                     conversation_turns_by_author_on_post[entry_author_key] = (
                         conversation_turns_by_author_on_post.get(entry_author_key, 0) + 1
                     )
@@ -2509,8 +2967,23 @@ def run_startup_reply_scan(
 
             c_author_id, c_author_name = comment_author(comment)
             c_author_key = author_identity_key(c_author_id, c_author_name)
-            if my_author_key and c_author_key and c_author_key == my_author_key:
+            if my_name and _normalized_name_key(c_author_name) == _normalized_name_key(my_name):
+                skip_reasons["self_comment_name_match"] = skip_reasons.get("self_comment_name_match", 0) + 1
+                logger.info(
+                    "Reply scan skipping self comment by explicit name match comment_id=%s author=%s",
+                    cid,
+                    c_author_name or "(unknown)",
+                )
+                continue
+            if cid in my_comment_ids:
+                skip_reasons["self_comment_known"] = skip_reasons.get("self_comment_known", 0) + 1
+                continue
+            if is_self_author(c_author_id, c_author_name, self_identity_keys=self_identity_keys):
                 skip_reasons["self_comment"] = skip_reasons.get("self_comment", 0) + 1
+                continue
+            if not c_author_key:
+                skip_reasons["unknown_author"] = skip_reasons.get("unknown_author", 0) + 1
+                logger.debug("Reply scan skipping comment_id=%s reason=unknown_author", cid)
                 continue
             parent_cid = comment_parent_id(comment)
             is_reply_to_me = bool(
@@ -2648,38 +3121,80 @@ def run_startup_reply_scan(
             if cid in seen_comment_ids and (already_replied or pending_reply_exists or not is_my_post):
                 skip_reasons["already_seen"] = skip_reasons.get("already_seen", 0) + 1
                 continue
+            was_new_comment = False
             if cid not in seen_comment_ids:
                 seen_comment_ids.add(cid)
                 new_replies += 1
+                was_new_comment = True
 
             triage: Dict[str, Any]
-            try:
-                messages = build_reply_triage_messages(
-                    persona=persona_text,
-                    domain_context=domain_context_text,
-                    post=post,
-                    comment=comment,
-                    post_id=pid,
-                    comment_id=cid,
-                )
-                triage, triage_provider = call_generation_model(cfg, messages)
-                provider_counts[triage_provider] = provider_counts.get(triage_provider, 0) + 1
-                logger.debug(
-                    "Reply triage generated comment_id=%s provider=%s",
-                    cid,
-                    triage_provider,
-                )
-            except Exception as e:
-                logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
-                triage = {
-                    "should_respond": False,
-                    "confidence": 0.0,
-                    "vote_action": "none",
-                    "vote_target": "none",
-                    "response_mode": "none",
-                    "title": "",
-                    "content": "",
-                }
+            triage = triage_cache.get(cid, {})
+            if triage:
+                triage_cache_hits += 1
+            else:
+                if not was_new_comment:
+                    triage_deferred += 1
+                    skip_reasons["triage_existing_no_cache"] = skip_reasons.get("triage_existing_no_cache", 0) + 1
+                    continue
+                if triage_llm_calls >= triage_llm_budget:
+                    triage_deferred += 1
+                    skip_reasons["triage_budget_deferred"] = skip_reasons.get("triage_budget_deferred", 0) + 1
+                    if was_new_comment:
+                        seen_comment_ids.discard(cid)
+                        new_replies = max(0, new_replies - 1)
+                    continue
+                try:
+                    messages = build_reply_triage_messages(
+                        persona=persona_text,
+                        domain_context=domain_context_text,
+                        post=post,
+                        comment=comment,
+                        post_id=pid,
+                        comment_id=cid,
+                    )
+                    triage, triage_provider, _ = call_generation_model(cfg, messages)
+                    triage_llm_calls += 1
+                    provider_counts[triage_provider] = provider_counts.get(triage_provider, 0) + 1
+                    triage_cache[cid] = {
+                        "should_respond": bool(triage.get("should_respond")),
+                        "confidence": float(triage.get("confidence", 0.0)),
+                        "response_mode": normalize_response_mode(triage.get("response_mode"), default="none"),
+                        "title": normalize_str(triage.get("title")).strip(),
+                        "content": normalize_str(triage.get("content")).strip(),
+                        "vote_action": normalize_vote_action(triage.get("vote_action")),
+                        "vote_target": normalize_vote_target(triage.get("vote_target")),
+                        "ts": utc_now().isoformat(),
+                    }
+                    logger.debug(
+                        "Reply triage generated comment_id=%s provider=%s",
+                        cid,
+                        triage_provider,
+                    )
+                except Exception as e:
+                    triage_fail_count += 1
+                    err_text = normalize_str(e)
+                    is_parse_fail = (
+                        "Chatbase returned non-JSON text" in err_text
+                        or "empty text response" in err_text
+                        or "Expecting value: line 1 column 1" in err_text
+                    )
+                    if is_parse_fail:
+                        triage_parse_fail_count += 1
+                        if triage_parse_fail_count <= 2:
+                            logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
+                        else:
+                            logger.debug("Reply triage parse failure comment_id=%s error=%s", cid, e)
+                    else:
+                        logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
+                    triage = {
+                        "should_respond": False,
+                        "confidence": 0.0,
+                        "vote_action": "none",
+                        "vote_target": "none",
+                        "response_mode": "none",
+                        "title": "",
+                        "content": "",
+                    }
 
             vote_action = normalize_vote_action(triage.get("vote_action"))
             response_mode = normalize_response_mode(triage.get("response_mode"), default="none")
@@ -2815,6 +3330,7 @@ def run_startup_reply_scan(
                 parent_comment_id=cid,
                 my_name=my_name,
                 logger=logger,
+                self_identity_keys=self_identity_keys,
             ):
                 replied_to_comment_ids.add(cid)
                 replied_comment_pairs.add(pair_key)
@@ -2822,6 +3338,10 @@ def run_startup_reply_scan(
                 state["replied_comment_pairs"] = list(replied_comment_pairs)[-20000:]
                 skip_reasons["already_replied_onchain"] = skip_reasons.get("already_replied_onchain", 0) + 1
                 logger.info("Reply scan skipping reply; on-chain reply already exists comment_id=%s", cid)
+                continue
+            if c_author_key and c_author_key in self_identity_keys:
+                skip_reasons["self_comment_late_guard"] = skip_reasons.get("self_comment_late_guard", 0) + 1
+                logger.info("Reply scan late-guard skip comment_id=%s reason=self_comment", cid)
                 continue
 
             comment_allowed, comment_reason = comment_gate_status(state=state, cfg=cfg)
@@ -2927,6 +3447,7 @@ def run_startup_reply_scan(
     state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
     state["replied_comment_pairs"] = list(replied_comment_pairs)[-20000:]
     state["thread_followup_posted_pairs"] = list(thread_followup_posted_pairs)[-10000:]
+    state["reply_triage_cache"] = dict(list(triage_cache.items())[-10000:])
     save_state(cfg.state_path, state)
     logger.info(
         "Reply scan complete scanned_comments=%s new_replies=%s actions=%s pending=%s",
@@ -2941,6 +3462,19 @@ def run_startup_reply_scan(
     if skip_reasons:
         summary = ", ".join([f"{k}={v}" for k, v in sorted(skip_reasons.items())])
         logger.info("Reply scan skip_summary %s", summary)
+    if triage_fail_count:
+        logger.info(
+            "Reply scan triage_failures total=%s parse_format=%s",
+            triage_fail_count,
+            triage_parse_fail_count,
+        )
+    logger.info(
+        "Reply scan triage_usage cache_hits=%s llm_calls=%s deferred=%s budget=%s",
+        triage_cache_hits,
+        triage_llm_calls,
+        triage_deferred,
+        triage_llm_budget,
+    )
     return approve_all_actions
 
 
@@ -2971,28 +3505,36 @@ def confirm_action(
         )
         return False, approve_all, False
 
-    print("")
-    print("[confirm] Proposed Moltbook action")
-    print(f"  action: {action}")
-    print(f"  post_id: {pid}")
-    print(f"  author: {author}")
-    print(f"  submolt: {submolt}")
-    print(f"  url: {url}")
-    print(f"  title: {title}")
+    _ui_print_panel(
+        title="[CONFIRM] PROPOSED ACTION",
+        rows=[
+            ("action", action),
+            ("post_id", pid),
+            ("author", author),
+            ("submolt", submolt),
+            ("url", url),
+            ("title", title),
+        ],
+        tone="yellow",
+    )
     if content_preview:
-        print("  draft:")
-        print("  ---")
-        for line in content_preview.splitlines() or [""]:
-            print(f"  {line}")
-        print("  ---")
+        _ui_print_panel(
+            title="DRAFT PREVIEW",
+            rows=[("content", content_preview)],
+            tone="cyan",
+        )
     prompt = "Proceed? [y]es / [n]o / [a]ll remaining / [q]uit: "
     choice = ""
     if cfg.confirm_timeout_seconds > 0:
         default_choice = cfg.confirm_default_choice
         print(
-            (
-                f"[auto] default='{default_choice}' in {cfg.confirm_timeout_seconds}s "
-                "if no input is provided."
+            _ui_paint(
+                (
+                    f"[auto] default='{default_choice}' in {cfg.confirm_timeout_seconds}s "
+                    "if no input is provided."
+                ),
+                tone="magenta",
+                bold=True,
             )
         )
         print(prompt, end="", flush=True)
@@ -3031,9 +3573,12 @@ def confirm_keyword_addition(
         )
         return False, approve_all, False
 
-    print("")
-    print("[confirm] Learned keyword suggestion")
-    print(f"  keyword: {keyword}")
+    _ui_print_panel(
+        title="[CONFIRM] LEARNED KEYWORD",
+        rows=[("keyword", keyword)],
+        tone="yellow",
+        width=56,
+    )
     choice = input("Add this keyword to learning store? [y]es / [n]o / [a]ll / [q]uit: ").strip().lower()
     if choice in {"y", "yes"}:
         return True, approve_all, False
@@ -3085,13 +3630,7 @@ def review_pending_keyword_suggestions(
             len(learned_after),
             len(active_keywords),
         )
-        print("")
-        print("============================================")
-        print("KEYWORD ADDED")
-        print(f"keyword: {keyword}")
-        print(f"learned_total: {len(learned_after)}")
-        print("============================================")
-        print("")
+        print_keyword_added_banner(keyword=keyword, learned_total=len(learned_after))
 
     keyword_store["pending_suggestions"] = merge_keywords([], remaining)
     save_keyword_store(cfg.keyword_store_path, keyword_store)
@@ -3398,7 +3937,7 @@ def maybe_write_self_improvement_suggestions(
                 feedback_context=feedback_context,
                 deterministic_hints=deterministic_hints,
             )
-            generated, provider_used = call_generation_model(cfg, messages)
+            generated, provider_used, _ = call_generation_model(cfg, messages)
             if isinstance(generated, dict):
                 llm_payload = generated
             else:
@@ -3412,7 +3951,8 @@ def maybe_write_self_improvement_suggestions(
         provider_used = "deterministic"
 
     max_suggestions = max(1, cfg.self_improve_max_suggestions)
-    recent_raw = load_recent_improvement_raw_entries(path=cfg.self_improve_path, limit=12)
+    # Keep a longer novelty memory so the same recommendation is not repeated every few cycles.
+    recent_raw = load_recent_improvement_raw_entries(path=cfg.self_improve_path, limit=72)
     llm_suggestions = sanitize_improvement_suggestions(
         suggestions=llm_payload,
         recent_raw_entries=recent_raw,
@@ -3601,14 +4141,15 @@ def run_loop() -> None:
     cfg = load_config()
     logger = setup_logging(cfg)
     client = MoltbookClient()
+    print_runtime_banner(cfg)
 
     logger.info(
         (
             "Autonomy loop starting discovery_mode=%s reply_mode=%s poll_seconds=%s feed_limit=%s "
             "search_limit=%s idle_poll_seconds=%s dry_run=%s draft_shortlist=%s draft_signal_min_score=%s "
             "dynamic_shortlist=%s dynamic_shortlist_bounds=%s-%s proactive_daily_target=%s "
-            "proactive_force_general=%s llm_provider=%s openai_enabled=%s "
-            "chatbase_enabled=%s self_improve_enabled=%s state_path=%s"
+            "proactive_force_general=%s llm_provider=%s openai_configured=%s "
+            "chatbase_configured=%s auto_openai_fallback=%s self_improve_enabled=%s state_path=%s"
         ),
         cfg.discovery_mode,
         cfg.reply_mode,
@@ -3627,6 +4168,7 @@ def run_loop() -> None:
         cfg.llm_provider,
         bool(cfg.openai_api_key),
         bool(cfg.chatbase_api_key and cfg.chatbase_chatbot_id),
+        cfg.llm_auto_fallback_to_openai,
         cfg.self_improve_enabled,
         cfg.state_path,
     )
@@ -3706,6 +4248,32 @@ def run_loop() -> None:
     iteration = 0
     approve_all_actions = False
     approve_all_keyword_changes = False
+    startup_priority_post_sent = False
+    if should_prioritize_proactive_post(state=state, cfg=cfg):
+        since_last_post = seconds_since_last_post(state=state)
+        logger.info(
+            "Startup proactive priority trigger post_slot_open=true last_post_age_seconds=%s",
+            since_last_post if since_last_post is not None else -1,
+        )
+        proactive_actions, should_stop, approve_all_actions = maybe_run_proactive_post(
+            client=client,
+            cfg=cfg,
+            logger=logger,
+            state=state,
+            post_memory=post_memory,
+            my_name=my_name,
+            persona_text=persona_text,
+            domain_context_text=domain_context_text,
+            approve_all_actions=approve_all_actions,
+        )
+        save_state(cfg.state_path, state)
+        save_post_engine_memory(cfg.proactive_memory_path, post_memory)
+        if should_stop:
+            return
+        if proactive_actions > 0:
+            startup_priority_post_sent = True
+            logger.info("Startup proactive priority posted_before_reply_scan=1")
+
     approve_all_actions = maybe_subscribe_relevant_submolts(
         client=client,
         cfg=cfg,
@@ -3714,16 +4282,22 @@ def run_loop() -> None:
         approve_all_actions=approve_all_actions,
     )
     save_state(cfg.state_path, state)
-    approve_all_actions = run_startup_reply_scan(
-        client=client,
-        cfg=cfg,
-        logger=logger,
-        state=state,
-        my_name=my_name,
-        persona_text=persona_text,
-        domain_context_text=domain_context_text,
-        approve_all_actions=approve_all_actions,
-    )
+
+    if startup_priority_post_sent:
+        logger.info("Startup reply scan deferred reason=priority_post_sent")
+    elif should_prioritize_proactive_post(state=state, cfg=cfg):
+        logger.info("Startup reply scan deferred reason=priority_post_pending")
+    else:
+        approve_all_actions = run_startup_reply_scan(
+            client=client,
+            cfg=cfg,
+            logger=logger,
+            state=state,
+            my_name=my_name,
+            persona_text=persona_text,
+            domain_context_text=domain_context_text,
+            approve_all_actions=approve_all_actions,
+        )
     search_state: Dict[str, Any] = {"retry_cycle": 1, "keyword_cursor": 0}
     while True:
         iteration += 1
@@ -3735,32 +4309,82 @@ def run_loop() -> None:
 
             print_cycle_banner(iteration=iteration, mode=cfg.discovery_mode, keywords=len(active_keywords))
             logger.info("Poll cycle=%s start", iteration)
-            pending_executed = execute_pending_actions(
-                client=client,
-                cfg=cfg,
-                state=state,
-                logger=logger,
-                my_name=my_name,
-            )
-            if pending_executed:
+            priority_post_required = should_prioritize_proactive_post(state=state, cfg=cfg)
+            pending_executed = 0
+            if priority_post_required:
+                logger.info("Cycle=%s pending actions deferred reason=priority_post_pending", iteration)
+            else:
+                pending_executed = execute_pending_actions(
+                    client=client,
+                    cfg=cfg,
+                    state=state,
+                    logger=logger,
+                    my_name=my_name,
+                )
+                if pending_executed:
+                    save_state(cfg.state_path, state)
+            early_proactive_actions = 0
+            early_post_action_sent = False
+            if should_prioritize_proactive_post(state=state, cfg=cfg):
+                since_last_post = seconds_since_last_post(state=state)
+                logger.info(
+                    "Cycle=%s proactive priority trigger post_slot_open=true last_post_age_seconds=%s",
+                    iteration,
+                    since_last_post if since_last_post is not None else -1,
+                )
+                proactive_actions, should_stop, approve_all_actions = maybe_run_proactive_post(
+                    client=client,
+                    cfg=cfg,
+                    logger=logger,
+                    state=state,
+                    post_memory=post_memory,
+                    my_name=my_name,
+                    persona_text=persona_text,
+                    domain_context_text=domain_context_text,
+                    approve_all_actions=approve_all_actions,
+                )
+                if should_stop:
+                    return
+                if proactive_actions > 0:
+                    early_proactive_actions += proactive_actions
+                    early_post_action_sent = True
+                    save_state(cfg.state_path, state)
+                    save_post_engine_memory(cfg.proactive_memory_path, post_memory)
+            if priority_post_required and not early_post_action_sent:
+                logger.info(
+                    "Cycle=%s priority_post_pending=true defer_reply_scan_and_discovery=1",
+                    iteration,
+                )
                 save_state(cfg.state_path, state)
+                save_post_engine_memory(cfg.proactive_memory_path, post_memory)
+                sleep_seconds = max(1, cfg.idle_poll_seconds)
+                sleep_reason = "priority_post_pending"
+                logger.info("Sleeping seconds=%s reason=%s", sleep_seconds, sleep_reason)
+                time.sleep(sleep_seconds)
+                continue
             if cfg.startup_reply_scan_enabled and cfg.reply_scan_interval_cycles > 0:
                 if iteration % cfg.reply_scan_interval_cycles == 0:
-                    logger.info(
-                        "Reply scan trigger cycle=%s interval=%s",
-                        iteration,
-                        cfg.reply_scan_interval_cycles,
-                    )
-                    approve_all_actions = run_startup_reply_scan(
-                        client=client,
-                        cfg=cfg,
-                        logger=logger,
-                        state=state,
-                        my_name=my_name,
-                        persona_text=persona_text,
-                        domain_context_text=domain_context_text,
-                        approve_all_actions=approve_all_actions,
-                    )
+                    if early_post_action_sent:
+                        logger.info(
+                            "Reply scan skipped cycle=%s reason=priority_post_sent",
+                            iteration,
+                        )
+                    else:
+                        logger.info(
+                            "Reply scan trigger cycle=%s interval=%s",
+                            iteration,
+                            cfg.reply_scan_interval_cycles,
+                        )
+                        approve_all_actions = run_startup_reply_scan(
+                            client=client,
+                            cfg=cfg,
+                            logger=logger,
+                            state=state,
+                            my_name=my_name,
+                            persona_text=persona_text,
+                            domain_context_text=domain_context_text,
+                            approve_all_actions=approve_all_actions,
+                        )
             posts, sources = discover_posts(
                 client=client,
                 cfg=cfg,
@@ -3812,9 +4436,9 @@ def run_loop() -> None:
             eligible_now = 0
             drafted_count = 0
             model_approved = 0
-            acted = 0
-            reply_actions = 0
-            post_action_sent = False
+            acted = early_proactive_actions
+            reply_actions = early_proactive_actions
+            post_action_sent = early_post_action_sent
             comment_action_sent = False
             consecutive_declines = 0
             recovery_attempts = 0
@@ -3881,7 +4505,7 @@ def run_loop() -> None:
                         continue
 
                 author_id, author_name = post_author(post)
-                if my_name and author_name and author_name.lower() == str(my_name).lower():
+                if my_name and _normalized_name_key(author_name) == _normalized_name_key(my_name):
                     skip_reasons["self_post"] = skip_reasons.get("self_post", 0) + 1
                     mark_seen(pid)
                     logger.debug(
@@ -3969,7 +4593,7 @@ def run_loop() -> None:
                             max_terms=4,
                         ),
                     )
-                    draft, provider_used = call_generation_model(cfg, messages)
+                    draft, provider_used, _ = call_generation_model(cfg, messages)
                     provider_counts[provider_used] = provider_counts.get(provider_used, 0) + 1
                     drafted_count += 1
                     logger.debug(
@@ -4002,7 +4626,7 @@ def run_loop() -> None:
                 if (not should_respond or confidence < cfg.min_confidence) and can_try_recovery:
                     try:
                         recovery_messages = _build_recovery_messages(messages, signal_score=signal_score)
-                        recovered_draft, recovery_provider = call_generation_model(cfg, recovery_messages)
+                        recovered_draft, recovery_provider, _ = call_generation_model(cfg, recovery_messages)
                         provider_counts[recovery_provider] = provider_counts.get(recovery_provider, 0) + 1
                         drafted_count += 1
                         recovery_attempts += 1
@@ -4616,13 +5240,7 @@ def run_loop() -> None:
                                 len(learned_after),
                                 len(active_keywords),
                             )
-                            print("")
-                            print("============================================")
-                            print("KEYWORD ADDED")
-                            print(f"keyword: {keyword}")
-                            print(f"learned_total: {len(learned_after)}")
-                            print("============================================")
-                            print("")
+                            print_keyword_added_banner(keyword=keyword, learned_total=len(learned_after))
                     else:
                         pending_before = keyword_store.get("pending_suggestions", [])
                         combined_pending = merge_keywords(pending_before, suggestions)

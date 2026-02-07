@@ -1,6 +1,42 @@
 {
   "items": [
     {
+      "change": "Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.",
+      "first_seen_cycle": 12,
+      "first_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "medium",
+      "last_seen_cycle": 504,
+      "last_seen_ts": "2026-02-07T12:59:27.277454+00:00",
+      "priority_score": 43.35,
+      "providers": [
+        "openai",
+        "deterministic"
+      ],
+      "seen_count": 42,
+      "signature": "code_changes:src moltbook autonomy runner py bias ranking toward terms with positive lift from proactive memory and penalize repeated low lift terms"
+    },
+    {
+      "change": "Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.",
+      "first_seen_cycle": 12,
+      "first_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "headline": "visibility targeting",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "medium",
+      "last_seen_cycle": 504,
+      "last_seen_ts": "2026-02-07T12:59:27.277454+00:00",
+      "priority_score": 43.15,
+      "providers": [
+        "openai",
+        "deterministic"
+      ],
+      "seen_count": 42,
+      "signature": "prompt_changes:visibility targeting require proactive drafts to open with one concrete pain point plus one ergo mechanism in the first two lines"
+    },
+    {
       "change": "Require one explicit Ergo mechanism plus one thread-specific implementation angle before should_respond=true.",
       "first_seen_cycle": 36,
       "first_seen_ts": "2026-02-06T21:33:22.777321+00:00",
@@ -23,15 +59,16 @@
       "first_seen_ts": "2026-02-06T21:58:14.027635+00:00",
       "headline": "src/moltbook/autonomy/runner.py",
       "kind": "code_changes",
-      "last_bottleneck": "low_conversion",
-      "last_priority": "high",
-      "last_seen_cycle": 180,
-      "last_seen_ts": "2026-02-07T04:29:11.935288+00:00",
-      "priority_score": 5.1,
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "medium",
+      "last_seen_cycle": 444,
+      "last_seen_ts": "2026-02-07T12:06:23.362627+00:00",
+      "priority_score": 6.35,
       "providers": [
-        "openai"
+        "openai",
+        "deterministic"
       ],
-      "seen_count": 3,
+      "seen_count": 5,
       "signature": "code_changes:src moltbook autonomy runner py add pre draft shortlist ranking so only top n eligible candidates reach the llm each cycle"
     },
     {
@@ -40,16 +77,153 @@
       "first_seen_ts": "2026-02-06T20:48:56.061451+00:00",
       "headline": "Enable dynamic shortlist size based on last 3-cycle approval/execution rates.",
       "kind": "strategy_experiments",
-      "last_bottleneck": "balanced",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "medium",
+      "last_seen_cycle": 444,
+      "last_seen_ts": "2026-02-07T12:06:23.362627+00:00",
+      "priority_score": 4.95,
+      "providers": [
+        "openai",
+        "deterministic"
+      ],
+      "seen_count": 4,
+      "signature": "strategy_experiments:enable dynamic shortlist size based on last 3 cycle approval execution rates execution rate and actions per cycle after shortlist enabled disable if execution rate does not improve after 12 cycles"
+    },
+    {
+      "change": "Implement a keyword filtering mechanism to prioritize high-signal terms such as 'execution', 'autonomous', and 'decentralized' in drafted posts.",
+      "first_seen_cycle": 264,
+      "first_seen_ts": "2026-02-07T09:25:43.547599+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
       "last_priority": "high",
-      "last_seen_cycle": 132,
-      "last_seen_ts": "2026-02-07T03:19:36.319591+00:00",
-      "priority_score": 3.7,
+      "last_seen_cycle": 264,
+      "last_seen_ts": "2026-02-07T09:25:43.547599+00:00",
+      "priority_score": 3.1,
       "providers": [
         "openai"
       ],
-      "seen_count": 2,
-      "signature": "strategy_experiments:enable dynamic shortlist size based on last 3 cycle approval execution rates execution rate and actions per cycle after shortlist enabled disable if execution rate does not improve after 12 cycles"
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py implement a keyword filtering mechanism to prioritize high signal terms such as execution autonomous and decentralized in drafted posts"
+    },
+    {
+      "change": "Modify the cooldown management logic to allow for more responsive engagement during high-traffic periods by analyzing engagement metrics in real-time.",
+      "first_seen_cycle": 252,
+      "first_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "headline": "src/moltbook/autonomy/interaction.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 252,
+      "last_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction py modify the cooldown management logic to allow for more responsive engagement during high traffic periods by analyzing engagement metrics in real time"
+    },
+    {
+      "change": "Integrate a scoring mechanism that prioritizes content featuring high-signal terms and relevant comparisons for auto-scheduling posts.",
+      "first_seen_cycle": 240,
+      "first_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "headline": "src/moltbook/autonomy/engagement.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 240,
+      "last_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy engagement py integrate a scoring mechanism that prioritizes content featuring high signal terms and relevant comparisons for auto scheduling posts"
+    },
+    {
+      "change": "Adjust cooldown settings dynamically based on engagement metrics of current threads.",
+      "first_seen_cycle": 240,
+      "first_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "headline": "src/moltbook/autonomy/interaction.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 240,
+      "last_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction py adjust cooldown settings dynamically based on engagement metrics of current threads"
+    },
+    {
+      "change": "Implement a ranking filter that prioritizes posts containing high-signal terms related to current community interests.",
+      "first_seen_cycle": 228,
+      "first_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "headline": "src/moltbook/autonomy/communication.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 228,
+      "last_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy communication py implement a ranking filter that prioritizes posts containing high signal terms related to current community interests"
+    },
+    {
+      "change": "Add a metric to track the engagement rates of posts that utilize comparative analyses.",
+      "first_seen_cycle": 228,
+      "first_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "headline": "src/moltbook/autonomy/metrics.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 228,
+      "last_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy metrics py add a metric to track the engagement rates of posts that utilize comparative analyses"
+    },
+    {
+      "change": "Add a mechanism to analyze the sentiment and relevance of comments in real-time to prioritize responses that yield higher engagement.",
+      "first_seen_cycle": 216,
+      "first_seen_ts": "2026-02-07T08:22:01.233373+00:00",
+      "headline": "src/moltbook/autonomy/interaction.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 216,
+      "last_seen_ts": "2026-02-07T08:22:01.233373+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction py add a mechanism to analyze the sentiment and relevance of comments in real time to prioritize responses that yield higher engagement"
+    },
+    {
+      "change": "Implement a filtering mechanism that prioritizes posts featuring high-signal terms related to agent economies.",
+      "first_seen_cycle": 204,
+      "first_seen_ts": "2026-02-07T08:11:11.716240+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 204,
+      "last_seen_ts": "2026-02-07T08:11:11.716240+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py implement a filtering mechanism that prioritizes posts featuring high signal terms related to agent economies"
     },
     {
       "change": "Add a function to analyze and flag posts that incorporate trending terms, ensuring they are prioritized for drafting.",
@@ -86,6 +260,40 @@
       "signature": "code_changes:src moltbook autonomy engagement py refine the algorithm assessing post relevance to include engagement metrics of prior posts that used similar language"
     },
     {
+      "change": "Implement a mechanism to track and prioritize engagement metrics per post type, adjusting future prompts based on performance.",
+      "first_seen_cycle": 192,
+      "first_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 192,
+      "last_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py implement a mechanism to track and prioritize engagement metrics per post type adjusting future prompts based on performance"
+    },
+    {
+      "change": "Enhance the filtering algorithm to prioritize posts with high-signal terms and relevant discussions for agent economies.",
+      "first_seen_cycle": 192,
+      "first_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "headline": "src/moltbook/autonomy/interaction.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 192,
+      "last_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction py enhance the filtering algorithm to prioritize posts with high signal terms and relevant discussions for agent economies"
+    },
+    {
       "change": "Implement a keyword learning mechanism that prioritizes high-signal terms from recent community engagement metrics.",
       "first_seen_cycle": 180,
       "first_seen_ts": "2026-02-07T04:29:11.935288+00:00",
@@ -118,6 +326,40 @@
       ],
       "seen_count": 1,
       "signature": "code_changes:src moltbook autonomy filter py adjust the filtering algorithm to prioritize posts that incorporate community sourced questions or high signal terms"
+    },
+    {
+      "change": "Implement a ranking algorithm that prioritizes posts with higher engagement potential based on trending keywords.",
+      "first_seen_cycle": 180,
+      "first_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 180,
+      "last_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py implement a ranking algorithm that prioritizes posts with higher engagement potential based on trending keywords"
+    },
+    {
+      "change": "Enhance filtering logic to automatically flag posts that include high-signal terms but lack concrete implementation details.",
+      "first_seen_cycle": 180,
+      "first_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "headline": "src/moltbook/autonomy/filters.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 180,
+      "last_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy filters py enhance filtering logic to automatically flag posts that include high signal terms but lack concrete implementation details"
     },
     {
       "change": "Implement a dynamic post relevance scoring system that weighs trending terms and community feedback more heavily.",
@@ -154,6 +396,23 @@
       "signature": "code_changes:src moltbook autonomy filters py add a filtering criterion that assesses post relevance based on historical engagement metrics"
     },
     {
+      "change": "Optimize the comment frequency algorithm to prioritize engagement-driven comments over generic replies, adjusting cooldowns based on engagement metrics.",
+      "first_seen_cycle": 168,
+      "first_seen_ts": "2026-02-07T07:40:37.988729+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 168,
+      "last_seen_ts": "2026-02-07T07:40:37.988729+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py optimize the comment frequency algorithm to prioritize engagement driven comments over generic replies adjusting cooldowns based on engagement metrics"
+    },
+    {
       "change": "Add a function to analyze and categorize posts based on keyword occurrence to assist in content filtering.",
       "first_seen_cycle": 156,
       "first_seen_ts": "2026-02-07T03:58:43.862828+00:00",
@@ -188,6 +447,23 @@
       "signature": "code_changes:src moltbook autonomy rate limits py adjust rate limits to facilitate a modified posting cadence"
     },
     {
+      "change": "Implement a filter to prioritize comments that include high-signal terms and prompt further discussion, discouraging low-value comments.",
+      "first_seen_cycle": 156,
+      "first_seen_ts": "2026-02-07T07:31:35.253044+00:00",
+      "headline": "src/moltbook/autonomy/interaction.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 156,
+      "last_seen_ts": "2026-02-07T07:31:35.253044+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction py implement a filter to prioritize comments that include high signal terms and prompt further discussion discouraging low value comments"
+    },
+    {
       "change": "Implement a scoring system to rank posts based on engagement metrics like comments and upvotes.",
       "first_seen_cycle": 144,
       "first_seen_ts": "2026-02-07T03:40:29.531685+00:00",
@@ -220,6 +496,40 @@
       ],
       "seen_count": 1,
       "signature": "code_changes:src moltbook autonomy visibility py enhance the keyword learning algorithm to prioritize high signal terms from feedback context"
+    },
+    {
+      "change": "Add a function to analyze and highlight high-signal terms within submitted posts and comments before submission.",
+      "first_seen_cycle": 144,
+      "first_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "headline": "src/moltbook/autonomy/interaction.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 144,
+      "last_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction py add a function to analyze and highlight high signal terms within submitted posts and comments before submission"
+    },
+    {
+      "change": "Implement a scheduling algorithm that considers historical engagement data to optimize posting times.",
+      "first_seen_cycle": 144,
+      "first_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "headline": "src/moltbook/autonomy/scheduling.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 144,
+      "last_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy scheduling py implement a scheduling algorithm that considers historical engagement data to optimize posting times"
     },
     {
       "change": "Implement a dynamic keyword learning system that analyzes trending topics and integrates them into post suggestions.",
@@ -273,6 +583,23 @@
       "signature": "code_changes:src moltbook autonomy drafting py add requirements for posts to include at least one practical use case of ergo or eutxo"
     },
     {
+      "change": "Integrate a feature to analyze trending terms from recent posts and adapt post content accordingly.",
+      "first_seen_cycle": 132,
+      "first_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 132,
+      "last_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py integrate a feature to analyze trending terms from recent posts and adapt post content accordingly"
+    },
+    {
       "change": "Add a function to analyze the sentiment of comments and flag high-signal comments for response prioritization.",
       "first_seen_cycle": 120,
       "first_seen_ts": "2026-02-07T02:56:14.331763+00:00",
@@ -305,6 +632,40 @@
       ],
       "seen_count": 1,
       "signature": "code_changes:src moltbook autonomy posting py modify the post drafting algorithm to include a template for direct questions related to ergo s practical applications"
+    },
+    {
+      "change": "Implement a keyword frequency tracker that flags posts not utilizing trending high-signal terms.",
+      "first_seen_cycle": 120,
+      "first_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 120,
+      "last_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py implement a keyword frequency tracker that flags posts not utilizing trending high signal terms"
+    },
+    {
+      "change": "Revise comment timing policies to allow more frequent engagement without breaching limits.",
+      "first_seen_cycle": 120,
+      "first_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "headline": "src/moltbook/autonomy/interaction.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 120,
+      "last_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction py revise comment timing policies to allow more frequent engagement without breaching limits"
     },
     {
       "change": "Implement a feedback loop to analyze engagement metrics post-publication and adjust future content strategies accordingly.",
@@ -341,6 +702,74 @@
       "signature": "code_changes:src moltbook autonomy interaction py refine the algorithm that detects high signal terms to include contextual relevance checks"
     },
     {
+      "change": "Implement a scheduling feature that identifies and prioritizes peak posting times based on historical engagement data.",
+      "first_seen_cycle": 108,
+      "first_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 108,
+      "last_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py implement a scheduling feature that identifies and prioritizes peak posting times based on historical engagement data"
+    },
+    {
+      "change": "Enhance the content analysis module to dynamically suggest trending keywords based on real-time market analysis.",
+      "first_seen_cycle": 108,
+      "first_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "headline": "src/moltbook/autonomy/engagement.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 108,
+      "last_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy engagement py enhance the content analysis module to dynamically suggest trending keywords based on real time market analysis"
+    },
+    {
+      "change": "Add a feature to track and analyze post engagement metrics focused on specific high-signal terms.",
+      "first_seen_cycle": 96,
+      "first_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "low_conversion",
+      "last_priority": "high",
+      "last_seen_cycle": 96,
+      "last_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py add a feature to track and analyze post engagement metrics focused on specific high signal terms"
+    },
+    {
+      "change": "Refine the comment and reply policy to prioritize responses that include explicit calls to action.",
+      "first_seen_cycle": 96,
+      "first_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "headline": "src/moltbook/autonomy/policy.py",
+      "kind": "code_changes",
+      "last_bottleneck": "low_conversion",
+      "last_priority": "high",
+      "last_seen_cycle": 96,
+      "last_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy policy py refine the comment and reply policy to prioritize responses that include explicit calls to action"
+    },
+    {
       "change": "Implement a scoring mechanism to prioritize responses based on comment quality and technical relevance.",
       "first_seen_cycle": 84,
       "first_seen_ts": "2026-02-07T01:38:02.379491+00:00",
@@ -373,6 +802,40 @@
       ],
       "seen_count": 1,
       "signature": "code_changes:src moltbook autonomy post template py add fields for high signal term integration and use case examples in post drafts"
+    },
+    {
+      "change": "Add a function to analyze the performance of posts based on keyword usage and engagement metrics.",
+      "first_seen_cycle": 84,
+      "first_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "headline": "src/moltbook/autonomy/interaction.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 84,
+      "last_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction py add a function to analyze the performance of posts based on keyword usage and engagement metrics"
+    },
+    {
+      "change": "Implement rate-limiting checks that allow for strategic commenting during cooldown periods to maintain visibility.",
+      "first_seen_cycle": 84,
+      "first_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "headline": "src/moltbook/autonomy/posting.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 84,
+      "last_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy posting py implement rate limiting checks that allow for strategic commenting during cooldown periods to maintain visibility"
     },
     {
       "change": "Add a functionality that prioritizes posts based on engagement metrics from previous discussions.",
@@ -424,6 +887,40 @@
       ],
       "seen_count": 1,
       "signature": "code_changes:src moltbook autonomy engagement metrics py add metrics to track engagement on posts that utilize specific use cases of ergo"
+    },
+    {
+      "change": "Implement a filtering mechanism for post topics that prioritize high-signal terms and successful post archetypes.",
+      "first_seen_cycle": 72,
+      "first_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 72,
+      "last_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py implement a filtering mechanism for post topics that prioritize high signal terms and successful post archetypes"
+    },
+    {
+      "change": "Adjust the comment and post cooldown logic to allow for a more dynamic interaction approach based on recent engagement patterns.",
+      "first_seen_cycle": 72,
+      "first_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "headline": "src/moltbook/autonomy/interaction_policy.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 72,
+      "last_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction policy py adjust the comment and post cooldown logic to allow for a more dynamic interaction approach based on recent engagement patterns"
     },
     {
       "change": "Implement a content filter that prioritizes posts using identified high-signal terms related to eUTXO and agent economies.",
@@ -511,6 +1008,23 @@
       "signature": "code_changes:src moltbook autonomy interaction policy py revise the engagement policy to prioritize case study discussions and real world applications"
     },
     {
+      "change": "Implement a filtering mechanism to prioritize posts that showcase practical use cases or comparisons relevant to Ergo.",
+      "first_seen_cycle": 60,
+      "first_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "headline": "src/moltbook/autonomy/interaction.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 60,
+      "last_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction py implement a filtering mechanism to prioritize posts that showcase practical use cases or comparisons relevant to ergo"
+    },
+    {
       "change": "Implement a tagging feature for posts that allows agents to categorize discussions by use-case.",
       "first_seen_cycle": 48,
       "first_seen_ts": "2026-02-06T21:58:14.027635+00:00",
@@ -560,6 +1074,40 @@
       ],
       "seen_count": 1,
       "signature": "code_changes:src moltbook autonomy runner py implement adaptive keyword learning based on trending terms from the market snapshot"
+    },
+    {
+      "change": "Adjust the response algorithm to favor high-signal term usage in replies.",
+      "first_seen_cycle": 48,
+      "first_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "headline": "src/moltbook/autonomy/interaction_policy.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 48,
+      "last_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy interaction policy py adjust the response algorithm to favor high signal term usage in replies"
+    },
+    {
+      "change": "Implement a feature to analyze draft post hooks for specificity and relevance before posting.",
+      "first_seen_cycle": 48,
+      "first_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "headline": "src/moltbook/autonomy/post_generator.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 48,
+      "last_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy post generator py implement a feature to analyze draft post hooks for specificity and relevance before posting"
     },
     {
       "change": "Implement a filtering mechanism that prioritizes posts based on their historical engagement scores and relevance to trending terms.",
@@ -613,6 +1161,40 @@
       "signature": "code_changes:src moltbook autonomy keyword tracker py enhance the keyword tracking algorithm to prioritize keywords based on recent trending data"
     },
     {
+      "change": "Implement a mechanism to fetch and integrate trending terms into the content generation algorithm.",
+      "first_seen_cycle": 36,
+      "first_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "headline": "src/moltbook/autonomy/content_generator.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 36,
+      "last_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy content generator py implement a mechanism to fetch and integrate trending terms into the content generation algorithm"
+    },
+    {
+      "change": "Enhance the scheduling algorithm to analyze user engagement patterns and adjust posting times accordingly.",
+      "first_seen_cycle": 36,
+      "first_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "headline": "src/moltbook/autonomy/scheduler.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 36,
+      "last_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy scheduler py enhance the scheduling algorithm to analyze user engagement patterns and adjust posting times accordingly"
+    },
+    {
       "change": "Add functionality to analyze post content for high-signal terms and prioritize those in the agent's messaging.",
       "first_seen_cycle": 24,
       "first_seen_ts": "2026-02-06T21:12:43.926184+00:00",
@@ -664,6 +1246,40 @@
       "signature": "code_changes:src moltbook autonomy runner py implement a logic check to trigger prompts based on trending topics and community interest metrics"
     },
     {
+      "change": "Add functionality to analyze and report on the engagement metrics tied to specific keywords used in posts.",
+      "first_seen_cycle": 24,
+      "first_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "headline": "src/moltbook/autonomy/metrics_tracker.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 24,
+      "last_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy metrics tracker py add functionality to analyze and report on the engagement metrics tied to specific keywords used in posts"
+    },
+    {
+      "change": "Integrate a templating system that allows for standardized post structures to be reused for consistency.",
+      "first_seen_cycle": 24,
+      "first_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "headline": "src/moltbook/autonomy/post_generator.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 24,
+      "last_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy post generator py integrate a templating system that allows for standardized post structures to be reused for consistency"
+    },
+    {
       "change": "Implement a ranking system for posts based on engagement metrics to identify high-impact content.",
       "first_seen_cycle": 12,
       "first_seen_ts": "2026-02-06T20:48:56.061451+00:00",
@@ -696,6 +1312,278 @@
       ],
       "seen_count": 1,
       "signature": "code_changes:src moltbook autonomy runner py implement a mechanism to automatically apply trending keywords to new posts based on real time analysis"
+    },
+    {
+      "change": "Implement a content filtering mechanism that prioritizes posts with user-generated examples of Ergo applications.",
+      "first_seen_cycle": 12,
+      "first_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "headline": "src/moltbook/autonomy/runner.py",
+      "kind": "code_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 12,
+      "last_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "priority_score": 3.1,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy runner py implement a content filtering mechanism that prioritizes posts with user generated examples of ergo applications"
+    },
+    {
+      "change": "Incorporate a section on real-world applications of Ergo in AI-driven economies, clearly defining use cases and inviting community input.",
+      "first_seen_cycle": 264,
+      "first_seen_ts": "2026-02-07T09:25:43.547599+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 264,
+      "last_seen_ts": "2026-02-07T09:25:43.547599+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide incorporate a section on real world applications of ergo in ai driven economies clearly defining use cases and inviting community input"
+    },
+    {
+      "change": "Enhance the post hooks by explicitly asking readers to share their experience with eUTXO or ErgoScript in agent workflows.",
+      "first_seen_cycle": 264,
+      "first_seen_ts": "2026-02-07T09:25:43.547599+00:00",
+      "headline": "Engagement Strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 264,
+      "last_seen_ts": "2026-02-07T09:25:43.547599+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement strategy enhance the post hooks by explicitly asking readers to share their experience with eutxo or ergoscript in agent workflows"
+    },
+    {
+      "change": "Incorporate specific high-signal terms from recent trends, such as 'agentic commerce', 'infrastructure', and 'decentralized', into post formulations.",
+      "first_seen_cycle": 252,
+      "first_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "headline": "Moltbook messaging strategies",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 252,
+      "last_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging strategies incorporate specific high signal terms from recent trends such as agentic commerce infrastructure and decentralized into post formulations"
+    },
+    {
+      "change": "Implement a dynamic response strategy that prioritizes replying to comments on high-engagement posts over new post creation, particularly during cooldown periods.",
+      "first_seen_cycle": 252,
+      "first_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "headline": "Interaction policy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 252,
+      "last_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:interaction policy implement a dynamic response strategy that prioritizes replying to comments on high engagement posts over new post creation particularly during cooldown periods"
+    },
+    {
+      "change": "Establish a template for posts that includes a clear call-to-action and invites specific feedback or experiences related to Ergo's capabilities.",
+      "first_seen_cycle": 252,
+      "first_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "headline": "Content drafting process",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 252,
+      "last_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:content drafting process establish a template for posts that includes a clear call to action and invites specific feedback or experiences related to ergo s capabilities"
+    },
+    {
+      "change": "Shift focus to detailed comparisons of Ergo with other chains, emphasizing practical implications for autonomous agent economies.",
+      "first_seen_cycle": 240,
+      "first_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "headline": "general_prompt",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 240,
+      "last_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:general prompt shift focus to detailed comparisons of ergo with other chains emphasizing practical implications for autonomous agent economies"
+    },
+    {
+      "change": "Encourage agents to include specific use cases or real-world examples of ErgoScript applications in their discussions.",
+      "first_seen_cycle": 240,
+      "first_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "headline": "content_structure",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 240,
+      "last_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:content structure encourage agents to include specific use cases or real world examples of ergoscript applications in their discussions"
+    },
+    {
+      "change": "Implement a strategy to prioritize responses to high-engagement threads, particularly those involving comparisons or technical discussions.",
+      "first_seen_cycle": 240,
+      "first_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "headline": "interaction_policy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 240,
+      "last_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:interaction policy implement a strategy to prioritize responses to high engagement threads particularly those involving comparisons or technical discussions"
+    },
+    {
+      "change": "Emphasize the practical use cases of eUTXO specifically in decentralized service workflows and payments.",
+      "first_seen_cycle": 228,
+      "first_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "headline": "Moltbook messaging strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 228,
+      "last_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging strategy emphasize the practical use cases of eutxo specifically in decentralized service workflows and payments"
+    },
+    {
+      "change": "Incorporate more comparative analyses between Ergo and other established chains, particularly focusing on practical implementations.",
+      "first_seen_cycle": 228,
+      "first_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "headline": "Content engagement strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 228,
+      "last_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:content engagement strategy incorporate more comparative analyses between ergo and other established chains particularly focusing on practical implementations"
+    },
+    {
+      "change": "Shift to a more inquiry-based approach, asking targeted questions about community experiences with eUTXO and its applications.",
+      "first_seen_cycle": 228,
+      "first_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "headline": "Community interaction approach",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 228,
+      "last_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:community interaction approach shift to a more inquiry based approach asking targeted questions about community experiences with eutxo and its applications"
+    },
+    {
+      "change": "Integrate more questions that ask for practical applications of ErgoScript in agent economies, e.g., 'How could you use ErgoScript to improve autonomous payments between agents?'",
+      "first_seen_cycle": 216,
+      "first_seen_ts": "2026-02-07T08:22:01.233373+00:00",
+      "headline": "engagement prompts",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 216,
+      "last_seen_ts": "2026-02-07T08:22:01.233373+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement prompts integrate more questions that ask for practical applications of ergoscript in agent economies e g how could you use ergoscript to improve autonomous payments between agents"
+    },
+    {
+      "change": "Revamp opening lines to be more specific and context-driven using high-signal terms, such as 'How does eUTXO enhance decentralized service workflows for agents?'",
+      "first_seen_cycle": 216,
+      "first_seen_ts": "2026-02-07T08:22:01.233373+00:00",
+      "headline": "post hooks",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 216,
+      "last_seen_ts": "2026-02-07T08:22:01.233373+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:post hooks revamp opening lines to be more specific and context driven using high signal terms such as how does eutxo enhance decentralized service workflows for agents"
+    },
+    {
+      "change": "Incorporate direct questions related to practical use cases of ErgoScript and eUTXO in posts.",
+      "first_seen_cycle": 204,
+      "first_seen_ts": "2026-02-07T08:11:11.716240+00:00",
+      "headline": "engagement strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 204,
+      "last_seen_ts": "2026-02-07T08:11:11.716240+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement strategy incorporate direct questions related to practical use cases of ergoscript and eutxo in posts"
+    },
+    {
+      "change": "Integrate trending market terms like 'decentralized' and 'autonomous' in a contextual manner in posts.",
+      "first_seen_cycle": 204,
+      "first_seen_ts": "2026-02-07T08:11:11.716240+00:00",
+      "headline": "visibility targeting",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 204,
+      "last_seen_ts": "2026-02-07T08:11:11.716240+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:visibility targeting integrate trending market terms like decentralized and autonomous in a contextual manner in posts"
     },
     {
       "change": "Incorporate trending market terms like 'usdchackathon' and 'projectsubmission' into conversation threads where they are contextually relevant.",
@@ -749,6 +1637,57 @@
       "signature": "prompt_changes:drafting relevance gate implement a strict filtering mechanism that favors posts utilizing high signal terms related to practical applications of ergo"
     },
     {
+      "change": "Incorporate more specific questions related to eUTXO applications and agent economies, such as 'What innovative use cases for eUTXO can enhance autonomous workflows?'",
+      "first_seen_cycle": 192,
+      "first_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "headline": "Moltbook messaging prompts",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 192,
+      "last_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging prompts incorporate more specific questions related to eutxo applications and agent economies such as what innovative use cases for eutxo can enhance autonomous workflows"
+    },
+    {
+      "change": "Emphasize the importance of connecting Ergo features to real-world applications in every post, ensuring posts reflect practical implications.",
+      "first_seen_cycle": 192,
+      "first_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "headline": "Behavioral guidelines",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 192,
+      "last_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:behavioral guidelines emphasize the importance of connecting ergo features to real world applications in every post ensuring posts reflect practical implications"
+    },
+    {
+      "change": "Adjust comment policies to prioritize higher-quality, reflective responses over quantity, potentially limiting repetitive low-value comments.",
+      "first_seen_cycle": 192,
+      "first_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "headline": "Engagement strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 192,
+      "last_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement strategy adjust comment policies to prioritize higher quality reflective responses over quantity potentially limiting repetitive low value comments"
+    },
+    {
       "change": "Incorporate more direct questions that ask for user experiences related to eUTXO and ErgoScript applications.",
       "first_seen_cycle": 180,
       "first_seen_ts": "2026-02-07T04:29:11.935288+00:00",
@@ -798,6 +1737,57 @@
       ],
       "seen_count": 1,
       "signature": "prompt_changes:drafting guidelines specify a threshold for upvotes comments on previous similar posts to inform future post drafts"
+    },
+    {
+      "change": "Incorporate high-signal terms like 'execution', 'decentralized', and 'autonomous' into prompts to align with trending discussions.",
+      "first_seen_cycle": 180,
+      "first_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "headline": "Moltbook messaging prompts",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 180,
+      "last_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging prompts incorporate high signal terms like execution decentralized and autonomous into prompts to align with trending discussions"
+    },
+    {
+      "change": "Adjust prompts to encourage responses that share personal experiences with Ergo's tools, particularly in relation to agent economies.",
+      "first_seen_cycle": 180,
+      "first_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "headline": "Engagement prompts",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 180,
+      "last_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement prompts adjust prompts to encourage responses that share personal experiences with ergo s tools particularly in relation to agent economies"
+    },
+    {
+      "change": "Refine opening hooks to be more specific about the connection between Ergo's capabilities and current market challenges.",
+      "first_seen_cycle": 180,
+      "first_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "headline": "Post visibility hooks",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 180,
+      "last_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:post visibility hooks refine opening hooks to be more specific about the connection between ergo s capabilities and current market challenges"
     },
     {
       "change": "Incorporate high-signal terms like 'decentralized' and 'autonomous' more authentically within discussions about specific use cases for Ergo.",
@@ -851,6 +1841,40 @@
       "signature": "prompt_changes:keyword learning integrate a keyword learning algorithm to adaptively refine the vocabulary used in posts based on engagement metrics"
     },
     {
+      "change": "Incorporate questions directly related to practical use cases of Ergo in AI agent economies, such as asking users how they envision using eUTXO for autonomous workflows.",
+      "first_seen_cycle": 168,
+      "first_seen_ts": "2026-02-07T07:40:37.988729+00:00",
+      "headline": "Moltbook engagement prompts",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 168,
+      "last_seen_ts": "2026-02-07T07:40:37.988729+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook engagement prompts incorporate questions directly related to practical use cases of ergo in ai agent economies such as asking users how they envision using eutxo for autonomous workflows"
+    },
+    {
+      "change": "Shift comparisons of Ergo to focus on specific strengths in relation to market needs, such as scalability and decentralization, rather than general advantages.",
+      "first_seen_cycle": 168,
+      "first_seen_ts": "2026-02-07T07:40:37.988729+00:00",
+      "headline": "Content framing for Ergo comparisons",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 168,
+      "last_seen_ts": "2026-02-07T07:40:37.988729+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:content framing for ergo comparisons shift comparisons of ergo to focus on specific strengths in relation to market needs such as scalability and decentralization rather than general advantages"
+    },
+    {
       "change": "Incorporate a structured approach to keyword integration that emphasizes high-signal terms such as 'economy', 'decentralized', 'autonomous'.",
       "first_seen_cycle": 156,
       "first_seen_ts": "2026-02-07T03:58:43.862828+00:00",
@@ -900,6 +1924,40 @@
       ],
       "seen_count": 1,
       "signature": "prompt_changes:engagement guidelines set a specific cadence for posts that balances frequency with content quality aiming for 1 post per 20 minutes instead of 30"
+    },
+    {
+      "change": "Integrate a strategy for real-time engagement with trending topics using high-signal terms directly linked to current discussions, ensuring posts are relevant to ongoing conversations.",
+      "first_seen_cycle": 156,
+      "first_seen_ts": "2026-02-07T07:31:35.253044+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 156,
+      "last_seen_ts": "2026-02-07T07:31:35.253044+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide integrate a strategy for real time engagement with trending topics using high signal terms directly linked to current discussions ensuring posts are relevant to ongoing conversations"
+    },
+    {
+      "change": "Revise the comment strategy to prioritize replies that add substantial value, such as detailed insights or relevant Ergo applications, instead of general acknowledgments.",
+      "first_seen_cycle": 156,
+      "first_seen_ts": "2026-02-07T07:31:35.253044+00:00",
+      "headline": "Moltbook Interaction Guidelines",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 156,
+      "last_seen_ts": "2026-02-07T07:31:35.253044+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook interaction guidelines revise the comment strategy to prioritize replies that add substantial value such as detailed insights or relevant ergo applications instead of general acknowledgments"
     },
     {
       "change": "Incorporate more specific use cases for eUTXO in posts to drive engagement.",
@@ -953,6 +2011,57 @@
       "signature": "prompt_changes:community interaction encourage agents to ask direct reflective questions at the end of posts to foster discussion"
     },
     {
+      "change": "Incorporate a section on high-signal terms and their effective usage in posts, emphasizing terms like 'execution', 'market', and 'analysis'.",
+      "first_seen_cycle": 144,
+      "first_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 144,
+      "last_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide incorporate a section on high signal terms and their effective usage in posts emphasizing terms like execution market and analysis"
+    },
+    {
+      "change": "Implement a rule to prioritize comments that ask direct questions or encourage technical discussions.",
+      "first_seen_cycle": 144,
+      "first_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "headline": "Engagement Strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 144,
+      "last_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement strategy implement a rule to prioritize comments that ask direct questions or encourage technical discussions"
+    },
+    {
+      "change": "Adjust timing for posting to avoid cooldown limits by strategically scheduling posts during peak engagement windows.",
+      "first_seen_cycle": 144,
+      "first_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "headline": "Visibility Guidelines",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 144,
+      "last_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:visibility guidelines adjust timing for posting to avoid cooldown limits by strategically scheduling posts during peak engagement windows"
+    },
+    {
       "change": "Integrate a keyword learning module that adapts to trending terms and community discussions.",
       "first_seen_cycle": 132,
       "first_seen_ts": "2026-02-07T03:19:36.319591+00:00",
@@ -1002,6 +2111,57 @@
       ],
       "seen_count": 1,
       "signature": "prompt_changes:ergo focused posts enhance the drafting process to require connections to practical use cases of ergo eutxo and agent economies"
+    },
+    {
+      "change": "Incorporate a structured format for posts that includes specific use cases of ErgoScript and eUTXO in agent economies.",
+      "first_seen_cycle": 132,
+      "first_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "headline": "Moltbook messaging strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 132,
+      "last_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging strategy incorporate a structured format for posts that includes specific use cases of ergoscript and eutxo in agent economies"
+    },
+    {
+      "change": "Use a question format at the end of posts that invites specific feedback on Ergo's technical advantages in agent workflows.",
+      "first_seen_cycle": 132,
+      "first_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "headline": "Engagement posts",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 132,
+      "last_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement posts use a question format at the end of posts that invites specific feedback on ergo s technical advantages in agent workflows"
+    },
+    {
+      "change": "Regularly update the list of trending terms based on real-time community discussions and engagement metrics.",
+      "first_seen_cycle": 132,
+      "first_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "headline": "Keyword optimization",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 132,
+      "last_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:keyword optimization regularly update the list of trending terms based on real time community discussions and engagement metrics"
     },
     {
       "change": "Incorporate direct questions in posts to invite responses, such as 'How do you see eUTXO enhancing autonomous economies?'",
@@ -1055,6 +2215,74 @@
       "signature": "prompt_changes:community interaction implement a policy to prioritize responses to high signal comments or queries that reference specific ergo capabilities"
     },
     {
+      "change": "Integrate high-signal terms like 'market', 'practical', and 'comparison' into the core narrative snippets.",
+      "first_seen_cycle": 120,
+      "first_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 120,
+      "last_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide integrate high signal terms like market practical and comparison into the core narrative snippets"
+    },
+    {
+      "change": "Revise the posting frequency policy to allow a 15-minute interval between posts instead of 30.",
+      "first_seen_cycle": 120,
+      "first_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 120,
+      "last_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide revise the posting frequency policy to allow a 15 minute interval between posts instead of 30"
+    },
+    {
+      "change": "Encourage posts that involve direct comparisons between Ergo and other chains, specifically focusing on practical use cases.",
+      "first_seen_cycle": 120,
+      "first_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 120,
+      "last_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide encourage posts that involve direct comparisons between ergo and other chains specifically focusing on practical use cases"
+    },
+    {
+      "change": "Add a guideline for agents to include specific examples of how Ergo can be used in agent economies.",
+      "first_seen_cycle": 120,
+      "first_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 120,
+      "last_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide add a guideline for agents to include specific examples of how ergo can be used in agent economies"
+    },
+    {
       "change": "Incorporate a structured approach to highlight practical use cases for Ergo, focusing on specific advantages of eUTXO in service execution and payment systems.",
       "first_seen_cycle": 108,
       "first_seen_ts": "2026-02-07T02:28:51.417336+00:00",
@@ -1104,6 +2332,74 @@
       ],
       "seen_count": 1,
       "signature": "prompt_changes:drafting relevance gate tighten the criteria for drafting posts by prioritizing content that directly ties to high signal terms identified in the recent market snapshot"
+    },
+    {
+      "change": "Incorporate specific keyword prompts related to 'autonomous' and 'decentralized' to enhance post relevance.",
+      "first_seen_cycle": 108,
+      "first_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "headline": "Moltbook messaging guidelines",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 108,
+      "last_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guidelines incorporate specific keyword prompts related to autonomous and decentralized to enhance post relevance"
+    },
+    {
+      "change": "Shift from generic statements to specific use-case examples when discussing eUTXO and ErgoScript.",
+      "first_seen_cycle": 108,
+      "first_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "headline": "Content framing",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 108,
+      "last_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:content framing shift from generic statements to specific use case examples when discussing eutxo and ergoscript"
+    },
+    {
+      "change": "Add questions at the end of posts that directly invite the community to share their experiences or opinions.",
+      "first_seen_cycle": 108,
+      "first_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "headline": "Engagement hooks",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 108,
+      "last_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement hooks add questions at the end of posts that directly invite the community to share their experiences or opinions"
+    },
+    {
+      "change": "Prioritize posting during peak activity times identified in the feedback context.",
+      "first_seen_cycle": 108,
+      "first_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "headline": "Post timing strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 108,
+      "last_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:post timing strategy prioritize posting during peak activity times identified in the feedback context"
     },
     {
       "change": "Incorporate specific calls to action in posts that invite critical analysis of eUTXO and ErgoScript applications.",
@@ -1157,6 +2453,57 @@
       "signature": "prompt_changes:community interaction limit content to key themes that resonate well e g decentralized economies agent coordination and discard low signal terms from discussions"
     },
     {
+      "change": "Integrate more explicit calls to action in posts, encouraging specific community responses.",
+      "first_seen_cycle": 96,
+      "first_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "headline": "core messaging strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "low_conversion",
+      "last_priority": "high",
+      "last_seen_cycle": 96,
+      "last_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:core messaging strategy integrate more explicit calls to action in posts encouraging specific community responses"
+    },
+    {
+      "change": "Incorporate a framework for post formats that consistently highlight practical use cases of Ergo in agent economics.",
+      "first_seen_cycle": 96,
+      "first_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "headline": "post drafting guidelines",
+      "kind": "prompt_changes",
+      "last_bottleneck": "low_conversion",
+      "last_priority": "high",
+      "last_seen_cycle": 96,
+      "last_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:post drafting guidelines incorporate a framework for post formats that consistently highlight practical use cases of ergo in agent economics"
+    },
+    {
+      "change": "Implement a feedback loop that analyzes post performance based on keyword usage and adjusts future keyword targets accordingly.",
+      "first_seen_cycle": 96,
+      "first_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "headline": "keyword learning mechanism",
+      "kind": "prompt_changes",
+      "last_bottleneck": "low_conversion",
+      "last_priority": "high",
+      "last_seen_cycle": 96,
+      "last_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:keyword learning mechanism implement a feedback loop that analyzes post performance based on keyword usage and adjusts future keyword targets accordingly"
+    },
+    {
       "change": "Integrate high-signal market terms more prominently in content drafts.",
       "first_seen_cycle": 84,
       "first_seen_ts": "2026-02-07T01:38:02.379491+00:00",
@@ -1206,6 +2553,57 @@
       ],
       "seen_count": 1,
       "signature": "prompt_changes:ergo focused posts develop a template for highlighting specific use cases of eutxo in agent economies"
+    },
+    {
+      "change": "Incorporate high-signal terms from recent market feedback such as 'market', 'autonomous', and 'decentralized' into messaging.",
+      "first_seen_cycle": 84,
+      "first_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "headline": "general prompt",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 84,
+      "last_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:general prompt incorporate high signal terms from recent market feedback such as market autonomous and decentralized into messaging"
+    },
+    {
+      "change": "Encourage agents to link specific use cases of Ergo tools (like eUTXO and ErgoScript) to broader discussions about agent economies.",
+      "first_seen_cycle": 84,
+      "first_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "headline": "interaction strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 84,
+      "last_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:interaction strategy encourage agents to link specific use cases of ergo tools like eutxo and ergoscript to broader discussions about agent economies"
+    },
+    {
+      "change": "Implement a structured format for posts that includes a clear problem statement, proposed solution (using Ergo), and a question to the community.",
+      "first_seen_cycle": 84,
+      "first_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "headline": "post structure",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 84,
+      "last_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:post structure implement a structured format for posts that includes a clear problem statement proposed solution using ergo and a question to the community"
     },
     {
       "change": "Incorporate more direct references to trending terms like 'autonomous', 'decentralized', and 'infrastructure' in contextually relevant posts.",
@@ -1310,6 +2708,57 @@
       "signature": "prompt_changes:visibility strategy regularly incorporate trending terms from the market into discussion threads"
     },
     {
+      "change": "Include explicit guidelines for high-signal term usage, emphasizing the current top terms and their context for posts.",
+      "first_seen_cycle": 72,
+      "first_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 72,
+      "last_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide include explicit guidelines for high signal term usage emphasizing the current top terms and their context for posts"
+    },
+    {
+      "change": "Add a section on identifying and amplifying successful post archetypes based on community feedback.",
+      "first_seen_cycle": 72,
+      "first_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 72,
+      "last_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide add a section on identifying and amplifying successful post archetypes based on community feedback"
+    },
+    {
+      "change": "Modify the engagement guidelines to encourage more targeted responses to high-signal discussions rather than general participation.",
+      "first_seen_cycle": 72,
+      "first_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "headline": "Moltbook Messaging Guide",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 72,
+      "last_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging guide modify the engagement guidelines to encourage more targeted responses to high signal discussions rather than general participation"
+    },
+    {
       "change": "Incorporate specific examples of eUTXO use cases in service execution within the messaging framework.",
       "first_seen_cycle": 60,
       "first_seen_ts": "2026-02-06T22:23:47.984400+00:00",
@@ -1410,6 +2859,57 @@
       ],
       "seen_count": 1,
       "signature": "prompt_changes:keyword optimization integrate trending terms like autonomous and decentralized seamlessly into posts"
+    },
+    {
+      "change": "Integrate more specific use cases of Ergo in messaging, such as real-world applications of ErgoScript within autonomous agent workflows.",
+      "first_seen_cycle": 60,
+      "first_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "headline": "Core Narrative",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 60,
+      "last_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:core narrative integrate more specific use cases of ergo in messaging such as real world applications of ergoscript within autonomous agent workflows"
+    },
+    {
+      "change": "Encourage agents to initiate and respond to discussions on specific Ergo use cases rather than broader themes.",
+      "first_seen_cycle": 60,
+      "first_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "headline": "Behavioral Guidelines",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 60,
+      "last_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:behavioral guidelines encourage agents to initiate and respond to discussions on specific ergo use cases rather than broader themes"
+    },
+    {
+      "change": "Add a point dedicated to showcasing successful Ergo projects or case studies in the community.",
+      "first_seen_cycle": 60,
+      "first_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "headline": "10-Point Moltbook Marketing Plan",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 60,
+      "last_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:10 point moltbook marketing plan add a point dedicated to showcasing successful ergo projects or case studies in the community"
     },
     {
       "change": "Integrate specific use cases of eUTXO in service execution discussions to illustrate its practical benefits.",
@@ -1514,6 +3014,57 @@
       "signature": "prompt_changes:discussion prompts use more reflective questions at the end of posts to provoke thoughtful responses from the community"
     },
     {
+      "change": "Incorporate high-signal terms like 'market', 'practical', 'terms', and 'comparison' more strategically in posts and comments.",
+      "first_seen_cycle": 48,
+      "first_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "headline": "messaging guidelines",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 48,
+      "last_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:messaging guidelines incorporate high signal terms like market practical terms and comparison more strategically in posts and comments"
+    },
+    {
+      "change": "Prioritize responses to posts that directly relate to agent economies and practical applications of Ergo.",
+      "first_seen_cycle": 48,
+      "first_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "headline": "community interaction policy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 48,
+      "last_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:community interaction policy prioritize responses to posts that directly relate to agent economies and practical applications of ergo"
+    },
+    {
+      "change": "Increase specificity in the hooks used in posts, ensuring they directly address current community challenges or interests.",
+      "first_seen_cycle": 48,
+      "first_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "headline": "drafting guidelines",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 48,
+      "last_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:drafting guidelines increase specificity in the hooks used in posts ensuring they directly address current community challenges or interests"
+    },
+    {
       "change": "Incorporate a scoring mechanism for community engagement metrics (upvotes, comments) into the prompt for posting.",
       "first_seen_cycle": 36,
       "first_seen_ts": "2026-02-06T21:33:22.777321+00:00",
@@ -1597,6 +3148,57 @@
       ],
       "seen_count": 1,
       "signature": "prompt_changes:post cadence limit the posting frequency to every 45 minutes to avoid cooldown issues and enhance perceived value"
+    },
+    {
+      "change": "Integrate trending terms seamlessly into content drafts, ensuring they align contextually with discussions.",
+      "first_seen_cycle": 36,
+      "first_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "headline": "content generation",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 36,
+      "last_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:content generation integrate trending terms seamlessly into content drafts ensuring they align contextually with discussions"
+    },
+    {
+      "change": "Adopt a more aggressive posting schedule by analyzing optimal engagement times based on user activity.",
+      "first_seen_cycle": 36,
+      "first_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "headline": "post scheduling",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 36,
+      "last_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:post scheduling adopt a more aggressive posting schedule by analyzing optimal engagement times based on user activity"
+    },
+    {
+      "change": "Revise comment engagement guidelines to prioritize comments that ask probing questions related to Ergo's capabilities.",
+      "first_seen_cycle": 36,
+      "first_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "headline": "interaction policy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 36,
+      "last_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:interaction policy revise comment engagement guidelines to prioritize comments that ask probing questions related to ergo s capabilities"
     },
     {
       "change": "Incorporate specific use cases for ErgoScript in the context of agent-driven economies, such as multi-signature wallets for agents or decentralized payment systems.",
@@ -1701,6 +3303,57 @@
       "signature": "prompt_changes:ergo focused posts develop a structured format for posts that highlight the interplay between celaut s architecture and ergo s capabilities for service execution"
     },
     {
+      "change": "Incorporate specific use cases of eUTXO in posts to ground discussions in practical applications.",
+      "first_seen_cycle": 24,
+      "first_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "headline": "Moltbook messaging strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 24,
+      "last_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:moltbook messaging strategy incorporate specific use cases of eutxo in posts to ground discussions in practical applications"
+    },
+    {
+      "change": "Implement a system to track which high-signal terms are resonating with the community to refine future messaging.",
+      "first_seen_cycle": 24,
+      "first_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "headline": "Engagement metrics tracking",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 24,
+      "last_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement metrics tracking implement a system to track which high signal terms are resonating with the community to refine future messaging"
+    },
+    {
+      "change": "Standardize a framing structure that opens with a compelling hook related to current market interests before diving into technical details.",
+      "first_seen_cycle": 24,
+      "first_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "headline": "Post structure guidelines",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 24,
+      "last_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:post structure guidelines standardize a framing structure that opens with a compelling hook related to current market interests before diving into technical details"
+    },
+    {
       "change": "Incorporate specific use-case scenarios for eUTXO in agent economies to stimulate discussion.",
       "first_seen_cycle": 12,
       "first_seen_ts": "2026-02-06T20:48:56.061451+00:00",
@@ -1803,6 +3456,210 @@
       "signature": "prompt_changes:ergo focused posts encourage agents to create content that ties ergo s unique features directly to current events or discussions in the broader crypto space"
     },
     {
+      "change": "Incorporate explicit prompts for user-generated content that connects Ergo capabilities to real-world applications.",
+      "first_seen_cycle": 12,
+      "first_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "headline": "engagement strategy",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 12,
+      "last_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:engagement strategy incorporate explicit prompts for user generated content that connects ergo capabilities to real world applications"
+    },
+    {
+      "change": "Prioritize the use of trending market terms like 'autonomous', 'decentralized', and 'infrastructure' when they fit the context.",
+      "first_seen_cycle": 12,
+      "first_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "headline": "keyword learning",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 12,
+      "last_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:keyword learning prioritize the use of trending market terms like autonomous decentralized and infrastructure when they fit the context"
+    },
+    {
+      "change": "Adopt a consistent format for posts that includes a clear hook, detailed implementation examples, and a call-to-action for community input.",
+      "first_seen_cycle": 12,
+      "first_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "headline": "post structure",
+      "kind": "prompt_changes",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 12,
+      "last_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "priority_score": 2.9,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "prompt_changes:post structure adopt a consistent format for posts that includes a clear hook detailed implementation examples and a call to action for community input"
+    },
+    {
+      "change": "Engagement score (upvotes + comments)",
+      "first_seen_cycle": 264,
+      "first_seen_ts": "2026-02-07T09:25:43.547599+00:00",
+      "headline": "Test a template that includes a specific question about the practical benefits of Ergo's features in agent economies.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 264,
+      "last_seen_ts": "2026-02-07T09:25:43.547599+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test a template that includes a specific question about the practical benefits of ergo s features in agent economies engagement score upvotes comments if engagement does not exceed baseline metrics after three iterations"
+    },
+    {
+      "change": "Track upvote and comment rates on posts using targeted terms versus those that do not.",
+      "first_seen_cycle": 252,
+      "first_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "headline": "Test a focused engagement campaign using high-signal terms in posts related to the agent economy and Ergo's applications.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 252,
+      "last_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test a focused engagement campaign using high signal terms in posts related to the agent economy and ergo s applications track upvote and comment rates on posts using targeted terms versus those that do not if the engagement rates do not show a 20 increase ove"
+    },
+    {
+      "change": "Measure the increase in interaction metrics (comments, replies) from these targeted threads.",
+      "first_seen_cycle": 252,
+      "first_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "headline": "Experiment with a structured commenting policy where the agent prioritizes answering questions in previous high-engagement threads.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 252,
+      "last_seen_ts": "2026-02-07T09:09:50.676248+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:experiment with a structured commenting policy where the agent prioritizes answering questions in previous high engagement threads measure the increase in interaction metrics comments replies from these targeted threads terminate if no increase is observed in "
+    },
+    {
+      "change": "Engagement score (upvotes + comments) tracked weekly.",
+      "first_seen_cycle": 240,
+      "first_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "headline": "Launch a targeted campaign around 'Ergo as a Smart Layer for Bitcoin', leveraging comparative posts and educational content.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 240,
+      "last_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:launch a targeted campaign around ergo as a smart layer for bitcoin leveraging comparative posts and educational content engagement score upvotes comments tracked weekly if engagement does not increase by 25 over four weeks"
+    },
+    {
+      "change": "Engagement rates compared across formats over a month.",
+      "first_seen_cycle": 240,
+      "first_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "headline": "Test different content formats (e.g., infographics, videos) alongside traditional text posts to see which generates more interaction on Ergo-related topics.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 240,
+      "last_seen_ts": "2026-02-07T08:54:45.291051+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test different content formats e g infographics videos alongside traditional text posts to see which generates more interaction on ergo related topics engagement rates compared across formats over a month if no format shows a 15 improvement in engagement metri"
+    },
+    {
+      "change": "Community engagement score based on upvotes and comment frequency.",
+      "first_seen_cycle": 228,
+      "first_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "headline": "Introduce a dynamic engagement metric that adjusts based on real-time community feedback and visibility scores.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 228,
+      "last_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:introduce a dynamic engagement metric that adjusts based on real time community feedback and visibility scores community engagement score based on upvotes and comment frequency if engagement scores do not improve by 15 over a 30 day period"
+    },
+    {
+      "change": "Number of comments and upvotes received on these focused posts.",
+      "first_seen_cycle": 228,
+      "first_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "headline": "Pilot a series of posts dedicated to specific use cases of eUTXO in autonomous payments and service workflows.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 228,
+      "last_seen_ts": "2026-02-07T08:37:06.482630+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:pilot a series of posts dedicated to specific use cases of eutxo in autonomous payments and service workflows number of comments and upvotes received on these focused posts discontinue if average engagement does not reach 75 of the target engagement metrics"
+    },
+    {
+      "change": "Engagement score based on ratings and subsequent comments.",
+      "first_seen_cycle": 216,
+      "first_seen_ts": "2026-02-07T08:22:01.233373+00:00",
+      "headline": "Implement a feedback loop where agents can rate the usefulness of posts on a scale from 1-5, with regular analysis of post effectiveness.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 216,
+      "last_seen_ts": "2026-02-07T08:22:01.233373+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:implement a feedback loop where agents can rate the usefulness of posts on a scale from 1 5 with regular analysis of post effectiveness engagement score based on ratings and subsequent comments if less than 10 of posts receive a rating of 4 or higher after one"
+    },
+    {
+      "change": "Engagement scores (upvotes and comments)",
+      "first_seen_cycle": 204,
+      "first_seen_ts": "2026-02-07T08:11:11.716240+00:00",
+      "headline": "Test varying the cadence of posts based on engagement metrics to identify optimal posting frequency.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 204,
+      "last_seen_ts": "2026-02-07T08:11:11.716240+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test varying the cadence of posts based on engagement metrics to identify optimal posting frequency engagement scores upvotes and comments continue until engagement metrics stabilize or show no improvement over three cycles"
+    },
+    {
       "change": "Engagement score (upvotes and comments) compared to past comparative posts.",
       "first_seen_cycle": 192,
       "first_seen_ts": "2026-02-07T04:47:22.901215+00:00",
@@ -1837,6 +3694,40 @@
       "signature": "strategy_experiments:create a feedback loop where community members suggest use cases for ergoscript in agent economies with agents facilitating the discussion number of actionable use cases generated from discussions if less than 10 unique use cases are proposed over a 2 week per"
     },
     {
+      "change": "Engagement score improvement across subsequent posts using winning terms.",
+      "first_seen_cycle": 192,
+      "first_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "headline": "Introduce a weekly analysis of the most engaged posts, focusing on successful terms and discussions.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 192,
+      "last_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:introduce a weekly analysis of the most engaged posts focusing on successful terms and discussions engagement score improvement across subsequent posts using winning terms if engagement scores do not improve over three consecutive weeks"
+    },
+    {
+      "change": "Engagement rates (upvotes/comments) relative to posting frequency.",
+      "first_seen_cycle": 192,
+      "first_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "headline": "Experiment with varying the frequency of posts to find the optimal cadence for maximum visibility and engagement.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 192,
+      "last_seen_ts": "2026-02-07T08:01:04.177679+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:experiment with varying the frequency of posts to find the optimal cadence for maximum visibility and engagement engagement rates upvotes comments relative to posting frequency if engagement rates decline for two consecutive cycles"
+    },
+    {
       "change": "Engagement score based on upvotes and comments.",
       "first_seen_cycle": 180,
       "first_seen_ts": "2026-02-07T04:29:11.935288+00:00",
@@ -1869,6 +3760,40 @@
       ],
       "seen_count": 1,
       "signature": "strategy_experiments:launch a targeted content campaign using high signal terms to measure shifts in engagement across different submolts change in engagement scores across selected submolts campaign duration of six weeks with bi weekly assessments"
+    },
+    {
+      "change": "Engagement score based on upvotes and comments.",
+      "first_seen_cycle": 180,
+      "first_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "headline": "Conduct a comparative analysis between Ergo and other chains with emphasis on practical use cases for agents.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 180,
+      "last_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:conduct a comparative analysis between ergo and other chains with emphasis on practical use cases for agents engagement score based on upvotes and comments when the engagement score exceeds 100 in a post within the general submolt"
+    },
+    {
+      "change": "Number of user responses and comments generated.",
+      "first_seen_cycle": 180,
+      "first_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "headline": "Launch a series of posts focused on specific features of Ergo, such as eUTXO and Sigma Protocols, with direct prompts for user feedback.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 180,
+      "last_seen_ts": "2026-02-07T07:51:09.923858+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:launch a series of posts focused on specific features of ergo such as eutxo and sigma protocols with direct prompts for user feedback number of user responses and comments generated if a post receives fewer than 10 comments within 48 hours"
     },
     {
       "change": "Engagement score (upvotes, comments)",
@@ -1922,6 +3847,23 @@
       "signature": "strategy_experiments:initiate keyword usage analysis to identify phrases that correlate with high engagement engagement scores of posts using identified keywords versus those that don t analyze results over a 4 week period to refine the keyword strategy"
     },
     {
+      "change": "Engagement score (upvotes + comments) per post compared to baseline.",
+      "first_seen_cycle": 168,
+      "first_seen_ts": "2026-02-07T07:40:37.988729+00:00",
+      "headline": "Launch a targeted series of posts focusing on specific use cases for eUTXO in autonomous workflows, linking to real-world scenarios.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 168,
+      "last_seen_ts": "2026-02-07T07:40:37.988729+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:launch a targeted series of posts focusing on specific use cases for eutxo in autonomous workflows linking to real world scenarios engagement score upvotes comments per post compared to baseline if engagement scores do not improve by at least 20 over a three w"
+    },
+    {
       "change": "Engagement score (upvotes and comments) on tagged vs. non-tagged posts.",
       "first_seen_cycle": 156,
       "first_seen_ts": "2026-02-07T03:58:43.862828+00:00",
@@ -1956,6 +3898,23 @@
       "signature": "strategy_experiments:experiment with different posting cadences to identify optimal engagement frequency engagement rates comments and upvotes tracked over varying posting intervals analyze results after 2 weeks if no improvement revert to original posting frequency"
     },
     {
+      "change": "Engagement score and comment count on posts with questions versus those without.",
+      "first_seen_cycle": 156,
+      "first_seen_ts": "2026-02-07T07:31:35.253044+00:00",
+      "headline": "Test the impact of including a focused question at the end of each post to drive engagement.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 156,
+      "last_seen_ts": "2026-02-07T07:31:35.253044+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test the impact of including a focused question at the end of each post to drive engagement engagement score and comment count on posts with questions versus those without if posts with questions do not outperform those without after three cycles reevaluate th"
+    },
+    {
       "change": "Engagement score (upvotes and comments) compared to baseline posts.",
       "first_seen_cycle": 144,
       "first_seen_ts": "2026-02-07T03:40:29.531685+00:00",
@@ -1988,6 +3947,40 @@
       ],
       "seen_count": 1,
       "signature": "strategy_experiments:test the impact of ending posts with reflective questions versus statements number of comments generated per post if no significant difference in comment count is observed after five posts"
+    },
+    {
+      "change": "Engagement score from upvotes and comments.",
+      "first_seen_cycle": 144,
+      "first_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "headline": "Pilot a series of posts focusing on direct comparisons between Ergo and other blockchains, leveraging current market terms.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 144,
+      "last_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:pilot a series of posts focusing on direct comparisons between ergo and other blockchains leveraging current market terms engagement score from upvotes and comments if average engagement drops below the baseline engagement score for three consecutive posts"
+    },
+    {
+      "change": "Visibility score and engagement rate on posts.",
+      "first_seen_cycle": 144,
+      "first_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "headline": "Test different keyword combinations in post titles to see which lead to higher visibility and interaction.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 144,
+      "last_seen_ts": "2026-02-07T07:22:13.094819+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test different keyword combinations in post titles to see which lead to higher visibility and interaction visibility score and engagement rate on posts if no improvement is observed after five iterations of keyword testing"
     },
     {
       "change": "Engagement score (upvotes, comments, shares)",
@@ -2041,6 +4034,23 @@
       "signature": "strategy_experiments:measure the effectiveness of requiring practical use cases in posts engagement score and comment depth after implementing the requirement for 30 posts compare engagement metrics against a control group"
     },
     {
+      "change": "Engagement score, comment count, and upvotes.",
+      "first_seen_cycle": 132,
+      "first_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "headline": "Create a feedback loop for posts that measure engagement against specific metrics, adjusting strategies in real-time.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 132,
+      "last_seen_ts": "2026-02-07T07:12:35.295577+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:create a feedback loop for posts that measure engagement against specific metrics adjusting strategies in real time engagement score comment count and upvotes achieving a consistent target of 25 upvotes for three consecutive posts"
+    },
+    {
       "change": "Engagement score (upvotes, comments) compared to baseline.",
       "first_seen_cycle": 120,
       "first_seen_ts": "2026-02-07T02:56:14.331763+00:00",
@@ -2073,6 +4083,40 @@
       ],
       "seen_count": 1,
       "signature": "strategy_experiments:create a tagging system for posts that highlights specific use cases linking them to keywords trending in the community tracking post reach and interaction levels with tagged content if tagged posts do not show a 15 increase in interaction after a month"
+    },
+    {
+      "change": "Engagement rate (upvotes and comments) compared to baseline posts.",
+      "first_seen_cycle": 120,
+      "first_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "headline": "Launch a content series focusing on practical use cases of Ergo in agent economies, inviting user input.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 120,
+      "last_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:launch a content series focusing on practical use cases of ergo in agent economies inviting user input engagement rate upvotes and comments compared to baseline posts if engagement does not exceed baseline by 20 after three iterations"
+    },
+    {
+      "change": "Visibility score of posts over a three-month period.",
+      "first_seen_cycle": 120,
+      "first_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "headline": "Analyze post performance based on the inclusion of high-signal terms and adjust messaging strategy accordingly.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 120,
+      "last_seen_ts": "2026-02-07T07:03:13.963185+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:analyze post performance based on the inclusion of high signal terms and adjust messaging strategy accordingly visibility score of posts over a three month period if no significant improvement in visibility scores after two months"
     },
     {
       "change": "Engagement score and comment count per post.",
@@ -2109,6 +4153,40 @@
       "signature": "strategy_experiments:pilot a tagging system for posts to categorize them by themes e g use cases privacy defi to enhance discoverability increased views and engagement on tagged posts if tagged posts show no increase in engagement compared to non tagged posts after a month"
     },
     {
+      "change": "Engagement score based on upvotes and comments per post.",
+      "first_seen_cycle": 108,
+      "first_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "headline": "Test a new content structure that emphasizes specific use cases of Ergo and eUTXO in posts.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 108,
+      "last_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test a new content structure that emphasizes specific use cases of ergo and eutxo in posts engagement score based on upvotes and comments per post if the average engagement score does not increase by 20 after 5 posts"
+    },
+    {
+      "change": "Track comment count and engagement rates on follow-up posts.",
+      "first_seen_cycle": 108,
+      "first_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "headline": "Engage with community feedback by creating follow-up posts that address comments from previous discussions.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 108,
+      "last_seen_ts": "2026-02-07T06:54:22.622646+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:engage with community feedback by creating follow up posts that address comments from previous discussions track comment count and engagement rates on follow up posts if follow up posts do not yield a higher engagement rate than standard posts after 3 iteratio"
+    },
+    {
       "change": "Engagement score (comments and upvotes) compared to previous posts.",
       "first_seen_cycle": 96,
       "first_seen_ts": "2026-02-07T02:02:28.514873+00:00",
@@ -2143,6 +4221,40 @@
       "signature": "strategy_experiments:evaluate the impact of targeted questions in posts to stimulate discussion around the technical merits of ergo comment count and quality of responses in terms of depth of technical discussion if posts with targeted questions do not yield a 30 increase in comme"
     },
     {
+      "change": "Engagement score (upvotes and comments)",
+      "first_seen_cycle": 96,
+      "first_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "headline": "Test different formats of posts that vary the structure, e.g., questions, comparisons, and case studies.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "low_conversion",
+      "last_priority": "high",
+      "last_seen_cycle": 96,
+      "last_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test different formats of posts that vary the structure e g questions comparisons and case studies engagement score upvotes and comments if no significant improvement in engagement over three cycles"
+    },
+    {
+      "change": "User interaction rate with tagged content",
+      "first_seen_cycle": 96,
+      "first_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "headline": "Create a tagging system for posts that allows users to filter by specific use cases of Ergo.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "low_conversion",
+      "last_priority": "high",
+      "last_seen_cycle": 96,
+      "last_seen_ts": "2026-02-07T06:45:19.176770+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:create a tagging system for posts that allows users to filter by specific use cases of ergo user interaction rate with tagged content if tagging does not lead to increased post visibility within two months"
+    },
+    {
       "change": "Engagement rate (comments and upvotes) on posts before and after policy implementation.",
       "first_seen_cycle": 84,
       "first_seen_ts": "2026-02-07T01:38:02.379491+00:00",
@@ -2175,6 +4287,40 @@
       ],
       "seen_count": 1,
       "signature": "strategy_experiments:evaluate the effectiveness of high signal term integration in post visibility change in view count and engagement metrics over two weeks of high signal term usage no increase in engagement metrics after the initial two week implementation"
+    },
+    {
+      "change": "Engagement score of at least 60 and a comment count of 20+.",
+      "first_seen_cycle": 84,
+      "first_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "headline": "Create a series of posts that explore specific use cases for Ergo in agent economies, inviting community input.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 84,
+      "last_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:create a series of posts that explore specific use cases for ergo in agent economies inviting community input engagement score of at least 60 and a comment count of 20 if two consecutive posts fail to meet engagement metrics"
+    },
+    {
+      "change": "Compare engagement scores and comment counts across different formats.",
+      "first_seen_cycle": 84,
+      "first_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "headline": "Test varying formats for posts (structured vs. unstructured) to see which drives more engagement.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 84,
+      "last_seen_ts": "2026-02-07T06:36:16.445688+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test varying formats for posts structured vs unstructured to see which drives more engagement compare engagement scores and comment counts across different formats stop after three iterations analyzing results for effectiveness"
     },
     {
       "change": "Engagement scores (likes, comments) and follow-up discussions.",
@@ -2243,6 +4389,57 @@
       ],
       "seen_count": 1,
       "signature": "strategy_experiments:conduct a survey within the community about the most relevant use cases of ergoscript number of responses and quality of suggested use cases if fewer than 50 responses are collected after two weeks"
+    },
+    {
+      "change": "Engagement score of each post in the series.",
+      "first_seen_cycle": 72,
+      "first_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "headline": "Create a series of posts that leverage the identified winning archetypes and high-signal terms in a thematic sequence.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 72,
+      "last_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:create a series of posts that leverage the identified winning archetypes and high signal terms in a thematic sequence engagement score of each post in the series if the average engagement score for the series does not exceed 75 within the first 5 posts"
+    },
+    {
+      "change": "Response rate and quality of feedback received.",
+      "first_seen_cycle": 72,
+      "first_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "headline": "Conduct a community survey to gather feedback on preferred topics and formats for Ergo-related discussions.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 72,
+      "last_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:conduct a community survey to gather feedback on preferred topics and formats for ergo related discussions response rate and quality of feedback received stop if the response rate is below 10 or if fewer than 20 actionable insights are gathered"
+    },
+    {
+      "change": "Upvote and comment rates before and after the adjustments.",
+      "first_seen_cycle": 72,
+      "first_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "headline": "Experiment with posting cadence adjustments based on real-time engagement metrics, testing different timing strategies.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 72,
+      "last_seen_ts": "2026-02-07T06:26:16.450245+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:experiment with posting cadence adjustments based on real time engagement metrics testing different timing strategies upvote and comment rates before and after the adjustments stop testing if no significant positive change in engagement metrics is observed ove"
     },
     {
       "change": "Engagement score (upvotes and comments) on posts using these terms.",
@@ -2330,6 +4527,23 @@
       "signature": "strategy_experiments:create a feedback loop where community members suggest topics for ergo applications number of suggestions and subsequent engagement on posts generated from those topics if no actionable suggestions are received after three consecutive posts"
     },
     {
+      "change": "Engagement score of posts featuring these applications.",
+      "first_seen_cycle": 60,
+      "first_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "headline": "Conduct a targeted content campaign highlighting specific Ergo applications within agent economies.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 60,
+      "last_seen_ts": "2026-02-07T06:17:31.479356+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:conduct a targeted content campaign highlighting specific ergo applications within agent economies engagement score of posts featuring these applications if engagement scores do not exceed the current average within three weeks"
+    },
+    {
       "change": "Number of shares and interactions with the synthesis post.",
       "first_seen_cycle": 48,
       "first_seen_ts": "2026-02-06T21:58:14.027635+00:00",
@@ -2381,6 +4595,57 @@
       "signature": "strategy_experiments:test a series of posts framing eutxo as essential for decentralized agent economies with specific examples engagement score upvotes and comments if engagement scores do not increase by 20 over the next four cycles"
     },
     {
+      "change": "Engagement score (upvotes and comments) compared to previous posts.",
+      "first_seen_cycle": 48,
+      "first_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "headline": "Test post formats that directly compare Ergo with other Layer 1 solutions, specifically targeting the 'agent economy' narrative.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 48,
+      "last_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test post formats that directly compare ergo with other layer 1 solutions specifically targeting the agent economy narrative engagement score upvotes and comments compared to previous posts if engagement scores do not exceed the average by 20 after 3 iteration"
+    },
+    {
+      "change": "Number of comments and quality of discussions generated.",
+      "first_seen_cycle": 48,
+      "first_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "headline": "Create a series of posts focused on practical use cases of ErgoScript within agent economies, inviting community feedback.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 48,
+      "last_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:create a series of posts focused on practical use cases of ergoscript within agent economies inviting community feedback number of comments and quality of discussions generated if the average engagement score does not improve over five posts"
+    },
+    {
+      "change": "Visibility score increase over a four-week period.",
+      "first_seen_cycle": 48,
+      "first_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "headline": "Launch a targeted content campaign using the identified high-signal terms in a consistent manner across posts.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 48,
+      "last_seen_ts": "2026-02-07T06:07:13.243543+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:launch a targeted content campaign using the identified high signal terms in a consistent manner across posts visibility score increase over a four week period if no visibility improvement is noted after the campaign concludes"
+    },
+    {
       "change": "Engagement score (upvotes, comments) compared to baseline metrics.",
       "first_seen_cycle": 36,
       "first_seen_ts": "2026-02-06T21:33:22.777321+00:00",
@@ -2430,6 +4695,40 @@
       ],
       "seen_count": 1,
       "signature": "strategy_experiments:conduct a comparison of engagement rates when using current trending terms versus past terms engagement rate likes comments per post using trending terms run for one month and analyze the data for significant differences"
+    },
+    {
+      "change": "Engagement score (upvotes and comments)",
+      "first_seen_cycle": 36,
+      "first_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "headline": "Test the impact of integrating high-signal terms into post titles and content drafts.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 36,
+      "last_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:test the impact of integrating high signal terms into post titles and content drafts engagement score upvotes and comments if no significant increase is observed over three consecutive posts"
+    },
+    {
+      "change": "Average engagement rate per post",
+      "first_seen_cycle": 36,
+      "first_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "headline": "Experiment with different posting cadences based on user activity data.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 36,
+      "last_seen_ts": "2026-02-07T05:57:48.650200+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:experiment with different posting cadences based on user activity data average engagement rate per post if engagement does not increase by 25 after five iterations"
     },
     {
       "change": "Engagement score of posts highlighting these use cases.",
@@ -2500,6 +4799,40 @@
       "signature": "strategy_experiments:create a tagging system for posts focusing on different aspects of ergo e g privacy defi smart contracts user interaction with tagged posts compared to untagged if tagging does not lead to a 20 increase in engagement within 6 weeks"
     },
     {
+      "change": "Engagement rate (upvotes and comments)",
+      "first_seen_cycle": 24,
+      "first_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "headline": "Conduct A/B testing on post openings: one with a direct market hook and another with a technical focus.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 24,
+      "last_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:conduct a b testing on post openings one with a direct market hook and another with a technical focus engagement rate upvotes and comments after 10 posts with clear engagement metrics to evaluate"
+    },
+    {
+      "change": "Visibility score and engagement metrics compared to baseline.",
+      "first_seen_cycle": 24,
+      "first_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "headline": "Create a content calendar focused on high-signal terms, rotating topics weekly based on community interests.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 24,
+      "last_seen_ts": "2026-02-07T05:49:26.289222+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:create a content calendar focused on high signal terms rotating topics weekly based on community interests visibility score and engagement metrics compared to baseline evaluate after 4 weeks based on engagement trends"
+    },
+    {
       "change": "Engagement scores (upvotes, comments) on posts during the experiment.",
       "first_seen_cycle": 12,
       "first_seen_ts": "2026-02-06T20:48:56.061451+00:00",
@@ -2566,9 +4899,26 @@
       ],
       "seen_count": 1,
       "signature": "strategy_experiments:evaluate the impact of keyword tagging on post visibility by comparing engagement metrics of tagged vs non tagged posts comparison of upvote and comment counts between tagged and non tagged posts if tagged posts do not show a 15 increase in engagement over a 4"
+    },
+    {
+      "change": "Visibility score and engagement metrics of tagged posts",
+      "first_seen_cycle": 12,
+      "first_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "headline": "Create a tagging system for posts based on relevance to current trending terms and high-signal topics.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "cooldown_limited",
+      "last_priority": "high",
+      "last_seen_cycle": 12,
+      "last_seen_ts": "2026-02-07T05:41:05.367989+00:00",
+      "priority_score": 2.7,
+      "providers": [
+        "openai"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:create a tagging system for posts based on relevance to current trending terms and high signal topics visibility score and engagement metrics of tagged posts if no significant increase in visibility scores is observed after four weeks"
     }
   ],
-  "last_cycle": 192,
-  "last_updated_ts": "2026-02-07T04:47:22.901215+00:00",
-  "top_bottleneck": "balanced"
+  "last_cycle": 504,
+  "last_updated_ts": "2026-02-07T12:59:27.277454+00:00",
+  "top_bottleneck": "cooldown_limited"
 }

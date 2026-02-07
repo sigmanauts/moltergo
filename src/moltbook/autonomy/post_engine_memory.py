@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -44,6 +45,65 @@ STOPWORDS = {
     "usdchackathon",
     "current",
     "problem",
+    "terms",
+    "term",
+    "market",
+    "analysis",
+    "comparative",
+    "comparison",
+    "axes",
+    "evaluating",
+    "operations",
+    "high",
+    "first",
+    "when",
+    "only",
+    "using",
+    "through",
+    "based",
+    "these",
+    "those",
+    "very",
+    "real",
+    "into",
+    "over",
+    "under",
+}
+
+THEME_SIGNATURE_STOPWORDS = {
+    "target",
+    "targeting",
+    "proposed",
+    "change",
+    "reason",
+    "expected",
+    "impact",
+    "recent",
+    "posts",
+    "post",
+    "draft",
+    "drafts",
+    "cycle",
+    "cycles",
+    "higher",
+    "improve",
+    "improving",
+    "increase",
+    "increased",
+    "better",
+    "more",
+    "less",
+    "using",
+    "toward",
+    "towards",
+    "based",
+    "with",
+    "from",
+    "into",
+    "that",
+    "this",
+    "and",
+    "for",
 }
 
 DISALLOWED_STRATEGY_TOKENS = {
@@ -304,7 +364,15 @@ def refresh_metrics_from_recent_posts(memory: Dict[str, Any], recent_posts: List
 
 def _extract_terms(text: str) -> List[str]:
     tokens = re.findall(r"[a-z0-9]{4,}", normalize_str(text).lower())
-    return [t for t in tokens if t not in STOPWORDS]
+    out: List[str] = []
+    for token in tokens:
+        if token in STOPWORDS:
+            continue
+        # Ignore pure numeric noise (for example years or IDs).
+        if not re.search(r"[a-z]", token):
+            continue
+        out.append(token)
+    return out
 
 
 def _top_terms(items: List[Dict[str, Any]], limit: int) -> List[str]:
@@ -312,7 +380,6 @@ def _top_terms(items: List[Dict[str, Any]], limit: int) -> List[str]:
     for item in items:
         text = (
             f"{normalize_str(item.get('title'))} "
-            f"{normalize_str(item.get('strategy_notes'))} "
             f"{normalize_str(item.get('content_preview'))}"
         )
         for token in _extract_terms(text):
@@ -328,7 +395,6 @@ def _term_presence_rates(items: List[Dict[str, Any]]) -> Dict[str, float]:
     for item in items:
         text = (
             f"{normalize_str(item.get('title'))} "
-            f"{normalize_str(item.get('strategy_notes'))} "
             f"{normalize_str(item.get('content_preview'))}"
         )
         for token in set(_extract_terms(text)):
@@ -489,6 +555,18 @@ def _build_visibility_hypotheses(
         top_submolt_names = [normalize_str(x.get("name")).strip() for x in best_submolts[:3] if normalize_str(x.get("name")).strip()]
         if top_submolt_names:
             hints.append("Prioritize proactive posts in strongest submolts: " + ", ".join(top_submolt_names))
+    best_hours = []
+    if isinstance(visibility_metrics, dict):
+        raw_best_hours = visibility_metrics.get("best_posting_hours_utc")
+        if isinstance(raw_best_hours, list):
+            for item in raw_best_hours:
+                if not isinstance(item, dict):
+                    continue
+                hour = item.get("hour_utc")
+                if isinstance(hour, int):
+                    best_hours.append(hour)
+    if best_hours:
+        hints.append("Our best posting hours (UTC) so far: " + ", ".join([f"{h:02d}:00" for h in best_hours[:3]]))
     if isinstance(visibility_metrics, dict):
         target_upvotes = int(visibility_metrics.get("target_upvotes", 0) or 0)
         hit_rate = float(visibility_metrics.get("recent_target_hit_rate", 0.0) or 0.0)
@@ -581,6 +659,31 @@ def build_learning_snapshot(memory: Dict[str, Any], max_examples: int = 5) -> Di
         "recent_target_hit_rate": recent_target_hit_rate,
         "winning_question_title_rate": winning_question_title_rate,
     }
+    hour_scores: Dict[int, List[float]] = {}
+    for entry in scored:
+        created_ts = entry.get("created_ts")
+        if not isinstance(created_ts, (int, float)):
+            continue
+        try:
+            hour_utc = int(time.gmtime(float(created_ts)).tm_hour)
+        except Exception:
+            continue
+        hour_scores.setdefault(hour_utc, []).append(
+            float(entry.get("visibility_score", entry.get("engagement_score", 0.0)) or 0.0)
+        )
+    best_hours_ranked = sorted(
+        [
+            {
+                "hour_utc": hour,
+                "avg_visibility_score": round(_safe_avg(scores), 3),
+                "samples": len(scores),
+            }
+            for hour, scores in hour_scores.items()
+        ],
+        key=lambda x: (x["avg_visibility_score"], x["samples"]),
+        reverse=True,
+    )
+    visibility_metrics["best_posting_hours_utc"] = best_hours_ranked[:4]
 
     best_submolt: Dict[str, List[float]] = {}
     for entry in scored:
@@ -723,6 +826,29 @@ def _normalize_signature(text: Any) -> str:
     return value[:260]
 
 
+def _normalize_theme_signature(text: Any) -> str:
+    value = _normalize_signature(text)
+    if not value:
+        return ""
+    tokens = value.split()
+    out: List[str] = []
+    for token in tokens:
+        if len(token) < 4:
+            continue
+        if token in THEME_SIGNATURE_STOPWORDS:
+            continue
+        # Normalize plural variants to stabilize dedupe across wording drift.
+        if token.endswith("ies") and len(token) > 5:
+            token = token[:-3] + "y"
+        elif token.endswith("s") and len(token) > 5:
+            token = token[:-1]
+        if token not in out:
+            out.append(token)
+        if len(out) >= 14:
+            break
+    return " ".join(out)
+
+
 def _collect_prior_signatures(entries: List[Dict[str, Any]]) -> set[str]:
     signatures: set[str] = set()
     for entry in entries:
@@ -746,6 +872,9 @@ def _collect_prior_signatures(entries: List[Dict[str, Any]]) -> set[str]:
                 sig = _normalize_signature(joined)
                 if len(sig) >= 12:
                     signatures.add(f"{key}:{sig}")
+                theme_sig = _normalize_theme_signature(joined)
+                if len(theme_sig) >= 12:
+                    signatures.add(f"{key}:theme:{theme_sig}")
     return signatures
 
 
@@ -858,7 +987,7 @@ def sanitize_improvement_suggestions(
     prior_signatures = _collect_prior_signatures(recent_raw_entries)
     local_signatures: set[str] = set()
 
-    def _can_add(kind: str, text: str) -> bool:
+    def _can_add(kind: str, text: str, theme_text: Optional[str] = None) -> bool:
         sig = _normalize_signature(text)
         if len(sig) < 12:
             return False
@@ -867,6 +996,14 @@ def sanitize_improvement_suggestions(
             return False
         if key in local_signatures:
             return False
+        theme_sig = _normalize_theme_signature(theme_text if theme_text is not None else text)
+        if len(theme_sig) >= 12:
+            theme_key = f"{kind}:theme:{theme_sig}"
+            if theme_key in prior_signatures:
+                return False
+            if theme_key in local_signatures:
+                return False
+            local_signatures.add(theme_key)
         local_signatures.add(key)
         return True
 
@@ -882,7 +1019,13 @@ def sanitize_improvement_suggestions(
                     normalize_str(item.get("reason")),
                 ]
             )
-            if not _can_add("prompt_changes", joined):
+            theme_text = " ".join(
+                [
+                    normalize_str(item.get("target")),
+                    normalize_str(item.get("proposed_change")),
+                ]
+            )
+            if not _can_add("prompt_changes", joined, theme_text=theme_text):
                 continue
             out["prompt_changes"].append(item)
             if len(out["prompt_changes"]) >= max_items:
@@ -902,7 +1045,13 @@ def sanitize_improvement_suggestions(
                     normalize_str(item.get("reason")),
                 ]
             )
-            if not _can_add("code_changes", joined):
+            theme_text = " ".join(
+                [
+                    normalize_str(item.get("file_hint")),
+                    normalize_str(item.get("proposed_change")),
+                ]
+            )
+            if not _can_add("code_changes", joined, theme_text=theme_text):
                 continue
             out["code_changes"].append(item)
             if len(out["code_changes"]) >= max_items:
@@ -922,7 +1071,13 @@ def sanitize_improvement_suggestions(
                     normalize_str(item.get("stop_condition")),
                 ]
             )
-            if not _can_add("strategy_experiments", joined):
+            theme_text = " ".join(
+                [
+                    normalize_str(item.get("idea")),
+                    normalize_str(item.get("metric")),
+                ]
+            )
+            if not _can_add("strategy_experiments", joined, theme_text=theme_text):
                 continue
             out["strategy_experiments"].append(item)
             if len(out["strategy_experiments"]) >= max_items:

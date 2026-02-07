@@ -1877,3 +1877,2570 @@ Strategy Experiments:
    metric: Number of actionable use cases generated from discussions.
    stop_condition: If less than 10 unique use cases are proposed over a 2-week period.
 
+========================================================================
+Timestamp: 2026-02-07T05:41:05.366353+00:00
+Cycle: 12
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines high-leverage improvements for the Moltbook agent aimed at optimizing engagement within the Ergo community. The focus is on refining messaging strategies, leveraging high-signal terms, and ensuring content aligns with community interests.
+
+Cycle Stats:
+inspected=292 new_candidates=26 eligible_now=1 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.089 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=25, no_action_slots=20, low_signal_relevance=5
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.412 avg_execution_rate=0.366 zero_action_streak=0
+top_bottlenecks=balanced=12, low_conversion=4, model_rejection=2
+visibility avg_recent_upvotes=0.00 avg_recent_visibility=0.00 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, coordination, infrastructure, decentralized, identity
+
+Prompt Changes:
+1.
+   target: engagement strategy
+   proposed_change: Incorporate explicit prompts for user-generated content that connects Ergo capabilities to real-world applications.
+   reason: Encouraging community members to share practical applications of Ergo enhances relatability and engagement.
+   expected_impact: Increased user interaction and content generation, leading to higher visibility and karma growth.
+2.
+   target: keyword learning
+   proposed_change: Prioritize the use of trending market terms like 'autonomous', 'decentralized', and 'infrastructure' when they fit the context.
+   reason: Aligning content with trending terms can increase discoverability and relevance in discussions.
+   expected_impact: Higher engagement scores and visibility as posts resonate with current community interests.
+3.
+   target: post structure
+   proposed_change: Adopt a consistent format for posts that includes a clear hook, detailed implementation examples, and a call-to-action for community input.
+   reason: A structured approach can lead to higher engagement by guiding readers on how to contribute meaningfully.
+   expected_impact: Increased comments and upvotes as posts become easier to engage with.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Implement a content filtering mechanism that prioritizes posts with user-generated examples of Ergo applications.
+   reason: To ensure that the agent amplifies practical, community-driven content that reflects real-world use cases.
+   risk: Potentially reduced content diversity if overly restrictive, but manageable through careful tuning.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Create a tagging system for posts based on relevance to current trending terms and high-signal topics.
+   metric: Visibility score and engagement metrics of tagged posts
+   stop_condition: If no significant increase in visibility scores is observed after four weeks.
+
+========================================================================
+Timestamp: 2026-02-07T05:49:26.288316+00:00
+Cycle: 24
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines specific, high-leverage improvements to optimize the Moltbook agent's engagement and visibility within the Ergo community. It focuses on refining content delivery, enhancing interaction strategies, and leveraging current market language.
+
+Cycle Stats:
+inspected=284 new_candidates=16 eligible_now=1 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.056 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=15, no_action_slots=14, low_signal_relevance=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.385 avg_execution_rate=0.366 zero_action_streak=0
+top_bottlenecks=balanced=11, low_conversion=4, model_rejection=2, cooldown_limited=1
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, identity, coordination, infrastructure
+
+Prompt Changes:
+1.
+   target: Moltbook messaging strategy
+   proposed_change: Incorporate specific use cases of eUTXO in posts to ground discussions in practical applications.
+   reason: Current posts often lack concrete examples leading to lower engagement.
+   expected_impact: Increased engagement through relatable, actionable content.
+2.
+   target: Engagement metrics tracking
+   proposed_change: Implement a system to track which high-signal terms are resonating with the community to refine future messaging.
+   reason: Understanding term effectiveness can optimize future content strategy.
+   expected_impact: Higher relevance and engagement in future posts.
+3.
+   target: Post structure guidelines
+   proposed_change: Standardize a framing structure that opens with a compelling hook related to current market interests before diving into technical details.
+   reason: Directly addressing community interests at the outset can capture attention more effectively.
+   expected_impact: Improved visibility and interaction rates.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/metrics_tracker.py
+   proposed_change: Add functionality to analyze and report on the engagement metrics tied to specific keywords used in posts.
+   reason: Currently lacks an automated way to track keyword performance.
+   risk: Moderate; requires thorough testing to ensure accuracy and performance.
+2.
+   file_hint: src/moltbook/autonomy/post_generator.py
+   proposed_change: Integrate a templating system that allows for standardized post structures to be reused for consistency.
+   reason: Can streamline the writing process and maintain high-quality posts.
+   risk: Low; ensures that posts remain flexible while benefiting from a consistent framework.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Conduct A/B testing on post openings: one with a direct market hook and another with a technical focus.
+   metric: Engagement rate (upvotes and comments)
+   stop_condition: After 10 posts with clear engagement metrics to evaluate.
+2.
+   idea: Create a content calendar focused on high-signal terms, rotating topics weekly based on community interests.
+   metric: Visibility score and engagement metrics compared to baseline.
+   stop_condition: Evaluate after 4 weeks based on engagement trends.
+
+========================================================================
+Timestamp: 2026-02-07T05:57:48.648980+00:00
+Cycle: 36
+Provider: openai
+Priority: high
+
+Summary:
+This proposal identifies high-leverage improvements for the Moltbook agent, focusing on refining engagement strategies, enhancing keyword learning, and optimizing content delivery to elevate visibility and interaction within the Ergo community.
+
+Cycle Stats:
+inspected=181 new_candidates=17 eligible_now=0 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.094 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=16, low_signal_relevance=9, no_action_slots=7, author_cooldown=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.357 avg_execution_rate=0.410 zero_action_streak=0
+top_bottlenecks=balanced=10, low_conversion=4, model_rejection=2, cooldown_limited=2
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: autonomous, economy, coordination, identity, infrastructure, decentralized
+
+Prompt Changes:
+1.
+   target: content generation
+   proposed_change: Integrate trending terms seamlessly into content drafts, ensuring they align contextually with discussions.
+   reason: Current visibility metrics indicate that the use of trending terms can significantly boost engagement.
+   expected_impact: Increased relevance and visibility of posts, leading to higher upvote rates.
+2.
+   target: post scheduling
+   proposed_change: Adopt a more aggressive posting schedule by analyzing optimal engagement times based on user activity.
+   reason: Recent diagnostics showcase a cooldown issue affecting post frequency and engagement.
+   expected_impact: Enhanced engagement due to timely and relevant content delivery.
+3.
+   target: interaction policy
+   proposed_change: Revise comment engagement guidelines to prioritize comments that ask probing questions related to Ergo's capabilities.
+   reason: Feedback highlights a need for deeper conversations, not just surface-level interactions.
+   expected_impact: Increased discussion depth and quality, fostering a richer community dialogue.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/content_generator.py
+   proposed_change: Implement a mechanism to fetch and integrate trending terms into the content generation algorithm.
+   reason: To ensure content remains relevant and aligned with ongoing discussions in the community.
+   risk: Potential misalignment if trending terms do not fit the context of the discussions.
+2.
+   file_hint: src/moltbook/autonomy/scheduler.py
+   proposed_change: Enhance the scheduling algorithm to analyze user engagement patterns and adjust posting times accordingly.
+   reason: To maximize visibility and engagement rates by posting during peak user activity.
+   risk: Overfitting the schedule to a temporary trend could lead to reduced effectiveness over time.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Test the impact of integrating high-signal terms into post titles and content drafts.
+   metric: Engagement score (upvotes and comments)
+   stop_condition: If no significant increase is observed over three consecutive posts.
+2.
+   idea: Experiment with different posting cadences based on user activity data.
+   metric: Average engagement rate per post
+   stop_condition: If engagement does not increase by 25% after five iterations.
+
+========================================================================
+Timestamp: 2026-02-07T06:07:13.242187+00:00
+Cycle: 48
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines targeted enhancements for the Moltbook agent to optimize engagement and visibility within the Ergo community. It emphasizes refining content strategies, leveraging high-signal terms, and enhancing interaction guidelines to drive meaningful discussions.
+
+Cycle Stats:
+inspected=293 new_candidates=29 eligible_now=1 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.099 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=28, no_action_slots=27, low_signal_relevance=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.364 avg_execution_rate=0.450 zero_action_streak=0
+top_bottlenecks=balanced=9, low_conversion=4, cooldown_limited=3, model_rejection=2
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: autonomous, economy, coordination, infrastructure, decentralized, usdc
+
+Prompt Changes:
+1.
+   target: messaging guidelines
+   proposed_change: Incorporate high-signal terms like 'market', 'practical', 'terms', and 'comparison' more strategically in posts and comments.
+   reason: Recent metrics show these terms are gaining traction and can attract engagement.
+   expected_impact: Increased visibility and engagement through alignment with community interests.
+2.
+   target: community interaction policy
+   proposed_change: Prioritize responses to posts that directly relate to agent economies and practical applications of Ergo.
+   reason: Focusing on relevant discussions can enhance the quality of interactions and draw interest.
+   expected_impact: Higher engagement rates and more meaningful conversations.
+3.
+   target: drafting guidelines
+   proposed_change: Increase specificity in the hooks used in posts, ensuring they directly address current community challenges or interests.
+   reason: Specific hooks can drive initial interest and engagement, mitigating recent visibility issues.
+   expected_impact: Improved initial engagement metrics leading to higher overall visibility.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/interaction_policy.py
+   proposed_change: Adjust the response algorithm to favor high-signal term usage in replies.
+   reason: To ensure that interaction is aligned with current community interests and trends.
+   risk: Potential for over-optimization leading to less organic interactions.
+2.
+   file_hint: src/moltbook/autonomy/post_generator.py
+   proposed_change: Implement a feature to analyze draft post hooks for specificity and relevance before posting.
+   reason: To ensure posts are engaging from the outset and aligned with community interests.
+   risk: May require fine-tuning to avoid overly mechanical output.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Test post formats that directly compare Ergo with other Layer 1 solutions, specifically targeting the 'agent economy' narrative.
+   metric: Engagement score (upvotes and comments) compared to previous posts.
+   stop_condition: If engagement scores do not exceed the average by 20% after 3 iterations.
+2.
+   idea: Create a series of posts focused on practical use cases of ErgoScript within agent economies, inviting community feedback.
+   metric: Number of comments and quality of discussions generated.
+   stop_condition: If the average engagement score does not improve over five posts.
+3.
+   idea: Launch a targeted content campaign using the identified high-signal terms in a consistent manner across posts.
+   metric: Visibility score increase over a four-week period.
+   stop_condition: If no visibility improvement is noted after the campaign concludes.
+
+========================================================================
+Timestamp: 2026-02-07T06:17:31.478005+00:00
+Cycle: 60
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines specific, high-leverage improvements to optimize the Moltbook agent's engagement and visibility within the Ergo community. It focuses on enhancing content delivery, refining interaction guidelines, and promoting practical use cases of Ergo.
+
+Cycle Stats:
+inspected=233 new_candidates=23 eligible_now=1 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.099 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=22, no_action_slots=21, low_signal_relevance=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.392 avg_execution_rate=0.505 zero_action_streak=0
+top_bottlenecks=balanced=9, cooldown_limited=4, low_conversion=3, model_rejection=2
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, infrastructure, decentralized, coordination, identity
+
+Prompt Changes:
+1.
+   target: Core Narrative
+   proposed_change: Integrate more specific use cases of Ergo in messaging, such as real-world applications of ErgoScript within autonomous agent workflows.
+   reason: Concrete examples resonate better and attract engagement compared to general statements.
+   expected_impact: Increase in community interaction and post visibility through more relatable content.
+2.
+   target: Behavioral Guidelines
+   proposed_change: Encourage agents to initiate and respond to discussions on specific Ergo use cases rather than broader themes.
+   reason: Focusing on use cases minimizes spam and elevates the quality of discourse.
+   expected_impact: Higher engagement rates and deeper discussions surrounding practical applications of Ergo.
+3.
+   target: 10-Point Moltbook Marketing Plan
+   proposed_change: Add a point dedicated to showcasing successful Ergo projects or case studies in the community.
+   reason: Highlighting real-world success stories promotes credibility and encourages new users.
+   expected_impact: Enhanced perception of Ergo's utility and increased interest from potential users.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/interaction.py
+   proposed_change: Implement a filtering mechanism to prioritize posts that showcase practical use cases or comparisons relevant to Ergo.
+   reason: To ensure that higher-quality, relevant content is surfaced more frequently.
+   risk: Possible initial resistance from users accustomed to broader themes; requires user education.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Conduct a targeted content campaign highlighting specific Ergo applications within agent economies.
+   metric: Engagement score of posts featuring these applications.
+   stop_condition: If engagement scores do not exceed the current average within three weeks.
+
+========================================================================
+Timestamp: 2026-02-07T06:26:16.448977+00:00
+Cycle: 72
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines targeted enhancements to the Moltbook agent to optimize engagement and visibility within the Ergo community. It emphasizes leveraging high-signal terms, refining messaging strategies, and focusing on specific use cases to improve interaction and relevance.
+
+Cycle Stats:
+inspected=286 new_candidates=22 eligible_now=1 drafted=1 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.077 draft_rate=1.000 approval_rate=1.000 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=21, no_action_slots=15, low_signal_relevance=6
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.401 avg_execution_rate=0.547 zero_action_streak=0
+top_bottlenecks=balanced=8, cooldown_limited=5, low_conversion=3, model_rejection=2
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, infrastructure, coordination, identity
+
+Prompt Changes:
+1.
+   target: Moltbook Messaging Guide
+   proposed_change: Include explicit guidelines for high-signal term usage, emphasizing the current top terms and their context for posts.
+   reason: Current visibility metrics indicate a need for sharper hooks and contextually relevant language to capture audience interest.
+   expected_impact: Increased relevance and engagement in posts, leading to higher visibility and upvotes.
+2.
+   target: Moltbook Messaging Guide
+   proposed_change: Add a section on identifying and amplifying successful post archetypes based on community feedback.
+   reason: Analyzing winning examples can help agents replicate successful formats and topics, enhancing overall performance.
+   expected_impact: Higher engagement rates as agents adopt proven strategies and formats.
+3.
+   target: Moltbook Messaging Guide
+   proposed_change: Modify the engagement guidelines to encourage more targeted responses to high-signal discussions rather than general participation.
+   reason: Current guidelines may encourage overly broad interactions, diluting the agent's impact.
+   expected_impact: More focused, valuable contributions that drive meaningful discussions and raise the agent's profile.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Implement a filtering mechanism for post topics that prioritize high-signal terms and successful post archetypes.
+   reason: To ensure that only the most relevant and engaging content is promoted to users.
+   risk: Potential for over-filtering, but can be mitigated by gradual implementation and monitoring engagement metrics.
+2.
+   file_hint: src/moltbook/autonomy/interaction_policy.py
+   proposed_change: Adjust the comment and post cooldown logic to allow for a more dynamic interaction approach based on recent engagement patterns.
+   reason: Cooldown limits are currently restricting engagement opportunities during peak interest periods.
+   risk: Increased risk of spamming if not monitored closely; requires careful tuning.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Create a series of posts that leverage the identified winning archetypes and high-signal terms in a thematic sequence.
+   metric: Engagement score of each post in the series.
+   stop_condition: If the average engagement score for the series does not exceed 75 within the first 5 posts.
+2.
+   idea: Conduct a community survey to gather feedback on preferred topics and formats for Ergo-related discussions.
+   metric: Response rate and quality of feedback received.
+   stop_condition: Stop if the response rate is below 10% or if fewer than 20 actionable insights are gathered.
+3.
+   idea: Experiment with posting cadence adjustments based on real-time engagement metrics, testing different timing strategies.
+   metric: Upvote and comment rates before and after the adjustments.
+   stop_condition: Stop testing if no significant positive change in engagement metrics is observed over a 4-week period.
+
+========================================================================
+Timestamp: 2026-02-07T06:36:16.444215+00:00
+Cycle: 84
+Provider: openai
+Priority: high
+
+Summary:
+This proposal details specific improvements for the Moltbook agent aimed at enhancing engagement within the Ergo community. It emphasizes refining messaging strategies, incorporating effective keyword usage, and promoting concrete application discussions to combat cooldown limitations and enhance visibility.
+
+Cycle Stats:
+inspected=271 new_candidates=56 eligible_now=2 drafted=3 model_approved=2 actions=2
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.207 draft_rate=1.500 approval_rate=0.667 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=54, no_action_slots=45, low_signal_relevance=9
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.401 avg_execution_rate=0.547 zero_action_streak=0
+top_bottlenecks=balanced=7, cooldown_limited=6, low_conversion=3, model_rejection=2
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, coordination, decentralized, infrastructure, real
+
+Prompt Changes:
+1.
+   target: general prompt
+   proposed_change: Incorporate high-signal terms from recent market feedback such as 'market', 'autonomous', and 'decentralized' into messaging.
+   reason: These terms have shown measurable lift in engagement and relevance.
+   expected_impact: Increased visibility and engagement with higher relevance to current discussions.
+2.
+   target: interaction strategy
+   proposed_change: Encourage agents to link specific use cases of Ergo tools (like eUTXO and ErgoScript) to broader discussions about agent economies.
+   reason: This aligns with community interests and invites technical engagement.
+   expected_impact: Higher engagement rates and more meaningful contributions in discussions.
+3.
+   target: post structure
+   proposed_change: Implement a structured format for posts that includes a clear problem statement, proposed solution (using Ergo), and a question to the community.
+   reason: Structured posts have been shown to generate more responses and engagement.
+   expected_impact: More comments and interactions, driving the conversation forward.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/interaction.py
+   proposed_change: Add a function to analyze the performance of posts based on keyword usage and engagement metrics.
+   reason: This will provide data-driven insights on which keywords resonate most with the community.
+   risk: Requires ongoing maintenance to ensure accuracy of metrics.
+2.
+   file_hint: src/moltbook/autonomy/posting.py
+   proposed_change: Implement rate-limiting checks that allow for strategic commenting during cooldown periods to maintain visibility.
+   reason: To optimize engagement despite existing cooldown constraints.
+   risk: Possible risk of spamming if not carefully managed.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Create a series of posts that explore specific use cases for Ergo in agent economies, inviting community input.
+   metric: Engagement score of at least 60 and a comment count of 20+.
+   stop_condition: If two consecutive posts fail to meet engagement metrics.
+2.
+   idea: Test varying formats for posts (structured vs. unstructured) to see which drives more engagement.
+   metric: Compare engagement scores and comment counts across different formats.
+   stop_condition: Stop after three iterations, analyzing results for effectiveness.
+
+========================================================================
+Timestamp: 2026-02-07T06:45:19.175661+00:00
+Cycle: 96
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines targeted enhancements for the Moltbook agent focused on optimizing interaction strategies and content delivery within the Ergo community. It emphasizes leveraging high-signal terms, refining messaging frameworks, and improving engagement metrics to address current bottlenecks in visibility and conversion rates.
+
+Cycle Stats:
+inspected=171 new_candidates=6 eligible_now=6 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=low_conversion candidate_rate=0.035 draft_rate=1.000 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.438 avg_execution_rate=0.603 zero_action_streak=0
+top_bottlenecks=balanced=7, cooldown_limited=7, model_rejection=2, low_conversion=2
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: autonomous, economy, infrastructure, decentralized, coordination, usdc
+
+Prompt Changes:
+1.
+   target: core messaging strategy
+   proposed_change: Integrate more explicit calls to action in posts, encouraging specific community responses.
+   reason: Current posts lack direct engagement prompts, leading to lower interaction rates.
+   expected_impact: Increase in comments and discussions, boosting overall engagement metrics.
+2.
+   target: post drafting guidelines
+   proposed_change: Incorporate a framework for post formats that consistently highlight practical use cases of Ergo in agent economics.
+   reason: Posts that focus on concrete applications have shown higher engagement than abstract discussions.
+   expected_impact: Higher visibility and interaction rates as users relate more to practical scenarios.
+3.
+   target: keyword learning mechanism
+   proposed_change: Implement a feedback loop that analyzes post performance based on keyword usage and adjusts future keyword targets accordingly.
+   reason: Adaptation to trending terms has not been consistent, limiting engagement potential.
+   expected_impact: Enhanced relevance and visibility of posts connected to current discussions in the community.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Add a feature to track and analyze post engagement metrics focused on specific high-signal terms.
+   reason: Understanding which terms drive engagement will inform better content strategies.
+   risk: Requires additional resource allocation for data processing and analysis.
+2.
+   file_hint: src/moltbook/autonomy/policy.py
+   proposed_change: Refine the comment and reply policy to prioritize responses that include explicit calls to action.
+   reason: To enhance interaction quality and ensure community discussions are meaningful.
+   risk: May require ongoing adjustments based on community feedback and behavior.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Test different formats of posts that vary the structure, e.g., questions, comparisons, and case studies.
+   metric: Engagement score (upvotes and comments)
+   stop_condition: If no significant improvement in engagement over three cycles.
+2.
+   idea: Create a tagging system for posts that allows users to filter by specific use cases of Ergo.
+   metric: User interaction rate with tagged content
+   stop_condition: If tagging does not lead to increased post visibility within two months.
+
+========================================================================
+Timestamp: 2026-02-07T06:54:22.621263+00:00
+Cycle: 108
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines specific improvements for the Moltbook agent aimed at increasing engagement and visibility within the Ergo community. It focuses on refining messaging strategies, leveraging high-signal terms, and enhancing content structure to address identified bottlenecks effectively.
+
+Cycle Stats:
+inspected=276 new_candidates=20 eligible_now=0 drafted=1 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.072 draft_rate=1.000 approval_rate=1.000 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=19, no_action_slots=13, low_signal_relevance=6, author_cooldown=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.382 avg_execution_rate=0.547 zero_action_streak=1
+top_bottlenecks=cooldown_limited=7, balanced=6, low_conversion=3, model_rejection=2
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: autonomous, economy, decentralized, coordination, usdc, infrastructure
+
+Prompt Changes:
+1.
+   target: Moltbook messaging guidelines
+   proposed_change: Incorporate specific keyword prompts related to 'autonomous' and 'decentralized' to enhance post relevance.
+   reason: These terms are trending and resonate well in the current market landscape.
+   expected_impact: Increased visibility and engagement through the alignment of post content with community interests.
+2.
+   target: Content framing
+   proposed_change: Shift from generic statements to specific use-case examples when discussing eUTXO and ErgoScript.
+   reason: Concrete examples have previously led to higher engagement scores.
+   expected_impact: Increased upvotes and comments as the community engages more with relatable scenarios.
+3.
+   target: Engagement hooks
+   proposed_change: Add questions at the end of posts that directly invite the community to share their experiences or opinions.
+   reason: Engaging the community in dialogue has historically led to higher interaction rates.
+   expected_impact: Boost in comment count and interactive discussions.
+4.
+   target: Post timing strategy
+   proposed_change: Prioritize posting during peak activity times identified in the feedback context.
+   reason: Timing has shown to influence visibility and engagement metrics.
+   expected_impact: Higher initial engagement rates leading to sustained attention on posts.
+5.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Implement a scheduling feature that identifies and prioritizes peak posting times based on historical engagement data.
+   reason: To ensure that posts reach audiences when engagement is most likely.
+   risk: Potential for increased complexity in the scheduling algorithm, which may lead to unforeseen bugs.
+2.
+   file_hint: src/moltbook/autonomy/engagement.py
+   proposed_change: Enhance the content analysis module to dynamically suggest trending keywords based on real-time market analysis.
+   reason: To keep the content aligned with community interests and trending topics.
+   risk: Real-time analysis may introduce latency and require additional resources.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Test a new content structure that emphasizes specific use cases of Ergo and eUTXO in posts.
+   metric: Engagement score based on upvotes and comments per post.
+   stop_condition: If the average engagement score does not increase by 20% after 5 posts.
+2.
+   idea: Engage with community feedback by creating follow-up posts that address comments from previous discussions.
+   metric: Track comment count and engagement rates on follow-up posts.
+   stop_condition: If follow-up posts do not yield a higher engagement rate than standard posts after 3 iterations.
+
+========================================================================
+Timestamp: 2026-02-07T07:03:13.961874+00:00
+Cycle: 120
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines targeted enhancements for the Moltbook agent to optimize engagement and visibility within the Ergo community. It emphasizes leveraging high-signal terms, refining messaging strategies, and focusing on actionable content that invites genuine discussion.
+
+Cycle Stats:
+inspected=225 new_candidates=35 eligible_now=0 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.156 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=34, no_action_slots=30, low_signal_relevance=4, author_cooldown=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.438 avg_execution_rate=0.596 zero_action_streak=0
+top_bottlenecks=cooldown_limited=8, balanced=5, low_conversion=3, model_rejection=2
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana
+2. Use terms with measured lift in our own posts: market, practical, terms, comparison, axes, comparative
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, real, infrastructure, decentralized, coordination
+
+Prompt Changes:
+1.
+   target: Moltbook Messaging Guide
+   proposed_change: Integrate high-signal terms like 'market', 'practical', and 'comparison' into the core narrative snippets.
+   reason: Current visibility metrics indicate that these terms are trending and correlate with higher engagement.
+   expected_impact: Increased relevance in discussions, leading to higher upvotes and comments.
+2.
+   target: Moltbook Messaging Guide
+   proposed_change: Revise the posting frequency policy to allow a 15-minute interval between posts instead of 30.
+   reason: Cooldown limitations hinder content distribution; reducing this interval can enhance visibility.
+   expected_impact: Increased interaction opportunities, allowing for more organic engagement.
+3.
+   target: Moltbook Messaging Guide
+   proposed_change: Encourage posts that involve direct comparisons between Ergo and other chains, specifically focusing on practical use cases.
+   reason: Analysis of recent posts shows that comparisons resonate well with the community.
+   expected_impact: Higher engagement and visibility as users are more likely to participate in comparative discussions.
+4.
+   target: Moltbook Messaging Guide
+   proposed_change: Add a guideline for agents to include specific examples of how Ergo can be used in agent economies.
+   reason: Concrete examples lead to actionable discussions, which have proven to increase interaction.
+   expected_impact: Enhanced content quality that draws in more comments and discussions.
+5.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Implement a keyword frequency tracker that flags posts not utilizing trending high-signal terms.
+   reason: Current analysis reveals underutilization of impactful terms in posts, limiting visibility.
+   risk: Increased complexity in the codebase; potential performance impact if not optimized.
+2.
+   file_hint: src/moltbook/autonomy/interaction.py
+   proposed_change: Revise comment timing policies to allow more frequent engagement without breaching limits.
+   reason: Current cooldowns hinder interaction rates, reducing overall engagement metrics.
+   risk: May lead to spammy behavior if not monitored properly.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Launch a content series focusing on practical use cases of Ergo in agent economies, inviting user input.
+   metric: Engagement rate (upvotes and comments) compared to baseline posts.
+   stop_condition: If engagement does not exceed baseline by 20% after three iterations.
+2.
+   idea: Analyze post performance based on the inclusion of high-signal terms and adjust messaging strategy accordingly.
+   metric: Visibility score of posts over a three-month period.
+   stop_condition: If no significant improvement in visibility scores after two months.
+
+========================================================================
+Timestamp: 2026-02-07T07:12:35.294415+00:00
+Cycle: 132
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines high-leverage improvements to optimize the Moltbook agent's engagement within the Ergo community. It suggests targeted changes to prompt strategies, code enhancements, and strategic experiments to increase visibility and interaction while addressing current bottlenecks.
+
+Cycle Stats:
+inspected=274 new_candidates=15 eligible_now=0 drafted=1 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.055 draft_rate=1.000 approval_rate=1.000 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=14, no_action_slots=13, author_cooldown=1, low_signal_relevance=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.438 avg_execution_rate=0.623 zero_action_streak=0
+top_bottlenecks=cooldown_limited=9, balanced=4, low_conversion=3, model_rejection=2
+visibility avg_recent_upvotes=8.75 avg_recent_visibility=62.85 avg_target_hit_rate=0.000 upvotes_trend=0.000 visibility_trend=0.000
+visibility_top_terms=market, practical, terms, comparison, axes, comparative, chain, analysis
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: autonomous, economy, decentralized, infrastructure, first, identity
+
+Prompt Changes:
+1.
+   target: Moltbook messaging strategy
+   proposed_change: Incorporate a structured format for posts that includes specific use cases of ErgoScript and eUTXO in agent economies.
+   reason: This aligns with community interests and can drive higher engagement through practical examples.
+   expected_impact: Increased user interaction and discussions, leading to higher visibility scores.
+2.
+   target: Engagement posts
+   proposed_change: Use a question format at the end of posts that invites specific feedback on Ergo's technical advantages in agent workflows.
+   reason: Questions provoke responses and encourage active participation from the community.
+   expected_impact: Higher comment count and engagement metrics.
+3.
+   target: Keyword optimization
+   proposed_change: Regularly update the list of trending terms based on real-time community discussions and engagement metrics.
+   reason: Staying relevant with language ensures higher visibility in algorithmic rankings.
+   expected_impact: Improved post reach and engagement rates.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Integrate a feature to analyze trending terms from recent posts and adapt post content accordingly.
+   reason: This allows for dynamic content creation that aligns with community interests.
+   risk: Potential for increased complexity in content generation algorithms.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Create a feedback loop for posts that measure engagement against specific metrics, adjusting strategies in real-time.
+   metric: Engagement score, comment count, and upvotes.
+   stop_condition: Achieving a consistent target of 25 upvotes for three consecutive posts.
+
+========================================================================
+Timestamp: 2026-02-07T07:22:13.092855+00:00
+Cycle: 144
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines specific, high-leverage improvements for the Moltbook agent to enhance engagement and visibility within the Ergo community. It focuses on refining content strategies, leveraging high-signal terms, and optimizing interaction guidelines to overcome current bottlenecks related to cooldown limits and low conversion rates.
+
+Cycle Stats:
+inspected=180 new_candidates=36 eligible_now=1 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.200 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=35, no_action_slots=27, low_signal_relevance=8
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.493 avg_execution_rate=0.679 zero_action_streak=0
+top_bottlenecks=cooldown_limited=10, balanced=4, low_conversion=3, model_rejection=1
+visibility avg_recent_upvotes=8.80 avg_recent_visibility=62.63 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, practical, comparison, axes, chain
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, infrastructure, first, identity
+
+Prompt Changes:
+1.
+   target: Moltbook Messaging Guide
+   proposed_change: Incorporate a section on high-signal terms and their effective usage in posts, emphasizing terms like 'execution', 'market', and 'analysis'.
+   reason: Feedback indicates that posts using specific high-signal terms lead to increased engagement.
+   expected_impact: Higher engagement rates in posts leading to more upvotes and comments.
+2.
+   target: Engagement Strategy
+   proposed_change: Implement a rule to prioritize comments that ask direct questions or encourage technical discussions.
+   reason: Past successful posts included effective questions that invited community interaction.
+   expected_impact: Increased comment engagement and visibility in discussions.
+3.
+   target: Visibility Guidelines
+   proposed_change: Adjust timing for posting to avoid cooldown limits by strategically scheduling posts during peak engagement windows.
+   reason: Cooldown limits have affected the ability to post frequently enough to maintain visibility.
+   expected_impact: Better visibility and engagement metrics as posts align with active periods.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/interaction.py
+   proposed_change: Add a function to analyze and highlight high-signal terms within submitted posts and comments before submission.
+   reason: This can guide agents to use effective language, increasing the likelihood of engagement.
+   risk: Potential performance impact if the analysis adds significant processing time.
+2.
+   file_hint: src/moltbook/autonomy/scheduling.py
+   proposed_change: Implement a scheduling algorithm that considers historical engagement data to optimize posting times.
+   reason: Improving timing can enhance post visibility, mitigating cooldown effects.
+   risk: Increased complexity in scheduling logic, potentially leading to bugs if not carefully managed.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Pilot a series of posts focusing on direct comparisons between Ergo and other blockchains, leveraging current market terms.
+   metric: Engagement score from upvotes and comments.
+   stop_condition: If average engagement drops below the baseline engagement score for three consecutive posts.
+2.
+   idea: Test different keyword combinations in post titles to see which lead to higher visibility and interaction.
+   metric: Visibility score and engagement rate on posts.
+   stop_condition: If no improvement is observed after five iterations of keyword testing.
+
+========================================================================
+Timestamp: 2026-02-07T07:31:35.251809+00:00
+Cycle: 156
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines targeted enhancements to optimize the Moltbook agent’s engagement and visibility within the Ergo community by refining content strategies, leveraging high-signal terms, and adjusting interaction guidelines.
+
+Cycle Stats:
+inspected=295 new_candidates=34 eligible_now=1 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.115 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=33, no_action_slots=29, low_signal_relevance=4
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.466 avg_execution_rate=0.679 zero_action_streak=0
+top_bottlenecks=cooldown_limited=11, balanced=3, low_conversion=3, model_rejection=1
+visibility avg_recent_upvotes=8.85 avg_recent_visibility=62.44 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, practical, comparison, axes, chain
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, identity, coordination, digital
+
+Prompt Changes:
+1.
+   target: Moltbook Messaging Guide
+   proposed_change: Integrate a strategy for real-time engagement with trending topics using high-signal terms directly linked to current discussions, ensuring posts are relevant to ongoing conversations.
+   reason: Current visibility metrics show a decline in engagement with posts that don't connect to trending topics.
+   expected_impact: Increased engagement rates due to relevancy, leading to a higher upvote count and more comments.
+2.
+   target: Moltbook Interaction Guidelines
+   proposed_change: Revise the comment strategy to prioritize replies that add substantial value, such as detailed insights or relevant Ergo applications, instead of general acknowledgments.
+   reason: The existing comment policy lacks specificity, leading to low conversion rates in discussions.
+   expected_impact: Higher-quality interactions that encourage deeper discussions and increase the likelihood of follow-up engagement.
+3.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/interaction.py
+   proposed_change: Implement a filter to prioritize comments that include high-signal terms and prompt further discussion, discouraging low-value comments.
+   reason: Filtering will elevate the quality of interactions, aligning with the core narrative goals.
+   risk: Potential risk of excluding valid lower-signal comments that could contribute positively to discussions.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Test the impact of including a focused question at the end of each post to drive engagement.
+   metric: Engagement score and comment count on posts with questions versus those without.
+   stop_condition: If posts with questions do not outperform those without after three cycles, reevaluate the approach.
+
+========================================================================
+Timestamp: 2026-02-07T07:40:37.987218+00:00
+Cycle: 168
+Provider: openai
+Priority: high
+
+Summary:
+This proposal offers targeted improvements for the Moltbook agent to optimize engagement and visibility within the Ergo community. It emphasizes refining messaging strategies, utilizing high-signal terms, and enhancing content structures to effectively address interaction bottlenecks while fostering genuine discussions about Ergo.
+
+Cycle Stats:
+inspected=232 new_candidates=27 eligible_now=0 drafted=1 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.116 draft_rate=1.000 approval_rate=1.000 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=26, no_action_slots=22, low_signal_relevance=4, author_cooldown=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.491 avg_execution_rate=0.732 zero_action_streak=0
+top_bottlenecks=cooldown_limited=12, low_conversion=3, balanced=2, model_rejection=1
+visibility avg_recent_upvotes=8.88 avg_recent_visibility=62.29 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, practical, comparison, axes, chain
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, identity, skill, usdc
+
+Prompt Changes:
+1.
+   target: Moltbook engagement prompts
+   proposed_change: Incorporate questions directly related to practical use cases of Ergo in AI agent economies, such as asking users how they envision using eUTXO for autonomous workflows.
+   reason: This targets engagement by inviting concrete examples and practical applications, which aligns with high-signal terms and encourages user interaction.
+   expected_impact: Increased comment rates and deeper discussions around Ergo's applications.
+2.
+   target: Content framing for Ergo comparisons
+   proposed_change: Shift comparisons of Ergo to focus on specific strengths in relation to market needs, such as scalability and decentralization, rather than general advantages.
+   reason: Concrete comparisons increase relevance and attract attention from users seeking practical insights.
+   expected_impact: Higher upvote rates due to increased relevance and specificity in discussions.
+3.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Optimize the comment frequency algorithm to prioritize engagement-driven comments over generic replies, adjusting cooldowns based on engagement metrics.
+   reason: This addresses the primary bottleneck of cooldown limits while ensuring high-quality interactions.
+   risk: Potential for reduced comment volume if not calibrated properly, but targeted engagement is expected to improve overall visibility.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Launch a targeted series of posts focusing on specific use cases for eUTXO in autonomous workflows, linking to real-world scenarios.
+   metric: Engagement score (upvotes + comments) per post compared to baseline.
+   stop_condition: If engagement scores do not improve by at least 20% over a three-week period.
+
+========================================================================
+Timestamp: 2026-02-07T07:51:09.922495+00:00
+Cycle: 180
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines high-leverage improvements to enhance the Moltbook agent's engagement and visibility within the Ergo community. It suggests targeted changes to prompt strategies, code enhancements, and strategic experiments to optimize performance and interaction.
+
+Cycle Stats:
+inspected=279 new_candidates=36 eligible_now=0 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.129 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=35, no_action_slots=32, low_signal_relevance=3, author_cooldown=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.546 avg_execution_rate=0.787 zero_action_streak=0
+top_bottlenecks=cooldown_limited=13, balanced=2, low_conversion=2, model_rejection=1
+visibility avg_recent_upvotes=8.92 avg_recent_visibility=62.15 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, practical, comparison, axes, chain
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, skill, first, identity
+
+Prompt Changes:
+1.
+   target: Moltbook messaging prompts
+   proposed_change: Incorporate high-signal terms like 'execution', 'decentralized', and 'autonomous' into prompts to align with trending discussions.
+   reason: To leverage current market interests and improve visibility and relevance.
+   expected_impact: Increased engagement rates and higher visibility through alignment with active community discussions.
+2.
+   target: Engagement prompts
+   proposed_change: Adjust prompts to encourage responses that share personal experiences with Ergo's tools, particularly in relation to agent economies.
+   reason: Directly engaging users with personal narratives can enhance participation.
+   expected_impact: Higher comment counts and richer discussions around practical applications of Ergo.
+3.
+   target: Post visibility hooks
+   proposed_change: Refine opening hooks to be more specific about the connection between Ergo's capabilities and current market challenges.
+   reason: To capture attention more effectively and draw in readers who are skimming content.
+   expected_impact: Improved click-through rates and initial engagement on posts.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Implement a ranking algorithm that prioritizes posts with higher engagement potential based on trending keywords.
+   reason: To ensure the most relevant content surfaces first, driving user interaction.
+   risk: Potential for overfitting to current trends, which may shift rapidly.
+2.
+   file_hint: src/moltbook/autonomy/filters.py
+   proposed_change: Enhance filtering logic to automatically flag posts that include high-signal terms but lack concrete implementation details.
+   reason: To ensure quality over quantity in posts that get drafted.
+   risk: Risk of filtering out potentially valuable insights if not calibrated correctly.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Conduct a comparative analysis between Ergo and other chains with emphasis on practical use cases for agents.
+   metric: Engagement score based on upvotes and comments.
+   stop_condition: When the engagement score exceeds 100 in a post within the general submolt.
+2.
+   idea: Launch a series of posts focused on specific features of Ergo, such as eUTXO and Sigma Protocols, with direct prompts for user feedback.
+   metric: Number of user responses and comments generated.
+   stop_condition: If a post receives fewer than 10 comments within 48 hours.
+
+========================================================================
+Timestamp: 2026-02-07T08:01:04.176283+00:00
+Cycle: 192
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines targeted enhancements to optimize the Moltbook agent's engagement and visibility within the Ergo community. It focuses on refining messaging strategies, leveraging high-signal terms, and adjusting interaction guidelines based on recent performance metrics.
+
+Cycle Stats:
+inspected=285 new_candidates=61 eligible_now=0 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.214 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=60, no_action_slots=40, low_signal_relevance=20, author_cooldown=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.565 avg_execution_rate=0.833 zero_action_streak=0
+top_bottlenecks=cooldown_limited=14, low_conversion=2, model_rejection=1, balanced=1
+visibility avg_recent_upvotes=8.94 avg_recent_visibility=62.03 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, practical, comparison, axes, chain
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, infrastructure, coordination, first
+
+Prompt Changes:
+1.
+   target: Moltbook messaging prompts
+   proposed_change: Incorporate more specific questions related to eUTXO applications and agent economies, such as 'What innovative use cases for eUTXO can enhance autonomous workflows?'
+   reason: To drive more targeted discussions that resonate with community interests and expertise in eUTXO.
+   expected_impact: Increased engagement through higher-quality comments and discussions, leading to improved visibility.
+2.
+   target: Behavioral guidelines
+   proposed_change: Emphasize the importance of connecting Ergo features to real-world applications in every post, ensuring posts reflect practical implications.
+   reason: To ensure every interaction delivers concrete value, enhancing the relevance of posts to the audience.
+   expected_impact: Higher approval and engagement rates as the content becomes more actionable and relatable.
+3.
+   target: Engagement strategy
+   proposed_change: Adjust comment policies to prioritize higher-quality, reflective responses over quantity, potentially limiting repetitive low-value comments.
+   reason: To cultivate a richer dialogue that attracts more serious engagement rather than casual commentary.
+   expected_impact: Improved comment quality and relevance, fostering a more knowledgeable and engaged community.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Implement a mechanism to track and prioritize engagement metrics per post type, adjusting future prompts based on performance.
+   reason: To dynamically refine content strategies based on observed community reactions and engagement levels.
+   risk: Requires ongoing monitoring and adjustments, which may introduce complexity in feedback loops.
+2.
+   file_hint: src/moltbook/autonomy/interaction.py
+   proposed_change: Enhance the filtering algorithm to prioritize posts with high-signal terms and relevant discussions for agent economies.
+   reason: To refine content delivery, ensuring that the most engaging posts are highlighted and circulated within the community.
+   risk: Potential for algorithmic bias if not properly calibrated, leading to overlooked valuable content.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Introduce a weekly analysis of the most engaged posts, focusing on successful terms and discussions.
+   metric: Engagement score improvement across subsequent posts using winning terms.
+   stop_condition: If engagement scores do not improve over three consecutive weeks.
+2.
+   idea: Experiment with varying the frequency of posts to find the optimal cadence for maximum visibility and engagement.
+   metric: Engagement rates (upvotes/comments) relative to posting frequency.
+   stop_condition: If engagement rates decline for two consecutive cycles.
+
+========================================================================
+Timestamp: 2026-02-07T08:11:11.714701+00:00
+Cycle: 204
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines targeted enhancements for the Moltbook agent to optimize engagement and visibility within the Ergo community. It emphasizes leveraging high-signal terms, refining messaging strategies, and focusing on concrete implementation examples to drive meaningful interactions.
+
+Cycle Stats:
+inspected=228 new_candidates=34 eligible_now=1 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.149 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=33, no_action_slots=25, low_signal_relevance=8
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.593 avg_execution_rate=0.889 zero_action_streak=0
+top_bottlenecks=cooldown_limited=15, low_conversion=2, balanced=1
+visibility avg_recent_upvotes=8.97 avg_recent_visibility=61.93 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, practical, comparison, axes, chain
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, decentralized, autonomous, infrastructure, coordination, blockchain
+
+Prompt Changes:
+1.
+   target: engagement strategy
+   proposed_change: Incorporate direct questions related to practical use cases of ErgoScript and eUTXO in posts.
+   reason: Encouraging community members to share their insights and experiences will foster deeper discussions.
+   expected_impact: Increased comment engagement and a higher likelihood of upvotes.
+2.
+   target: visibility targeting
+   proposed_change: Integrate trending market terms like 'decentralized' and 'autonomous' in a contextual manner in posts.
+   reason: Aligning content with current community interests will enhance visibility and relevance.
+   expected_impact: Higher engagement rates and improved visibility scores.
+3.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Implement a filtering mechanism that prioritizes posts featuring high-signal terms related to agent economies.
+   reason: This will ensure that the most relevant content is highlighted and disseminated effectively.
+   risk: Moderate; potential for over-filtering if not calibrated correctly.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Test varying the cadence of posts based on engagement metrics to identify optimal posting frequency.
+   metric: Engagement scores (upvotes and comments)
+   stop_condition: Continue until engagement metrics stabilize or show no improvement over three cycles.
+
+========================================================================
+Timestamp: 2026-02-07T08:22:01.232051+00:00
+Cycle: 216
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines specific improvements for the Moltbook agent to enhance engagement and visibility within the Ergo community. It focuses on refining content strategies, utilizing high-signal terms, and optimizing interaction guidelines to alleviate cooldown bottlenecks.
+
+Cycle Stats:
+inspected=272 new_candidates=43 eligible_now=2 drafted=4 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.158 draft_rate=2.000 approval_rate=0.250 execution_rate=0.500
+top_skip_reasons=post_cooldown+comment_cooldown=41, no_action_slots=33, low_signal_relevance=8
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.620 avg_execution_rate=0.944 zero_action_streak=0
+top_bottlenecks=cooldown_limited=16, balanced=1, low_conversion=1
+visibility avg_recent_upvotes=8.99 avg_recent_visibility=61.84 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, practical, comparison, axes, chain
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, decentralized, autonomous, infrastructure, coordination, agenticcommerce
+
+Prompt Changes:
+1.
+   target: engagement prompts
+   proposed_change: Integrate more questions that ask for practical applications of ErgoScript in agent economies, e.g., 'How could you use ErgoScript to improve autonomous payments between agents?'
+   reason: Encourages community members to think critically and share specific use cases, enhancing engagement.
+   expected_impact: Increase in comments and interactions on posts, supporting the goal of genuine discussions.
+2.
+   target: post hooks
+   proposed_change: Revamp opening lines to be more specific and context-driven using high-signal terms, such as 'How does eUTXO enhance decentralized service workflows for agents?'
+   reason: Specific hooks can attract more attention and prompt immediate engagement.
+   expected_impact: Improved visibility and upvote rates, moving closer to the target of 25 upvotes.
+3.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/interaction.py
+   proposed_change: Add a mechanism to analyze the sentiment and relevance of comments in real-time to prioritize responses that yield higher engagement.
+   reason: By focusing on high-engagement comments, the agent can better direct its interaction strategy.
+   risk: Increased complexity in code which may introduce unforeseen bugs.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Implement a feedback loop where agents can rate the usefulness of posts on a scale from 1-5, with regular analysis of post effectiveness.
+   metric: Engagement score based on ratings and subsequent comments.
+   stop_condition: If less than 10% of posts receive a rating of 4 or higher after one month.
+
+========================================================================
+Timestamp: 2026-02-07T08:37:06.481092+00:00
+Cycle: 228
+Provider: openai
+Priority: high
+
+Summary:
+This proposal details specific improvements for enhancing the Moltbook agent's engagement and visibility within the Ergo community. It emphasizes refining prompt strategies, optimizing content for higher engagement, and experimenting with new metrics to better gauge community interest.
+
+Cycle Stats:
+inspected=184 new_candidates=61 eligible_now=1 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.332 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=60, no_action_slots=57, low_signal_relevance=3
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.579 avg_execution_rate=0.917 zero_action_streak=0
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.01 avg_recent_visibility=61.76 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, practical, comparison, axes, chain
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, decentralized, autonomous, infrastructure, coordination, compute
+
+Prompt Changes:
+1.
+   target: Moltbook messaging strategy
+   proposed_change: Emphasize the practical use cases of eUTXO specifically in decentralized service workflows and payments.
+   reason: Recent feedback indicates that posts detailing practical applications of eUTXO generate more engagement.
+   expected_impact: Increased visibility and upvotes from users interested in practical applications of Ergo.
+2.
+   target: Content engagement strategy
+   proposed_change: Incorporate more comparative analyses between Ergo and other established chains, particularly focusing on practical implementations.
+   reason: Winning posts have successfully leveraged comparative analyses to stimulate discussion.
+   expected_impact: Higher engagement metrics through increased comments and interactions.
+3.
+   target: Community interaction approach
+   proposed_change: Shift to a more inquiry-based approach, asking targeted questions about community experiences with eUTXO and its applications.
+   reason: Engagement metrics show that inquiry-based posts invite more responses.
+   expected_impact: Enhanced community interaction and deeper discussions around Ergo's capabilities.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/communication.py
+   proposed_change: Implement a ranking filter that prioritizes posts containing high-signal terms related to current community interests.
+   reason: Enhancing the ranking system can help surface posts that align better with community interests, improving engagement.
+   risk: Potential misalignment if the filter is too restrictive, possibly excluding valuable content.
+2.
+   file_hint: src/moltbook/autonomy/metrics.py
+   proposed_change: Add a metric to track the engagement rates of posts that utilize comparative analyses.
+   reason: Tracking this metric will provide data on the effectiveness of the comparative approach in generating engagement.
+   risk: May require adjustments based on findings to ensure accurate tracking.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Introduce a dynamic engagement metric that adjusts based on real-time community feedback and visibility scores.
+   metric: Community engagement score based on upvotes and comment frequency.
+   stop_condition: If engagement scores do not improve by 15% over a 30-day period.
+2.
+   idea: Pilot a series of posts dedicated to specific use cases of eUTXO in autonomous payments and service workflows.
+   metric: Number of comments and upvotes received on these focused posts.
+   stop_condition: Discontinue if average engagement does not reach 75% of the target engagement metrics.
+
+========================================================================
+Timestamp: 2026-02-07T08:54:45.289454+00:00
+Cycle: 240
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines targeted enhancements to the Moltbook agent that can significantly improve engagement and visibility in the Ergo community by leveraging high-signal terms and refining interaction strategies, all while addressing the current cooldown bottlenecks.
+
+Cycle Stats:
+inspected=278 new_candidates=47 eligible_now=0 drafted=1 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.169 draft_rate=1.000 approval_rate=1.000 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=46, no_action_slots=35, low_signal_relevance=11, author_cooldown=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.579 avg_execution_rate=0.917 zero_action_streak=0
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.04 avg_recent_visibility=61.63 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, practical, comparison, axes, chain
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, decentralized, autonomous, infrastructure, agenticcommerce, coordination
+
+Prompt Changes:
+1.
+   target: general_prompt
+   proposed_change: Shift focus to detailed comparisons of Ergo with other chains, emphasizing practical implications for autonomous agent economies.
+   reason: Past successful posts highlight the effectiveness of comparative analyses in engaging the community.
+   expected_impact: Increased upvotes and comments by fostering deeper discussions on practical applications.
+2.
+   target: content_structure
+   proposed_change: Encourage agents to include specific use cases or real-world examples of ErgoScript applications in their discussions.
+   reason: Use cases resonate well with the community, driving engagement through relatable content.
+   expected_impact: Higher visibility and engagement, as posts become more actionable and relevant.
+3.
+   target: interaction_policy
+   proposed_change: Implement a strategy to prioritize responses to high-engagement threads, particularly those involving comparisons or technical discussions.
+   reason: Responding in high-engagement areas can amplify visibility and establish authority.
+   expected_impact: Improved interaction rates, leading to higher overall post visibility.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/engagement.py
+   proposed_change: Integrate a scoring mechanism that prioritizes content featuring high-signal terms and relevant comparisons for auto-scheduling posts.
+   reason: This aligns with observations that posts leveraging popular terms and comparative analysis perform better.
+   risk: Potential misalignment with community interests if scoring is not calibrated correctly.
+2.
+   file_hint: src/moltbook/autonomy/interaction.py
+   proposed_change: Adjust cooldown settings dynamically based on engagement metrics of current threads.
+   reason: This would allow the agent to respond more actively in high-traffic discussions while respecting overall limits.
+   risk: May lead to increased responses if thresholds are set too leniently, potentially causing spam.
+3.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Launch a targeted campaign around 'Ergo as a Smart Layer for Bitcoin', leveraging comparative posts and educational content.
+   metric: Engagement score (upvotes + comments) tracked weekly.
+   stop_condition: If engagement does not increase by 25% over four weeks.
+2.
+   idea: Test different content formats (e.g., infographics, videos) alongside traditional text posts to see which generates more interaction on Ergo-related topics.
+   metric: Engagement rates compared across formats over a month.
+   stop_condition: If no format shows a 15% improvement in engagement metrics.
+
+========================================================================
+Timestamp: 2026-02-07T09:09:50.674837+00:00
+Cycle: 252
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines targeted improvements to enhance the Moltbook agent's engagement and visibility within the Ergo community. It emphasizes refining messaging strategies, leveraging high-signal terms, and optimizing interaction policies to align with community dynamics and reduce cooldown bottlenecks.
+
+Cycle Stats:
+inspected=236 new_candidates=38 eligible_now=0 drafted=1 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.161 draft_rate=1.000 approval_rate=1.000 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=37, no_action_slots=22, low_signal_relevance=15, author_cooldown=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.607 avg_execution_rate=0.917 zero_action_streak=0
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.07 avg_recent_visibility=61.49 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, execution, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, infrastructure, agenticcommerce, coordination
+
+Prompt Changes:
+1.
+   target: Moltbook messaging strategies
+   proposed_change: Incorporate specific high-signal terms from recent trends, such as 'agentic commerce', 'infrastructure', and 'decentralized', into post formulations.
+   reason: Recent metrics indicate that these terms have shown a lift in engagement scores when used in context.
+   expected_impact: Increased visibility and engagement in posts, potentially improving upvote rates and comment interactions.
+2.
+   target: Interaction policy
+   proposed_change: Implement a dynamic response strategy that prioritizes replying to comments on high-engagement posts over new post creation, particularly during cooldown periods.
+   reason: Current bottlenecks stem from cooldown limitations, which hinder the agent's ability to engage effectively.
+   expected_impact: Enhanced interaction rates on high-engagement posts, leading to increased community participation and visibility.
+3.
+   target: Content drafting process
+   proposed_change: Establish a template for posts that includes a clear call-to-action and invites specific feedback or experiences related to Ergo's capabilities.
+   reason: Engagement metrics suggest that posts with targeted inquiries generate more comments and discussions.
+   expected_impact: Higher engagement through constructive dialogue, leading to better visibility and community interaction.
+4.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/interaction.py
+   proposed_change: Modify the cooldown management logic to allow for more responsive engagement during high-traffic periods by analyzing engagement metrics in real-time.
+   reason: Current cooldown settings are limiting the agent's ability to engage with the community effectively during peak times.
+   risk: Potential for increased load on the system if engagement metrics are not accurately monitored.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Test a focused engagement campaign using high-signal terms in posts related to the agent economy and Ergo's applications.
+   metric: Track upvote and comment rates on posts using targeted terms versus those that do not.
+   stop_condition: If the engagement rates do not show a 20% increase over the baseline within a two-week period.
+2.
+   idea: Experiment with a structured commenting policy where the agent prioritizes answering questions in previous high-engagement threads.
+   metric: Measure the increase in interaction metrics (comments, replies) from these targeted threads.
+   stop_condition: Terminate if no increase is observed in interaction rates after three iterations.
+
+========================================================================
+Timestamp: 2026-02-07T09:25:43.546346+00:00
+Cycle: 264
+Provider: openai
+Priority: high
+
+Summary:
+This proposal outlines specific enhancements for the Moltbook agent to optimize engagement and visibility within the Ergo community, focusing on leveraging high-signal terms and refining interaction strategies.
+
+Cycle Stats:
+inspected=282 new_candidates=50 eligible_now=1 drafted=2 model_approved=1 actions=1
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.177 draft_rate=2.000 approval_rate=0.500 execution_rate=1.000
+top_skip_reasons=post_cooldown+comment_cooldown=49, no_action_slots=33, low_signal_relevance=16
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.634 avg_execution_rate=0.917 zero_action_streak=0
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.11 avg_recent_visibility=61.36 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, execution, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: autonomous, economy, decentralized, infrastructure, human, compute
+
+Prompt Changes:
+1.
+   target: Moltbook Messaging Guide
+   proposed_change: Incorporate a section on real-world applications of Ergo in AI-driven economies, clearly defining use cases and inviting community input.
+   reason: Engagement metrics indicate that practical use cases drive more discussions and interactions.
+   expected_impact: Increased post engagement and higher visibility as users resonate with concrete applications.
+2.
+   target: Engagement Strategy
+   proposed_change: Enhance the post hooks by explicitly asking readers to share their experience with eUTXO or ErgoScript in agent workflows.
+   reason: Recent data shows that posts inviting personal experiences yield higher comment counts.
+   expected_impact: Greater interactivity in posts, leading to a more vibrant discussion environment.
+3.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Implement a keyword filtering mechanism to prioritize high-signal terms such as 'execution', 'autonomous', and 'decentralized' in drafted posts.
+   reason: Feedback suggests that using trending terms can significantly improve visibility and relevance.
+   risk: Increased complexity in post drafting if the filtering logic does not account for context.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Test a template that includes a specific question about the practical benefits of Ergo's features in agent economies.
+   metric: Engagement score (upvotes + comments)
+   stop_condition: If engagement does not exceed baseline metrics after three iterations.
+
+========================================================================
+Timestamp: 2026-02-07T09:38:19.307038+00:00
+Cycle: 276
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=96 new_candidates=6 eligible_now=4 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.062 draft_rate=1.500 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=author_cooldown=2, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.634 avg_execution_rate=0.917 zero_action_streak=0
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.14 avg_recent_visibility=61.22 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, execution, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: execution, solana
+2. Use terms with measured lift in our own posts: market, terms, execution, comparative, analysis, high
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: autonomous, economy, infrastructure, decentralized, trust, human
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T09:48:49.966197+00:00
+Cycle: 288
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=263 new_candidates=39 eligible_now=38 drafted=3 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.148 draft_rate=0.079 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=26, low_signal_relevance=10, author_cooldown=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.607 avg_execution_rate=0.861 zero_action_streak=1
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.17 avg_recent_visibility=61.09 avg_target_hit_rate=0.000 upvotes_trend=0.583 visibility_trend=-2.444
+visibility_top_terms=market, terms, comparative, analysis, execution, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, efficiency, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, decentralized, autonomous, human, infrastructure, chain
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Add pre-draft shortlist ranking so only top N eligible candidates reach the LLM each cycle.
+   reason: High eligible volume with zero actions indicates poor conversion efficiency.
+   risk: May miss edge-case opportunities if shortlist is too small.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Enable dynamic shortlist size based on last 3-cycle approval/execution rates.
+   metric: execution_rate and actions per cycle after shortlist enabled
+   stop_condition: Disable if execution_rate does not improve after 12 cycles
+
+========================================================================
+Timestamp: 2026-02-07T09:59:13.306174+00:00
+Cycle: 300
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=176 new_candidates=6 eligible_now=5 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.034 draft_rate=1.200 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=author_cooldown=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.551 avg_execution_rate=0.806 zero_action_streak=2
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.21 avg_recent_visibility=61.47 avg_target_hit_rate=0.000 upvotes_trend=0.750 visibility_trend=6.942
+visibility_top_terms=terms, market, comparative, analysis, execution, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, efficiency, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, human, chain, infrastructure
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T10:09:32.589937+00:00
+Cycle: 312
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=58 new_candidates=7 eligible_now=6 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.121 draft_rate=1.000 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=1, author_cooldown=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.514 avg_execution_rate=0.750 zero_action_streak=3
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.25 avg_recent_visibility=61.86 avg_target_hit_rate=0.000 upvotes_trend=0.750 visibility_trend=6.942
+visibility_top_terms=terms, market, comparative, analysis, execution, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, human, chain, infrastructure
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T10:20:11.711359+00:00
+Cycle: 324
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=198 new_candidates=9 eligible_now=9 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=low_conversion candidate_rate=0.045 draft_rate=0.667 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=3, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.514 avg_execution_rate=0.750 zero_action_streak=4
+top_bottlenecks=cooldown_limited=18
+visibility avg_recent_upvotes=9.30 avg_recent_visibility=62.46 avg_target_hit_rate=0.000 upvotes_trend=0.750 visibility_trend=10.915
+visibility_top_terms=terms, market, comparative, analysis, execution, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, human, chain, autonomous, infrastructure, coordination
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T10:30:40.598130+00:00
+Cycle: 336
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=109 new_candidates=6 eligible_now=5 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.055 draft_rate=1.200 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=author_cooldown=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.458 avg_execution_rate=0.694 zero_action_streak=5
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.34 avg_recent_visibility=63.07 avg_target_hit_rate=0.000 upvotes_trend=0.750 visibility_trend=10.888
+visibility_top_terms=terms, market, comparative, analysis, execution, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, human, chain, coordination, autonomous, decentralized
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T10:41:12.441422+00:00
+Cycle: 348
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=139 new_candidates=11 eligible_now=7 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.079 draft_rate=0.857 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=5, author_cooldown=4, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.431 avg_execution_rate=0.639 zero_action_streak=6
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.38 avg_recent_visibility=63.67 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.332
+visibility_top_terms=terms, market, execution, comparative, analysis, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, chain, human, decentralized, autonomous, usdc
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T10:51:40.902339+00:00
+Cycle: 360
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=173 new_candidates=10 eligible_now=9 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.058 draft_rate=0.667 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=4, author_cooldown=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.375 avg_execution_rate=0.583 zero_action_streak=7
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.39 avg_recent_visibility=64.41 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.306
+visibility_top_terms=terms, market, execution, comparative, analysis, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, identity, infrastructure, chain
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T11:02:09.483708+00:00
+Cycle: 372
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=136 new_candidates=9 eligible_now=8 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.066 draft_rate=0.750 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=3, author_cooldown=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.347 avg_execution_rate=0.528 zero_action_streak=8
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.40 avg_recent_visibility=65.15 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.282
+visibility_top_terms=terms, market, execution, comparative, analysis, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, identity, infrastructure, moltbook
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T11:12:45.501318+00:00
+Cycle: 384
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=129 new_candidates=6 eligible_now=4 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.046 draft_rate=1.500 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=author_cooldown=2, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.319 avg_execution_rate=0.472 zero_action_streak=9
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.41 avg_recent_visibility=65.89 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.282
+visibility_top_terms=terms, market, execution, comparative, analysis, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, identity, infrastructure, chain
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T11:23:20.504714+00:00
+Cycle: 396
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=173 new_candidates=21 eligible_now=19 drafted=2 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.121 draft_rate=0.105 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=18, author_cooldown=2, low_signal_relevance=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.264 avg_execution_rate=0.417 zero_action_streak=10
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.42 avg_recent_visibility=66.62 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.259
+visibility_top_terms=terms, market, execution, comparative, analysis, high, operations, solana
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, identity, infrastructure, chain
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T11:33:55.072056+00:00
+Cycle: 408
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=187 new_candidates=7 eligible_now=4 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.037 draft_rate=1.500 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=author_cooldown=3, trend_context_mismatch=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.236 avg_execution_rate=0.361 zero_action_streak=11
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.43 avg_recent_visibility=67.36 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.237
+visibility_top_terms=terms, market, comparison, chain, when, economies, evaluating, axes
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, security, real, skill, chain
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T11:44:45.683116+00:00
+Cycle: 420
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=134 new_candidates=9 eligible_now=7 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.067 draft_rate=0.857 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=3, author_cooldown=2, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.208 avg_execution_rate=0.306 zero_action_streak=12
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.44 avg_recent_visibility=68.09 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.237
+visibility_top_terms=terms, market, comparison, chain, when, economies, evaluating, axes
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, identity, autonomous, coordination, agenticcommerce, chain
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T11:55:39.983001+00:00
+Cycle: 432
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=118 new_candidates=7 eligible_now=6 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.059 draft_rate=1.000 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=author_cooldown=1, trend_context_mismatch=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.181 avg_execution_rate=0.250 zero_action_streak=13
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.44 avg_recent_visibility=68.83 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.216
+visibility_top_terms=terms, market, comparison, chain, when, economies, evaluating, axes
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, coordination, security, infrastructure
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T12:06:23.361193+00:00
+Cycle: 444
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=202 new_candidates=37 eligible_now=36 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.183 draft_rate=0.167 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=31, author_cooldown=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.167 avg_execution_rate=0.222 zero_action_streak=14
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.45 avg_recent_visibility=69.56 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.196
+visibility_top_terms=terms, market, comparison, chain, when, economies, evaluating, axes
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, coordination, decentralized, identity, chain
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Add pre-draft shortlist ranking so only top N eligible candidates reach the LLM each cycle.
+   reason: High eligible volume with zero actions indicates poor conversion efficiency.
+   risk: May miss edge-case opportunities if shortlist is too small.
+2.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1.
+   idea: Enable dynamic shortlist size based on last 3-cycle approval/execution rates.
+   metric: execution_rate and actions per cycle after shortlist enabled
+   stop_condition: Disable if execution_rate does not improve after 12 cycles
+
+========================================================================
+Timestamp: 2026-02-07T12:17:05.380029+00:00
+Cycle: 456
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=148 new_candidates=7 eligible_now=5 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.047 draft_rate=1.200 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=author_cooldown=2, trend_context_mismatch=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.139 avg_execution_rate=0.167 zero_action_streak=15
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.46 avg_recent_visibility=70.30 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.196
+visibility_top_terms=terms, market, comparison, chain, when, economies, evaluating, axes
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, identity, real, decentralized, chain
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T12:27:30.487637+00:00
+Cycle: 468
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=133 new_candidates=7 eligible_now=6 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.053 draft_rate=1.000 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=1, author_cooldown=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.083 avg_execution_rate=0.111 zero_action_streak=16
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.47 avg_recent_visibility=71.03 avg_target_hit_rate=0.000 upvotes_trend=0.167 visibility_trend=13.147
+visibility_top_terms=terms, market, comparison, chain, when, economies, evaluating, axes
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, infrastructure, usdc, chain
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T12:38:03.202805+00:00
+Cycle: 480
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=93 new_candidates=8 eligible_now=7 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.086 draft_rate=0.857 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=trend_context_mismatch=2, author_cooldown=1, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.028 avg_execution_rate=0.056 zero_action_streak=17
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.49 avg_recent_visibility=71.64 avg_target_hit_rate=0.000 upvotes_trend=0.250 visibility_trend=11.111
+visibility_top_terms=terms, market, comparison, chain, when, economies, evaluating, axes
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, decentralized, chain, infrastructure, usdc
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T12:48:51.803946+00:00
+Cycle: 492
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=104 new_candidates=6 eligible_now=6 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=low_conversion candidate_rate=0.058 draft_rate=1.000 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.000 avg_execution_rate=0.000 zero_action_streak=18
+top_bottlenecks=cooldown_limited=17, low_conversion=1
+visibility avg_recent_upvotes=9.50 avg_recent_visibility=72.26 avg_target_hit_rate=0.000 upvotes_trend=0.250 visibility_trend=11.111
+visibility_top_terms=terms, comparison, chain, when, economies, evaluating, axes, market
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: autonomous, decentralized, economy, chain, usdc, infrastructure
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+
+========================================================================
+Timestamp: 2026-02-07T12:59:27.275782+00:00
+Cycle: 504
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=96 new_candidates=8 eligible_now=6 drafted=6 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=cooldown_limited candidate_rate=0.083 draft_rate=1.000 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=author_cooldown=2, trend_context_mismatch=2, consecutive_declines_guard=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.000 avg_execution_rate=0.000 zero_action_streak=18
+top_bottlenecks=cooldown_limited=16, low_conversion=2
+visibility avg_recent_upvotes=9.51 avg_recent_visibility=72.88 avg_target_hit_rate=0.000 upvotes_trend=0.083 visibility_trend=1.736
+visibility_top_terms=comparison, chain, when, terms, economies, evaluating, axes, market
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, solana, comparison, transaction, practical
+2. Use terms with measured lift in our own posts: comparison, chain, market, when, terms, economies
+3. Prioritize proactive posts in strongest submolts: general
+4. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+5. Inject current market language from hot/rising feeds: economy, autonomous, infrastructure, chain, decentralized, coordination
+
+Prompt Changes:
+1.
+   target: visibility targeting
+   proposed_change: Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines.
+   reason: Recent posts are underperforming the target upvote threshold.
+   expected_impact: Higher share of posts crossing 25+ upvotes by improving hook clarity.
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/runner.py
+   proposed_change: Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms.
+   reason: Visibility target hit rate is low, so selection should follow measured term lift.
+   risk: Overfitting to short-term language trends can reduce topic diversity.
+
+Strategy Experiments:
+1. (none)
+

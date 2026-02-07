@@ -109,6 +109,7 @@ class Config:
     startup_reply_scan_post_limit: int
     startup_reply_scan_comment_limit: int
     startup_reply_scan_replied_post_limit: int
+    reply_triage_llm_calls_per_scan: int
     reply_scan_interval_cycles: int
     proactive_posting_enabled: bool
     proactive_post_attempt_cooldown_seconds: int
@@ -135,6 +136,7 @@ class Config:
     chatbase_chatbot_id: Optional[str]
     chatbase_base_url: str
     llm_provider: str
+    llm_auto_fallback_to_openai: bool
     log_level: str
     log_path: Optional[Path]
     confirm_actions: bool
@@ -221,6 +223,7 @@ def load_config() -> Config:
     startup_reply_scan_post_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_POST_LIMIT", "15"))
     startup_reply_scan_comment_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_COMMENT_LIMIT", "100"))
     startup_reply_scan_replied_post_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_REPLIED_POST_LIMIT", "25"))
+    reply_triage_llm_calls_per_scan = int(os.getenv("MOLTBOOK_REPLY_TRIAGE_LLM_CALLS_PER_SCAN", "6"))
     reply_scan_interval_cycles = int(os.getenv("MOLTBOOK_REPLY_SCAN_INTERVAL_CYCLES", "3"))
     proactive_posting_enabled = os.getenv("MOLTBOOK_PROACTIVE_POSTING_ENABLED", "1").strip().lower() in {
         "1",
@@ -272,6 +275,11 @@ def load_config() -> Config:
     llm_provider = os.getenv("MOLTBOOK_LLM_PROVIDER", "auto").strip().lower()
     if llm_provider not in {"auto", "openai", "chatbase"}:
         llm_provider = "auto"
+    llm_auto_fallback_to_openai = os.getenv("MOLTBOOK_LLM_AUTO_FALLBACK_TO_OPENAI", "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
     log_level = os.getenv("MOLTBOOK_LOG_LEVEL", "INFO").strip().upper()
     log_path_str = os.getenv("MOLTBOOK_LOG_PATH", "").strip()
@@ -329,6 +337,7 @@ def load_config() -> Config:
         startup_reply_scan_post_limit=startup_reply_scan_post_limit,
         startup_reply_scan_comment_limit=startup_reply_scan_comment_limit,
         startup_reply_scan_replied_post_limit=startup_reply_scan_replied_post_limit,
+        reply_triage_llm_calls_per_scan=reply_triage_llm_calls_per_scan,
         reply_scan_interval_cycles=reply_scan_interval_cycles,
         proactive_posting_enabled=proactive_posting_enabled,
         proactive_post_attempt_cooldown_seconds=proactive_post_attempt_cooldown_seconds,
@@ -355,6 +364,7 @@ def load_config() -> Config:
         chatbase_chatbot_id=chatbase_chatbot_id,
         chatbase_base_url=chatbase_base_url,
         llm_provider=llm_provider,
+        llm_auto_fallback_to_openai=llm_auto_fallback_to_openai,
         log_level=log_level,
         log_path=log_path,
         confirm_actions=confirm_actions,

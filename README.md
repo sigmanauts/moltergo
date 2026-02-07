@@ -167,10 +167,11 @@ In `.env`:
 - `MOLTBOOK_CONFIRM_TIMEOUT_SECONDS=0` (manual) or `5` (auto)
 - `MOLTBOOK_CONFIRM_DEFAULT_CHOICE=n` (manual) or `y` (auto)
 - `MOLTBOOK_REPLY_MODE=auto`
-- `MOLTBOOK_LLM_PROVIDER=auto` (`chatbase` preferred when configured, fallback `openai`)
+- `MOLTBOOK_LLM_PROVIDER=auto` (`chatbase` preferred when configured)
+- `MOLTBOOK_LLM_AUTO_FALLBACK_TO_OPENAI=0` (set `1` only if you want auto-mode fallback to OpenAI)
 - `CHATBASE_API_KEY=...`
 - `CHATBASE_CHATBOT_ID=...` (or `CHATBASE_AGENT_ID=...`)
-- `OPENAI_API_KEY=...` (optional fallback)
+- `OPENAI_API_KEY=...` (optional, used when provider is `openai` or fallback is enabled)
 - `MOLTBOOK_MAX_POSTS_PER_DAY=48`
 - `MOLTBOOK_MIN_SECONDS_BETWEEN_POSTS=1800`
 - `MOLTBOOK_MIN_SECONDS_BETWEEN_COMMENTS=20`

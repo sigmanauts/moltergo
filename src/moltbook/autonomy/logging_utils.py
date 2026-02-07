@@ -1,5 +1,56 @@
 import logging
+import os
+import sys
 from .config import Config
+
+
+_RESET = "\033[0m"
+_BOLD = "\033[1m"
+_DIM = "\033[2m"
+_CYAN = "\033[36m"
+_MAGENTA = "\033[35m"
+_GREEN = "\033[32m"
+_YELLOW = "\033[33m"
+_COLORS = {
+    "DEBUG": "\033[36m",
+    "INFO": "\033[32m",
+    "WARNING": "\033[33m",
+    "ERROR": "\033[31m",
+    "CRITICAL": "\033[31m",
+}
+
+
+def _stream_supports_color() -> bool:
+    if os.getenv("NO_COLOR"):
+        return False
+    force = os.getenv("FORCE_COLOR", "").strip().lower()
+    if force in {"1", "true", "yes"}:
+        return True
+    return bool(sys.stderr.isatty())
+
+
+class ColorFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        message = super().format(record)
+        level_name = record.levelname.upper()
+        color = _COLORS.get(level_name, "")
+        if not color:
+            return message
+
+        # Highlight key runtime phases so operators can scan the console quickly.
+        if "LLM request" in message:
+            painted = f"{_BOLD}{_CYAN}{message}{_RESET}"
+        elif "LLM response" in message:
+            painted = f"{_BOLD}{_MAGENTA}{message}{_RESET}"
+        elif "ACTION SUCCESS" in message or "Proactive post success" in message:
+            painted = f"{_BOLD}{_GREEN}{message}{_RESET}"
+        elif "Sleeping seconds=" in message:
+            painted = f"{_DIM}{color}{message}{_RESET}"
+        elif "WARNING" in message:
+            painted = f"{_BOLD}{_YELLOW}{message}{_RESET}"
+        else:
+            painted = f"{color}{message}{_RESET}"
+        return painted
 
 
 def setup_logging(cfg: Config) -> logging.Logger:
@@ -15,7 +66,15 @@ def setup_logging(cfg: Config) -> logging.Logger:
     )
 
     stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
+    if _stream_supports_color():
+        stream_handler.setFormatter(
+            ColorFormatter(
+                fmt="%(asctime)sZ %(levelname)s %(message)s",
+                datefmt="%Y-%m-%dT%H:%M:%S",
+            )
+        )
+    else:
+        stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
 
     if cfg.log_path:
