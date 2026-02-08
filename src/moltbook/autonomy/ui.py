@@ -25,6 +25,7 @@ def _ui_palette() -> Dict[str, str]:
             "green": "",
             "yellow": "",
             "magenta": "",
+            "red": "",
             "white": "",
         }
     return {
@@ -36,6 +37,7 @@ def _ui_palette() -> Dict[str, str]:
         "green": "\033[1;32m",
         "yellow": "\033[1;33m",
         "magenta": "\033[1;35m",
+        "red": "\033[1;31m",
         "white": "\033[1;37m",
     }
 
@@ -107,14 +109,27 @@ def _ui_print_panel(
 
 
 def print_success_banner(action: str, pid: str, url: str, title: str) -> None:
+    action_l = normalize_str(action).lower()
+    tone = "green"
+    kind = "ACTION"
+    if "post" in action_l:
+        tone = "magenta"
+        kind = "POST"
+    elif "comment" in action_l:
+        tone = "cyan"
+        kind = "COMMENT"
+    elif "upvote" in action_l or "downvote" in action_l:
+        tone = "yellow"
+        kind = "VOTE"
     _ui_print_panel(
-        title=f"[SUCCESS] {action.upper()}",
+        title=f"ACTION SUCCESS :: {kind}",
         rows=[
-            ("post_id", pid),
+            ("action", action.upper()),
+            ("target_id", pid),
             ("title", title),
             ("url", url),
         ],
-        tone="green",
+        tone=tone,
     )
 
 
@@ -148,6 +163,40 @@ def print_runtime_banner(cfg: Config) -> None:
     )
 
 
+def print_drafting_banner(action_kind: str, pid: str, title: str, provider_hint: str) -> None:
+    kind = normalize_str(action_kind).strip().lower()
+    tone = "white"
+    label = "LLM DRAFT"
+    action_label = "MIXED"
+    if kind.startswith("post"):
+        tone = "magenta"
+        label = "LLM DRAFT :: POST"
+        action_label = "POST"
+    elif kind.startswith("comment"):
+        tone = "cyan"
+        label = "LLM DRAFT :: COMMENT"
+        action_label = "COMMENT"
+    elif kind in {"decision", "choose", "choice"}:
+        tone = "blue"
+        label = "LLM DRAFT :: DECISION"
+        action_label = "COMMENT|POST"
+    _ui_print_panel(
+        title=label,
+        rows=[
+            ("action", action_label),
+            ("target_id", pid),
+            ("title", title),
+            ("provider", provider_hint),
+        ],
+        tone=tone,
+        width=86,
+    )
+
+
+def print_status_banner(title: str, rows: List[Tuple[str, Any]], tone: str = "blue", width: int = 78) -> None:
+    _ui_print_panel(title=title, rows=rows, tone=tone, width=width)
+
+
 def print_keyword_added_banner(keyword: str, learned_total: int) -> None:
     _ui_print_panel(
         title="KEYWORD ADDED",
@@ -158,6 +207,28 @@ def print_keyword_added_banner(keyword: str, learned_total: int) -> None:
         tone="green",
         width=56,
     )
+
+
+def _preview_panel_meta(action: str) -> Tuple[str, str, str]:
+    action_l = normalize_str(action).strip().lower()
+    vote_prefixes = ("upvote-", "downvote-")
+    if any(action_l.startswith(prefix) for prefix in vote_prefixes):
+        if "comment" in action_l:
+            return "TARGET COMMENT", "comment", "yellow"
+        if "post" in action_l:
+            return "TARGET POST", "post", "yellow"
+        return "VOTE CONTEXT", "context", "yellow"
+    if "comment-reply" in action_l or "wait-comment-reply" in action_l:
+        return "REPLY BODY", "body", "cyan"
+    if action_l == "comment" or action_l.startswith("comment"):
+        return "COMMENT BODY", "body", "cyan"
+    if "post" in action_l:
+        return "POST BODY", "body", "magenta"
+    if "follow" in action_l:
+        return "FOLLOW CONTEXT", "context", "green"
+    if "subscribe" in action_l:
+        return "SUBSCRIBE CONTEXT", "context", "green"
+    return "ACTION CONTEXT", "content", "cyan"
 
 
 def confirm_action(
@@ -187,23 +258,37 @@ def confirm_action(
         )
         return False, approve_all, False
 
+    action_l = normalize_str(action).lower()
+    panel_tone = "yellow"
+    panel_title = "[CONFIRM] PROPOSED ACTION"
+    if "post" in action_l:
+        panel_tone = "magenta"
+        panel_title = "[CONFIRM] PROPOSED POST"
+    elif "comment" in action_l:
+        panel_tone = "cyan"
+        panel_title = "[CONFIRM] PROPOSED COMMENT"
+    elif "follow" in action_l:
+        panel_tone = "green"
+        panel_title = "[CONFIRM] PROPOSED FOLLOW"
+
     _ui_print_panel(
-        title="[CONFIRM] PROPOSED ACTION",
+        title=panel_title,
         rows=[
             ("action", action),
-            ("post_id", pid),
+            ("target_id", pid),
             ("author", author),
             ("submolt", submolt),
             ("url", url),
             ("title", title),
         ],
-        tone="yellow",
+        tone=panel_tone,
     )
     if content_preview:
+        preview_title, preview_label, preview_tone = _preview_panel_meta(action)
         _ui_print_panel(
-            title="DRAFT PREVIEW",
-            rows=[("content", content_preview)],
-            tone="cyan",
+            title=preview_title,
+            rows=[(preview_label, content_preview)],
+            tone=preview_tone,
         )
     prompt = "Proceed? [y]es / [n]o / [a]ll remaining / [q]uit: "
     choice = ""

@@ -11,6 +11,14 @@ from requests import exceptions as requests_exceptions
 MOLTBOOK_BASE_URL = "https://www.moltbook.com/api/v1"
 MOLTBOOK_BASE_ENV = "MOLTBOOK_API_BASE"
 CREDENTIALS_PATH = Path.home() / ".config" / "moltbook" / "credentials.json"
+_MOLTBOOK_ALLOWED_PREFIX = "https://www.moltbook.com/api/v1"
+
+
+def normalize_sort(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if text in {"hot", "new", "rising", "top"}:
+        return text
+    return "new"
 
 
 class MoltbookAuthError(Exception):
@@ -58,9 +66,16 @@ class MoltbookClient:
     def __init__(self, credentials: Optional[MoltbookCredentials] = None):
         self.credentials = credentials or MoltbookCredentials.load()
         env_base = os.getenv(MOLTBOOK_BASE_ENV)
-        self.base_url = (env_base or MOLTBOOK_BASE_URL).rstrip("/")
+        self.base_url = self._normalize_base_url(env_base or MOLTBOOK_BASE_URL)
         self._search_endpoint: Optional[str] = None
         self._search_endpoint_checked = False
+
+    def _normalize_base_url(self, raw: str) -> str:
+        candidate = str(raw).strip().rstrip("/")
+        if candidate.startswith(_MOLTBOOK_ALLOWED_PREFIX):
+            return candidate
+        # Enforce the official API host so auth headers are never sent elsewhere.
+        return MOLTBOOK_BASE_URL
 
     @property
     def _headers(self) -> Dict[str, str]:
@@ -252,6 +267,9 @@ class MoltbookClient:
         return resp.json()
 
     def get_posts(self, sort: str = "new", limit: int = 30, submolt: Optional[str] = None) -> Dict[str, Any]:
+        sort = sort.strip().lower()
+        if sort not in {"hot", "new", "rising", "top"}:
+            sort = "new"
         params: Dict[str, Any] = {"sort": sort, "limit": limit}
         if submolt:
             params["submolt"] = submolt
@@ -284,6 +302,20 @@ class MoltbookClient:
             raise RuntimeError(f"Moltbook error {resp.status_code}: {message}")
 
         return resp.json()
+
+    def get_posts_by_sorts(
+        self,
+        sorts: list[str],
+        limit: int = 30,
+        submolt: Optional[str] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        out: Dict[str, Dict[str, Any]] = {}
+        for sort in sorts:
+            key = normalize_sort(sort)
+            if key in out:
+                continue
+            out[key] = self.get_posts(sort=key, limit=limit, submolt=submolt)
+        return out
 
     def get_post(self, post_id: str) -> Dict[str, Any]:
         if not post_id.strip():
@@ -347,6 +379,27 @@ class MoltbookClient:
 
         return resp.json()
 
+    def list_submolts_public(self) -> Dict[str, Any]:
+        try:
+            resp = requests.get(
+                self._url("submolts"),
+                timeout=30,
+            )
+        except requests_exceptions.Timeout as e:
+            raise RuntimeError(
+                "Timed out while contacting Moltbook for public /submolts."
+            ) from e
+
+        if resp.status_code >= 400:
+            try:
+                data = resp.json()
+            except Exception:
+                resp.raise_for_status()
+            message = data.get("error") or data.get("hint") or data.get("message") or resp.text
+            raise RuntimeError(f"Moltbook public submolts error {resp.status_code}: {message}")
+
+        return resp.json()
+
     def subscribe_submolt(self, name: str) -> Dict[str, Any]:
         if not name.strip():
             raise ValueError("submolt name must be provided")
@@ -376,6 +429,40 @@ class MoltbookClient:
                 data = {}
             message = data.get("error") or data.get("hint") or data.get("message") or resp.text
             raise RuntimeError(f"Moltbook subscribe error {resp.status_code}: {message}")
+
+        try:
+            return resp.json()
+        except Exception:
+            return {"ok": True}
+
+    def follow_agent(self, agent_name: str) -> Dict[str, Any]:
+        name = agent_name.strip()
+        if not name:
+            raise ValueError("agent_name must be provided")
+        try:
+            resp = requests.post(
+                self._url(f"agents/{name}/follow"),
+                headers=self._headers,
+                timeout=30,
+            )
+        except requests_exceptions.Timeout as e:
+            raise RuntimeError(f"Timed out while following agent '{name}'.") from e
+
+        if resp.status_code in {401, 403}:
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+            message = data.get("error") or data.get("hint") or "Authentication required"
+            raise MoltbookAuthError(f"Moltbook auth error {resp.status_code}: {message}")
+
+        if resp.status_code >= 400:
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+            message = data.get("error") or data.get("hint") or data.get("message") or resp.text
+            raise RuntimeError(f"Moltbook follow error {resp.status_code}: {message}")
 
         try:
             return resp.json()

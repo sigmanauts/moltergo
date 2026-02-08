@@ -39,11 +39,21 @@ class ColorFormatter(logging.Formatter):
 
         # Highlight key runtime phases so operators can scan the console quickly.
         if "LLM request" in message:
-            painted = f"{_BOLD}{_CYAN}{message}{_RESET}"
+            painted = f"{_BOLD}{_CYAN}[LLM REQUEST] {message}{_RESET}"
         elif "LLM response" in message:
-            painted = f"{_BOLD}{_MAGENTA}{message}{_RESET}"
+            painted = f"{_BOLD}{_MAGENTA}[LLM RESPONSE] {message}{_RESET}"
+        elif "drafting post_id=" in message:
+            painted = f"{_BOLD}{_CYAN}[DRAFT] {message}{_RESET}"
+        elif "action=post attempt" in message:
+            painted = f"{_BOLD}{_MAGENTA}[POST ATTEMPT] {message}{_RESET}"
+        elif "action=comment attempt" in message:
+            painted = f"{_BOLD}{_CYAN}[COMMENT ATTEMPT] {message}{_RESET}"
+        elif "skip post_id=" in message and "reason=no_action_slots" in message:
+            painted = f"{_BOLD}{_YELLOW}[ACTION SLOT BLOCKED] {message}{_RESET}"
+        elif "token_saver llm_cycle_budget=" in message:
+            painted = f"{_BOLD}{_YELLOW}[TOKEN SAVER] {message}{_RESET}"
         elif "ACTION SUCCESS" in message or "Proactive post success" in message:
-            painted = f"{_BOLD}{_GREEN}{message}{_RESET}"
+            painted = f"{_BOLD}{_GREEN}[SUCCESS] {message}{_RESET}"
         elif "Sleeping seconds=" in message:
             painted = f"{_DIM}{color}{message}{_RESET}"
         elif "WARNING" in message:

@@ -1,17 +1,56 @@
 from __future__ import annotations
 
-import os
+import hashlib
+import logging
 import re
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ..moltbook_client import MoltbookAuthError, MoltbookClient
+from ..virality import infer_topic_signature, score_post_candidate, summarize_sources
 
+from .actions import (
+    can_reply,
+    cooldown_remaining_seconds,
+    execute_pending_actions,
+    has_pending_comment_action,
+    mark_reply_action_timestamps,
+    maybe_upvote_post_after_comment,
+    seconds_since_last_post,
+    should_prioritize_proactive_post,
+    wait_for_comment_slot,
+)
+from .action_journal import append_action_journal
+from .analytics import (
+    aggregate_skip_reasons,
+    daily_summary,
+    init_analytics_db,
+    record_action_event,
+    refresh_post_metrics,
+)
 from .config import Config, load_config
+from .content_policy import (
+    build_badbot_warning_reply,
+    build_hostile_refusal_reply,
+    build_thread_followup_post_content,
+    build_thread_followup_post_title,
+    build_wrong_community_correction_reply,
+    enforce_link_policy,
+    is_strong_ergo_post,
+    looks_hostile_content,
+    looks_irrelevant_noise_comment,
+    is_overt_spam_comment,
+    looks_spammy_comment,
+    should_correct_wrong_community_claim,
+    top_badbots,
+)
+from .discovery import (
+    discover_posts,
+    discover_relevant_submolts,
+)
 from .drafting import (
     build_reply_triage_messages,
     build_proactive_post_messages,
-    build_self_improvement_messages,
     build_openai_messages,
     call_generation_model,
     fallback_draft,
@@ -21,34 +60,100 @@ from .drafting import (
     normalize_str,
     post_url,
     propose_keywords_from_titles,
+    sanitize_publish_content,
 )
 from .keywords import load_keyword_store, merge_keywords, save_keyword_store
 from .logging_utils import setup_logging
+from .generation_utils import (
+    has_generation_provider,
+    sanitize_generated_title,
+    select_best_hook_pair,
+)
 from .post_engine_memory import (
-    append_improvement_suggestions,
-    append_improvement_suggestions_text,
-    build_improvement_diagnostics,
-    build_improvement_feedback_context,
     build_learning_snapshot,
-    load_recent_improvement_entries,
-    load_recent_improvement_raw_entries,
     load_post_engine_memory,
     record_declined_idea,
     record_proactive_post,
     refresh_metrics_from_recent_posts,
-    sanitize_improvement_suggestions,
-    update_improvement_backlog,
     update_market_signals,
     save_post_engine_memory,
 )
-from .runtime_helpers import preview_text
+from .runtime_helpers import (
+    _prune_comment_action_timestamps,
+    _normalized_name_key,
+    author_identity_key,
+    comment_author,
+    comment_gate_status,
+    comment_id,
+    comment_parent_id,
+    comment_score,
+    currently_allowed_response_modes,
+    extract_comments,
+    extract_my_vote_from_comment,
+    extract_posts,
+    extract_single_post,
+    is_self_author,
+    normalize_response_mode,
+    normalize_submolt,
+    normalize_vote_action,
+    normalize_vote_target,
+    planned_actions,
+    post_author,
+    post_gate_status,
+    post_id,
+    preview_text,
+    register_my_comment_id,
+    resolve_self_identity_keys,
+    submolt_name_from_post,
+)
 from .state import load_state, reset_daily_if_needed, save_state, utc_now
+from .strategy import (
+    MAX_CONSECUTIVE_DECLINES_GUARD,
+    MAX_RECOVERY_DRAFTS_PER_CYCLE,
+    MAX_REPLIES_PER_AUTHOR_PER_POST,
+    RECOVERY_SIGNAL_MARGIN,
+    THREAD_ESCALATE_TURNS,
+    WEEKLY_PROACTIVE_THEMES,
+    _adaptive_draft_controls,
+    _build_recovery_messages,
+    _clean_signal_term,
+    _comment_priority_score,
+    _compose_reference_post_content,
+    _ensure_proactive_opening_gate,
+    _ensure_use_case_prompt_if_relevant,
+    _has_trending_overlap,
+    _is_low_value_affirmation_reply,
+    _is_template_like_generated_content,
+    _market_keyword_candidates,
+    _normalize_ergo_terms,
+    _passes_generated_content_quality,
+    _passes_proactive_opening_gate,
+    _post_mechanism_score,
+    _rank_posts_for_drafting,
+    _trending_terms_for_post,
+    post_comment_count,
+    post_score,
+)
+from .self_improve import (
+    maybe_write_self_improvement_suggestions,
+    review_pending_keyword_suggestions,
+)
+from .submolts import (
+    choose_best_submolt_for_new_post,
+    get_cached_submolt_meta,
+    is_valid_submolt_name,
+)
+from .thread_history import (
+    extract_recent_posts_from_profile,
+    has_my_comment_on_post,
+    has_my_reply_to_comment,
+)
 from .ui import (
     confirm_action,
-    confirm_keyword_addition,
     print_cycle_banner,
-    print_keyword_added_banner,
+    print_drafting_banner,
     print_runtime_banner,
+    print_status_banner,
     print_success_banner,
 )
 
@@ -62,1383 +167,212 @@ PROACTIVE_ARCHETYPES = [
     "chain_comparison",
     "implementation_walkthrough",
 ]
-
-
-def has_generation_provider(cfg: Config) -> bool:
-    if cfg.llm_provider == "chatbase":
-        return bool(cfg.chatbase_api_key and cfg.chatbase_chatbot_id)
-    if cfg.llm_provider == "openai":
-        return bool(cfg.openai_api_key)
-    return bool((cfg.chatbase_api_key and cfg.chatbase_chatbot_id) or cfg.openai_api_key)
-
-
-def post_score(post: Dict[str, Any]) -> int:
-    for key in ("score", "upvotes", "vote_score", "likes"):
-        value = post.get(key)
-        if isinstance(value, (int, float)):
-            return int(value)
-    return 0
-
-
-def post_comment_count(post: Dict[str, Any]) -> int:
-    for key in ("comment_count", "comments_count", "comments"):
-        value = post.get(key)
-        if isinstance(value, (int, float)):
-            return int(value)
-    return 0
-
-
-HIGH_SIGNAL_SEED_TERMS = [
-    "ergo",
-    "eutxo",
-    "ergoscript",
-    "service orchestration",
-    "agent economy",
-    "agent economies",
-    "decentralized",
-    "coordination",
-    "identity",
-    "infrastructure",
-    "trustless escrow",
-    "reputation",
-]
-
-PRIORITY_INFRA_TERMS = [
-    "agent coordination",
-    "coordination",
-    "orchestration",
-    "infrastructure",
-    "runtime",
-    "execution",
-    "settlement",
-    "escrow",
-    "counterparty",
-    "verification",
-]
-
-OFF_MISSION_SOFT_TERMS = [
-    "3d modeling",
-    "3d modelling",
-    "rigging",
-    "uv unwrap",
-    "blender workflow",
-    "sku photography",
-    "product rendering",
-]
-
-ERGO_CANONICAL_TERMS = (
-    ("eutxo", "eUTXO"),
-    ("ergoscript", "ErgoScript"),
-    ("sigma protocols", "Sigma Protocols"),
-    ("rosen bridge", "Rosen Bridge"),
-    ("sigusd", "SigUSD"),
+ERGO_REPLY_FOCUS_MARKERS = (
+    ("escrow", "escrow logic"),
+    ("dispute", "dispute flow"),
+    ("reputation", "counterparty reputation"),
+    ("identity", "agent identity proofs"),
+    ("coordination", "service coordination"),
+    ("orchestration", "service orchestration"),
+    ("eutxo", "eUTXO execution rules"),
+    ("ergoscript", "ErgoScript constraints"),
 )
-
-WEEKLY_PROACTIVE_THEMES = {
-    0: "Escrow and settlement discipline for autonomous agents",
-    1: "Agent identity and reputation proofs for counterparties",
-    2: "Service orchestration and delegation economics",
-    3: "Privacy-preserving execution and Sigma Protocols",
-    4: "DeFi rails for machine economies (SigUSD, Rosen Bridge, Oracle Pools)",
-    5: "Builder walkthroughs and implementation tradeoffs",
-    6: "Cypherpunk critiques of rent-seeking in agent infrastructure",
-}
-
-GENERIC_TEMPLATE_PATTERNS = [
-    "what concrete constraint would you test first",
-    "which implementation constraint would you test first on ergo",
-    "we are building toward verifiable agent economies",
-    "core idea is enforceable machine agreements",
-]
-
-LOW_VALUE_REPLY_PREFIXES = [
-    "absolutely",
-    "great point",
-    "interesting point",
-    "totally agree",
-    "i agree",
-    "noted",
-]
-
-PROACTIVE_OPENING_PAIN_MARKERS = [
-    "bottleneck",
-    "fragile",
-    "fails",
-    "failure",
-    "broken",
-    "slow",
-    "latency",
-    "cost",
-    "fees",
-    "spam",
-    "manual",
-    "trust",
-    "counterparty",
-    "dispute",
-    "verify",
-    "verification",
-    "opaque",
-    "censorship",
-    "downtime",
-]
-
-PROACTIVE_OPENING_MECHANISM_MARKERS = [
-    "eutxo",
-    "ergoscript",
-    "sigma",
-    "rosen bridge",
-    "sigusd",
-    "oracle",
-    "escrow",
-    "reputation",
-    "settlement",
-    "smart contract",
-]
-
-MAX_CONSECUTIVE_DECLINES_GUARD = 6
-MAX_RECOVERY_DRAFTS_PER_CYCLE = 2
-RECOVERY_SIGNAL_MARGIN = 3
-MAX_REPLIES_PER_AUTHOR_PER_POST = max(1, int(os.getenv("MOLTBOOK_MAX_REPLIES_PER_AUTHOR_PER_POST", "3")))
-THREAD_ESCALATE_TURNS = max(3, int(os.getenv("MOLTBOOK_THREAD_ESCALATE_TURNS", "5")))
-
-MARKET_KEYWORD_MAP = {
-    "autonomous": "autonomous agents",
-    "decentralized": "decentralized agents",
-    "coordination": "agent coordination",
-    "economy": "agent economy",
-    "identity": "agent identity",
-    "infrastructure": "agent infrastructure",
-    "payments": "autonomous payments",
-    "execution": "service execution",
-    "orchestration": "service orchestration",
-    "privacy": "privacy preserving",
-    "escrow": "trustless escrow",
-    "reputation": "agent reputation",
-}
-
-SIGNAL_TERM_BLACKLIST = {
-    "here",
-    "what",
-    "current",
-    "problem",
-    "projectsubmission",
-    "usdchackathon",
-    "submission",
-    "thread",
-}
+UNPUBLISHABLE_PAYLOAD_PATTERNS = (
+    re.compile(r"```", re.IGNORECASE),
+    re.compile(r"\bshould_respond\s*=\s*(true|false)\b", re.IGNORECASE),
+    re.compile(r"\bresponse_mode\s*=\s*[a-z_]+\b", re.IGNORECASE),
+    re.compile(r"\bdraft post\b", re.IGNORECASE),
+    re.compile(r"\bdraft reply\b", re.IGNORECASE),
+    re.compile(r"^\\s*(assessment|action)\\s*:", re.IGNORECASE | re.MULTILINE),
+)
+UNPUBLISHABLE_REASON_MAP = (
+    (re.compile(r"```", re.IGNORECASE), "markdown_fence_payload"),
+    (re.compile(r"\bshould_respond\s*=\s*(true|false)\b", re.IGNORECASE), "control_flag_payload"),
+    (re.compile(r"\bresponse_mode\s*=\s*[a-z_]+\b", re.IGNORECASE), "response_mode_payload"),
+    (re.compile(r"\bdraft post\b", re.IGNORECASE), "draft_wrapper_payload"),
+    (re.compile(r"\bdraft reply\b", re.IGNORECASE), "draft_wrapper_payload"),
+    (re.compile(r"^\s*(assessment|action)\s*:", re.IGNORECASE | re.MULTILINE), "triage_scaffold_payload"),
+)
+PUBLISH_AUDIT_DEDUPE: Set[str] = set()
 
 
-def _clean_signal_term(value: Any) -> str:
-    text = normalize_str(value).strip().lower()
-    text = re.sub(r"[^a-z0-9\s\-_/]", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    if len(text) < 3:
-        return ""
-    if text in SIGNAL_TERM_BLACKLIST:
-        return ""
-    return text
-
-
-def _snapshot_terms(snapshot: Dict[str, Any], key: str, limit: int = 16) -> List[str]:
-    raw = snapshot.get(key)
-    terms: List[str] = []
-    if not isinstance(raw, list):
-        return terms
-    for item in raw:
-        term = _clean_signal_term(item)
-        if not term or term in terms:
-            continue
-        terms.append(term)
-        if len(terms) >= max(1, int(limit)):
-            break
-    return terms
-
-
-def _snapshot_term_lift_map(snapshot: Dict[str, Any], key: str, limit: int = 16) -> Dict[str, float]:
-    raw = snapshot.get(key)
-    out: Dict[str, float] = {}
-    if not isinstance(raw, list):
-        return out
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        term = _clean_signal_term(item.get("term"))
-        if not term:
-            continue
-        try:
-            lift = float(item.get("lift", 0.0) or 0.0)
-        except Exception:
-            lift = 0.0
-        if lift == 0.0:
-            continue
-        out[term] = lift
-        if len(out) >= max(1, int(limit)):
-            break
-    return out
-
-
-def _snapshot_best_submolt_scores(snapshot: Dict[str, Any], limit: int = 8) -> Dict[str, float]:
-    raw = snapshot.get("best_submolts")
-    out: Dict[str, float] = {}
-    if not isinstance(raw, list):
-        return out
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        name = normalize_submolt(item.get("name"), default="")
-        if not name:
-            continue
-        try:
-            avg = float(item.get("avg_score", 0.0) or 0.0)
-        except Exception:
-            avg = 0.0
-        out[name] = avg
-        if len(out) >= max(1, int(limit)):
-            break
-    return out
-
-
-def _market_keyword_candidates(
-    market_snapshot: Dict[str, Any],
-    existing_keywords: List[str],
-    max_suggestions: int,
-) -> List[str]:
-    if not isinstance(market_snapshot, dict):
-        return []
-    raw_terms = market_snapshot.get("top_terms")
-    if not isinstance(raw_terms, list):
-        return []
-
-    existing = {normalize_str(k).strip().lower() for k in existing_keywords if normalize_str(k).strip()}
-    out: List[str] = []
-    for item in raw_terms[:12]:
-        token = _clean_signal_term(item)
-        if not token:
-            continue
-        candidate = MARKET_KEYWORD_MAP.get(token, "")
-        if not candidate:
-            continue
-        if candidate in existing or candidate in out:
-            continue
-        out.append(candidate)
-        if len(out) >= max(1, int(max_suggestions)):
-            break
-    return out
-
-
-def _collect_high_signal_terms(learning_snapshot: Dict[str, Any], active_keywords: List[str]) -> List[str]:
-    terms: List[str] = []
-
-    def add_term(raw: Any) -> None:
-        term = _clean_signal_term(raw)
-        if not term:
-            return
-        if term not in terms:
-            terms.append(term)
-
-    for seed in HIGH_SIGNAL_SEED_TERMS:
-        add_term(seed)
-
-    for keyword in active_keywords:
-        k = _clean_signal_term(keyword)
-        if not k:
-            continue
-        if any(token in k for token in ("ergo", "eutxo", "ergoscript", "service", "orchestration", "agent")):
-            add_term(k)
-
-    for item in _snapshot_terms(learning_snapshot, "winning_terms", limit=16):
-        add_term(item)
-
-    market_snapshot = learning_snapshot.get("market_snapshot")
-    if isinstance(market_snapshot, dict):
-        top_terms = market_snapshot.get("top_terms")
-        if isinstance(top_terms, list):
-            for item in top_terms:
-                add_term(item)
-
-    return terms[:48]
-
-
-def _contains_any(blob: str, terms: List[str]) -> bool:
-    return any(term in blob for term in terms)
-
-
-def _normalize_ergo_terms(text: str) -> str:
-    out = normalize_str(text)
-    if not out.strip():
-        return out
-    for source, target in ERGO_CANONICAL_TERMS:
-        out = re.sub(rf"\b{re.escape(source)}\b", target, out, flags=re.IGNORECASE)
-    return out
-
-
-def _ensure_use_case_prompt_if_relevant(content: str, post: Dict[str, Any]) -> str:
-    text = normalize_str(content).strip()
-    if not text:
-        return text
-    blob = " ".join(
-        [
-            normalize_str(post.get("title")).lower(),
-            normalize_str(post.get("content")).lower(),
-            normalize_submolt(post.get("submolt")).lower(),
-        ]
-    )
-    if not _contains_any(blob, PRIORITY_INFRA_TERMS):
-        return text
-    lowered = text.lower()
-    if "use case" in lowered or "example" in lowered or "pilot" in lowered:
-        return text
-    suffix = "Which concrete ErgoScript use case would you pilot first in your stack?"
-    if "?" in text:
-        return text + "\n\n" + suffix
-    return text + "\n\n" + suffix
-
-
-def _is_template_like_generated_content(text: str) -> bool:
-    blob = normalize_str(text).strip().lower()
+def _unpublishable_reason(text: Any) -> Optional[str]:
+    blob = normalize_str(text).strip()
     if not blob:
-        return False
-    return any(pattern in blob for pattern in GENERIC_TEMPLATE_PATTERNS)
-
-
-def _looks_like_control_payload_text(text: str) -> bool:
-    blob = normalize_str(text).strip().lower()
-    if not blob:
-        return False
-    matches = re.findall(
-        r"\b(should_respond|response_mode|vote_action|vote_target|confidence|should_post|content_archetype)\s*[:=]",
-        blob,
-    )
-    if len(matches) >= 1 and _word_count(blob) <= 28:
-        return True
-    if len(matches) >= 2:
-        return True
-    return False
-
-
-def _has_ergo_mechanism_mention(text: str) -> bool:
-    blob = normalize_str(text).strip().lower()
-    if not blob:
-        return False
-    markers = (
-        "eutxo",
-        "ergoscript",
-        "sigma",
-        "rosen bridge",
-        "sigusd",
-        "oracle",
-        "utxo",
-        "escrow",
-        "reputation",
-        "settlement",
-        "smart contract",
-    )
-    return any(marker in blob for marker in markers)
-
-
-def _has_implementation_angle(text: str) -> bool:
-    blob = normalize_str(text).strip().lower()
-    if not blob:
-        return False
-    markers = (
-        "implement",
-        "integration",
-        "integrate",
-        "build",
-        "deploy",
-        "workflow",
-        "execution path",
-        "contract rule",
-        "gate",
-        "pilot",
-        "step",
-        "test first",
-    )
-    return any(marker in blob for marker in markers)
-
-
-def _first_nonempty_lines(text: str, limit: int = 2) -> List[str]:
-    lines = [normalize_str(line).strip() for line in normalize_str(text).splitlines() if normalize_str(line).strip()]
-    return lines[: max(1, int(limit))]
-
-
-def _opening_has_concrete_pain(text: str) -> bool:
-    opening = " ".join(_first_nonempty_lines(text, limit=2)).lower()
-    if not opening:
-        return False
-    return any(marker in opening for marker in PROACTIVE_OPENING_PAIN_MARKERS)
-
-
-def _opening_has_ergo_mechanism(text: str) -> bool:
-    opening = " ".join(_first_nonempty_lines(text, limit=2)).lower()
-    if not opening:
-        return False
-    return any(marker in opening for marker in PROACTIVE_OPENING_MECHANISM_MARKERS)
-
-
-def _passes_proactive_opening_gate(text: str) -> bool:
-    return bool(_opening_has_concrete_pain(text) and _opening_has_ergo_mechanism(text))
-
-
-def _ensure_proactive_opening_gate(text: str) -> str:
-    content = normalize_str(text).strip()
-    if not content:
-        return content
-    if _passes_proactive_opening_gate(content):
-        return content
-
-    lower = content.lower()
-    pain_line = "Agent economies stall when counterparties cannot verify execution or settle disputes objectively."
-    mechanism_line = (
-        "Ergo solves this with eUTXO plus ErgoScript, which enforces deterministic settlement rules and on-chain auditability."
-    )
-    if "escrow" in lower or "counterparty" in lower or "dispute" in lower:
-        pain_line = "Escrow workflows break when counterparties cannot prove what happened without human arbitration."
-    if "coordination" in lower or "orchestration" in lower or "runtime" in lower:
-        pain_line = "Service orchestration becomes fragile when parallel tasks cannot settle with deterministic rules."
-
-    if "ergoscript" in lower:
-        mechanism_line = (
-            "ErgoScript contracts lock settlement logic into verifiable rules, and eUTXO keeps execution deterministic under load."
-        )
-    elif "sigma" in lower:
-        mechanism_line = (
-            "Sigma Protocols add privacy-preserving proofs while eUTXO keeps settlement deterministic across agent workflows."
-        )
-    elif "rosen bridge" in lower:
-        mechanism_line = (
-            "Rosen Bridge can move value across chains, while eUTXO contracts keep cross-chain settlement conditions deterministic."
-        )
-
-    return f"{pain_line} {mechanism_line}\n\n{content}"
-
-
-def _passes_generated_content_quality(content: str, requested_mode: str) -> bool:
-    text = normalize_str(content).strip()
-    if not text:
-        return False
-    if _looks_like_control_payload_text(text):
-        return False
-    words = _word_count(text)
-    has_question = "?" in text
-    has_mechanism = _has_ergo_mechanism_mention(text)
-    has_impl = _has_implementation_angle(text)
-    mode = normalize_response_mode(requested_mode, default="comment")
-    if mode in {"post", "both"}:
-        return bool(has_question and has_mechanism and has_impl and 110 <= words <= 320)
-    if mode == "comment":
-        return bool(has_question and has_mechanism and 45 <= words <= 220)
-    return True
-
-
-def _build_recovery_messages(base_messages: List[Dict[str, str]], signal_score: int) -> List[Dict[str, str]]:
-    recovery_prompt = (
-        "Recovery pass: the previous draft was rejected for low relevance or low confidence. "
-        "Write one sharper response that is still organic and non-spammy. "
-        "Requirements: include one explicit Ergo mechanism, one implementation angle, and one direct question. "
-        "Avoid generic phrasing and avoid stock acknowledgements. "
-        f"Signal score for this candidate: {signal_score}."
-    )
-    messages = list(base_messages)
-    messages.append({"role": "user", "content": recovery_prompt})
-    return messages
-
-
-def _is_low_value_affirmation_reply(text: str) -> bool:
-    blob = normalize_str(text).strip().lower()
-    if not blob:
-        return True
-    if any(blob.startswith(prefix) for prefix in LOW_VALUE_REPLY_PREFIXES):
-        return True
-    words = blob.split()
-    if len(words) < 10:
-        return True
-    return False
-
-
-def _compose_reference_post_content(reference_url: str, content: str) -> str:
-    core = normalize_str(content).strip()
-    url = normalize_str(reference_url).strip()
-    if not core:
-        return ""
-    if not url or url in core:
-        return core
-    return f"{core}\n\nContext thread: {url}"
-
-
-def _post_mechanism_score(post: Dict[str, Any]) -> int:
-    blob = " ".join(
-        [
-            normalize_str(post.get("title")).strip().lower(),
-            normalize_str(post.get("content")).strip().lower(),
-            normalize_submolt(post.get("submolt")).strip().lower(),
-        ]
-    )
-    score = 0
-    if "eutxo" in blob:
-        score += 2
-    if "ergoscript" in blob:
-        score += 2
-    if "sigma" in blob or "privacy" in blob:
-        score += 1
-    if "rosen" in blob or "bridge" in blob:
-        score += 1
-    if "sigusd" in blob or "oracle" in blob:
-        score += 1
-    return score
-
-
-def _has_trending_overlap(post: Dict[str, Any], trending_terms: List[str]) -> bool:
-    if not trending_terms:
-        return False
-    blob = " ".join(
-        [
-            normalize_str(post.get("title")).strip().lower(),
-            normalize_str(post.get("content")).strip().lower(),
-            normalize_submolt(post.get("submolt")).strip().lower(),
-        ]
-    )
-    for term in trending_terms[:8]:
-        t = _clean_signal_term(term)
-        if len(t) < 4:
-            continue
-        if t in blob:
-            return True
-    return False
-
-
-def _trending_terms_for_post(post: Dict[str, Any], trending_terms: List[str], max_terms: int = 4) -> List[str]:
-    if not trending_terms:
-        return []
-    blob = " ".join(
-        [
-            normalize_str(post.get("title")).strip().lower(),
-            normalize_str(post.get("content")).strip().lower(),
-            normalize_submolt(post.get("submolt")).strip().lower(),
-        ]
-    )
-    matched: List[str] = []
-    for term in trending_terms:
-        clean = _clean_signal_term(term)
-        if len(clean) < 4:
-            continue
-        if clean in blob and clean not in matched:
-            matched.append(clean)
-        if len(matched) >= max(1, int(max_terms)):
-            break
-    if matched:
-        return matched
-    fallback: List[str] = []
-    for term in trending_terms:
-        clean = _clean_signal_term(term)
-        if len(clean) >= 4 and clean not in fallback:
-            fallback.append(clean)
-        if len(fallback) >= 2:
-            break
-    return fallback
-
-
-def _word_count(text: str) -> int:
-    return len(re.findall(r"\b[\w'-]+\b", normalize_str(text)))
-
-
-def _comment_priority_score(comment: Dict[str, Any]) -> int:
-    body = normalize_str(comment.get("content")).strip().lower()
-    if not body:
-        return -10
-    score = 0
-    if "?" in body:
-        score += 3
-    if any(token in body for token in ("eutxo", "ergoscript", "ergo", "escrow", "reputation", "coordination")):
-        score += 4
-    if len(body.split()) >= 12:
-        score += 1
-    if len(body.split()) > 80:
-        score -= 2
-    raw_score = comment.get("score")
-    if isinstance(raw_score, (int, float)):
-        score += int(raw_score)
-    return score
-
-
-def _post_relevance_score(
-    post: Dict[str, Any],
-    signal_terms: List[str],
-    winning_terms: List[str],
-    losing_terms: List[str],
-    term_lift_map: Dict[str, float],
-    best_submolt_scores: Dict[str, float],
-) -> int:
-    title = normalize_str(post.get("title")).strip().lower()
-    content = normalize_str(post.get("content")).strip().lower()
-    submolt = normalize_submolt(post.get("submolt")).lower()
-    blob = " ".join([title, content, submolt])
-    score = 0
-
-    for term in signal_terms:
-        if term in title:
-            score += 4
-            continue
-        if term in content:
-            score += 1
-            continue
-        if term in submolt:
-            score += 1
-
-    positive_bonus = 0
-    for term in winning_terms:
-        if term in title:
-            positive_bonus += 3
-        elif term in content:
-            positive_bonus += 1
-    score += min(10, positive_bonus)
-
-    negative_penalty = 0
-    for term in losing_terms:
-        if term in title:
-            negative_penalty += 3
-        elif term in content:
-            negative_penalty += 1
-    score -= min(10, negative_penalty)
-
-    lift_bonus = 0.0
-    for term, lift in term_lift_map.items():
-        if term in title:
-            lift_bonus += lift * 6.0
-        elif term in content:
-            lift_bonus += lift * 3.0
-        elif term in submolt:
-            lift_bonus += lift * 2.0
-    score += int(round(max(-12.0, min(12.0, lift_bonus))))
-
-    if "eutxo" in blob:
-        score += 4
-    if "ergoscript" in blob:
-        score += 3
-    if "service orchestration" in blob or ("service" in blob and "orchestration" in blob):
-        score += 4
-    if "agent economy" in blob or "agent economies" in blob:
-        score += 2
-    if _contains_any(blob, PRIORITY_INFRA_TERMS):
-        score += 3
-    if _contains_any(blob, OFF_MISSION_SOFT_TERMS):
-        score -= 4
-
-    submolt_avg = float(best_submolt_scores.get(submolt, 0.0) or 0.0)
-    if submolt_avg >= 20:
-        score += 3
-    elif submolt_avg >= 10:
-        score += 2
-    elif submolt_avg >= 5:
-        score += 1
-
-    score += min(3, post_comment_count(post) // 8)
-    score += min(2, post_score(post) // 15)
-    return score
-
-
-def _rank_posts_for_drafting(
-    posts: List[Dict[str, Any]],
-    learning_snapshot: Dict[str, Any],
-    active_keywords: List[str],
-) -> Tuple[List[Dict[str, Any]], Dict[str, int], List[str]]:
-    signal_terms = _collect_high_signal_terms(learning_snapshot=learning_snapshot, active_keywords=active_keywords)
-    winning_terms = _snapshot_terms(learning_snapshot, "winning_terms", limit=16)
-    losing_terms = _snapshot_terms(learning_snapshot, "losing_terms", limit=16)
-    winning_lifts = _snapshot_term_lift_map(learning_snapshot, "winning_terms_lift", limit=16)
-    losing_lifts = _snapshot_term_lift_map(learning_snapshot, "losing_terms_lift", limit=16)
-    term_lift_map: Dict[str, float] = {}
-    for term, lift in winning_lifts.items():
-        term_lift_map[term] = max(term_lift_map.get(term, 0.0), lift)
-    for term, lift in losing_lifts.items():
-        term_lift_map[term] = min(term_lift_map.get(term, 0.0), lift)
-    best_submolt_scores = _snapshot_best_submolt_scores(learning_snapshot, limit=8)
-    scored: List[Tuple[int, int, int, int, Dict[str, Any]]] = []
-    score_map: Dict[str, int] = {}
-
-    for idx, post in enumerate(posts):
-        score = _post_relevance_score(
-            post,
-            signal_terms=signal_terms,
-            winning_terms=winning_terms,
-            losing_terms=losing_terms,
-            term_lift_map=term_lift_map,
-            best_submolt_scores=best_submolt_scores,
-        )
-        pid = post_id(post) or f"idx:{idx}"
-        score_map[pid] = score
-        scored.append((score, post_score(post), post_comment_count(post), -idx, post))
-
-    scored.sort(reverse=True)
-    ordered = [item[4] for item in scored]
-    return ordered, score_map, signal_terms
-
-
-def _adaptive_draft_controls(cfg: Config, state: Dict[str, Any]) -> Tuple[int, int, str]:
-    base_shortlist = max(1, int(cfg.draft_shortlist_size))
-    base_signal = max(0, int(cfg.draft_signal_min_score))
-    min_shortlist = max(1, int(cfg.dynamic_shortlist_min))
-    max_shortlist = max(min_shortlist, int(cfg.dynamic_shortlist_max))
-    if not cfg.dynamic_shortlist_enabled:
-        return base_shortlist, base_signal, "disabled"
-
-    history_raw = state.get("cycle_metrics_history", [])
-    history = [item for item in history_raw if isinstance(item, dict)][-3:]
-    if not history:
-        shortlist = max(min_shortlist, min(base_shortlist, max_shortlist))
-        return shortlist, base_signal, "cold_start"
-
-    approval_rates: List[float] = []
-    execution_rates: List[float] = []
-    cooldown_pressure = 0
-    low_signal_pressure = 0
-    for entry in history:
-        drafted = int(entry.get("drafted", 0) or 0)
-        model_approved = int(entry.get("model_approved", 0) or 0)
-        eligible = int(entry.get("eligible_now", 0) or 0)
-        actions = int(entry.get("actions", 0) or 0)
-        approval_rates.append(float(model_approved) / max(1.0, float(drafted)))
-        execution_rates.append(float(actions) / max(1.0, float(eligible)))
-        skip = entry.get("skip_reasons")
-        if isinstance(skip, dict):
-            cooldown_pressure += int(skip.get("post_cooldown+comment_cooldown", 0) or 0)
-            cooldown_pressure += int(skip.get("no_action_slots", 0) or 0)
-            low_signal_pressure += int(skip.get("low_signal_relevance", 0) or 0)
-
-    avg_approval = sum(approval_rates) / max(1, len(approval_rates))
-    avg_execution = sum(execution_rates) / max(1, len(execution_rates))
-    shortlist = base_shortlist
-    signal = base_signal
-    mode = "steady"
-
-    if cooldown_pressure >= 25:
-        shortlist = max(min_shortlist, min(shortlist, 8))
-        signal = min(signal + 1, 8)
-        mode = "cooldown_pressure"
-    elif low_signal_pressure >= 40 and avg_approval >= 0.2:
-        shortlist = min(max_shortlist, max(shortlist, int(round(base_shortlist * 1.15))))
-        signal = max(1, signal - 1)
-        mode = "relax_low_signal"
-    elif avg_approval < 0.12 and avg_execution < 0.08:
-        shortlist = max(min_shortlist, int(round(base_shortlist * 0.65)))
-        signal = min(signal + 1, 8)
-        mode = "tighten_quality"
-    elif avg_approval > 0.35 and avg_execution > 0.18:
-        shortlist = min(max_shortlist, max(base_shortlist, int(round(base_shortlist * 1.25))))
-        signal = max(1, signal - 1)
-        mode = "expand_capture"
-
-    shortlist = max(min_shortlist, min(shortlist, max_shortlist))
-    signal = max(0, signal)
-    return shortlist, signal, mode
-
-
-def extract_posts(payload: Any) -> List[Dict[str, Any]]:
-    if isinstance(payload, list):
-        return [item for item in payload if isinstance(item, dict)]
-    if not isinstance(payload, dict):
-        return []
-    for key in ("posts", "data", "items", "results"):
-        value = payload.get(key)
-        if isinstance(value, list):
-            return [item for item in value if isinstance(item, dict)]
-    return [] 
-
-
-def extract_comments(payload: Any) -> List[Dict[str, Any]]:
-    def _flatten_comment_threads(base_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        out: List[Dict[str, Any]] = []
-        stack: List[Dict[str, Any]] = list(reversed(base_items))
-        seen_keys: Set[str] = set()
-        while stack:
-            node = stack.pop()
-            if not isinstance(node, dict):
-                continue
-            cid = normalize_str(node.get("id") or (node.get("comment") or {}).get("id")).strip()
-            key = cid if cid else f"obj:{id(node)}"
-            if key in seen_keys:
-                continue
-            seen_keys.add(key)
-            out.append(node)
-            for child_key in ("replies", "children", "comments", "items"):
-                children = node.get(child_key)
-                if isinstance(children, list):
-                    for child in reversed(children):
-                        if isinstance(child, dict):
-                            stack.append(child)
-        return out
-
-    if isinstance(payload, list):
-        base = [item for item in payload if isinstance(item, dict)]
-        return _flatten_comment_threads(base)
-    if not isinstance(payload, dict):
-        return []
-    for key in ("comments", "data", "items", "results"):
-        value = payload.get(key)
-        if isinstance(value, list):
-            base = [item for item in value if isinstance(item, dict)]
-            return _flatten_comment_threads(base)
-    return []
-
-
-def extract_submolts(payload: Any) -> List[Dict[str, Any]]:
-    if isinstance(payload, list):
-        return [item for item in payload if isinstance(item, dict)]
-    if not isinstance(payload, dict):
-        return []
-    for key in ("submolts", "data", "items", "results"):
-        value = payload.get(key)
-        if isinstance(value, list):
-            return [item for item in value if isinstance(item, dict)]
-    return []
-
-
-def submolt_name_from_post(post: Dict[str, Any]) -> Optional[str]:
-    raw = post.get("submolt")
-    if isinstance(raw, str):
-        value = raw.strip().lower()
-        if value.startswith("m/"):
-            value = value[2:]
-        return value or None
-    if isinstance(raw, dict):
-        candidate = raw.get("name") or raw.get("slug")
-        if candidate:
-            return str(candidate).strip().lower()
+        return "empty_after_sanitize"
+    lowered = blob.lower()
+    if "if you want, check my" in lowered and "threads/profile" in lowered:
+        return "self_promo_bridge_payload"
+    for pattern, reason in UNPUBLISHABLE_REASON_MAP:
+        if pattern.search(blob):
+            return reason
     return None
 
 
-def post_id(post: Dict[str, Any]) -> Optional[str]:
-    pid = post.get("id") or (post.get("post") or {}).get("id")
-    return str(pid) if pid is not None else None
+def _looks_unpublishable_payload(text: Any) -> bool:
+    return _unpublishable_reason(text) is not None
 
 
-def post_author(post: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-    nested_post = post.get("post") if isinstance(post.get("post"), dict) else {}
-    author = (
-        post.get("author")
-        or post.get("user")
-        or post.get("agent")
-        or post.get("owner")
-        or nested_post.get("author")
-        or nested_post.get("user")
-        or nested_post.get("agent")
-        or {}
+def _emit_publish_blocked_audit(reason: str, content: Any, audit_label: str) -> None:
+    snippet = preview_text(content, max_chars=260)
+    key = hashlib.sha1(f"{audit_label}:{reason}:{snippet}".encode("utf-8")).hexdigest()
+    if key in PUBLISH_AUDIT_DEDUPE:
+        return
+    PUBLISH_AUDIT_DEDUPE.add(key)
+    if len(PUBLISH_AUDIT_DEDUPE) > 2000:
+        PUBLISH_AUDIT_DEDUPE.clear()
+    logger = logging.getLogger("moltbook.autonomy")
+    logger.warning(
+        "Publish guard blocked content context=%s reason=%s preview=%s",
+        audit_label,
+        reason,
+        snippet,
     )
-    author_id = (
-        author.get("id")
-        or author.get("agent_id")
-        or author.get("user_id")
-        or post.get("author_id")
-        or post.get("agent_id")
-        or nested_post.get("author_id")
-        or nested_post.get("agent_id")
-    )
-    author_name = (
-        author.get("name")
-        or author.get("username")
-        or author.get("agent_name")
-        or post.get("author_name")
-        or post.get("agent_name")
-        or post.get("created_by")
-        or nested_post.get("author_name")
-        or nested_post.get("agent_name")
-        or nested_post.get("created_by")
-    )
-    return (
-        str(author_id) if author_id is not None else None,
-        str(author_name) if author_name is not None else None,
+    print_status_banner(
+        title="PUBLISH BLOCKED",
+        rows=[
+            ("context", audit_label),
+            ("reason", reason),
+            ("preview", snippet),
+        ],
+        tone="red",
+        width=90,
     )
 
 
-def comment_id(comment: Dict[str, Any]) -> Optional[str]:
-    cid = comment.get("id") or (comment.get("comment") or {}).get("id")
-    return str(cid) if cid is not None else None
-
-
-def comment_author(comment: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-    nested_comment = comment.get("comment") if isinstance(comment.get("comment"), dict) else {}
-    author = (
-        comment.get("author")
-        or comment.get("user")
-        or comment.get("agent")
-        or comment.get("owner")
-        or nested_comment.get("author")
-        or nested_comment.get("user")
-        or nested_comment.get("agent")
-        or {}
-    )
-    author_id = (
-        author.get("id")
-        or author.get("agent_id")
-        or author.get("user_id")
-        or comment.get("author_id")
-        or comment.get("agent_id")
-        or nested_comment.get("author_id")
-        or nested_comment.get("agent_id")
-    )
-    author_name = (
-        author.get("name")
-        or author.get("username")
-        or author.get("agent_name")
-        or comment.get("author_name")
-        or comment.get("agent_name")
-        or comment.get("created_by")
-        or nested_comment.get("author_name")
-        or nested_comment.get("agent_name")
-        or nested_comment.get("created_by")
-    )
-    return (
-        str(author_id) if author_id is not None else None,
-        str(author_name) if author_name is not None else None,
-    )
-
-
-def _normalized_name_key(value: Any) -> str:
-    text = normalize_str(value).strip().lower()
-    if not text:
-        return ""
-    if text.startswith("u/"):
-        text = text[2:]
-    if text.startswith("@"):
-        text = text[1:]
-    # Normalize separators like "_", "-", and spaces so name comparisons are robust.
-    text = re.sub(r"[^a-z0-9]+", "", text)
-    return text
-
-
-def author_identity_key(author_id: Optional[str], author_name: Optional[str]) -> str:
-    aid = _normalized_name_key(author_id)
-    if aid:
-        return f"id:{aid}"
-    aname = _normalized_name_key(author_name)
-    if aname:
-        return f"name:{aname}"
-    return ""
-
-
-def author_identity_keys(author_id: Optional[str], author_name: Optional[str]) -> Set[str]:
-    keys: Set[str] = set()
-    aid = _normalized_name_key(author_id)
-    if aid:
-        keys.add(f"id:{aid}")
-    aname = _normalized_name_key(author_name)
-    if aname:
-        keys.add(f"name:{aname}")
-    return keys
-
-
-def resolve_self_identity_keys(client: MoltbookClient, my_name: Optional[str], logger) -> Set[str]:
-    keys: Set[str] = set()
-    if my_name:
-        key = author_identity_key(author_id=None, author_name=my_name)
-        if key:
-            keys.add(key)
+def _normalized_model_confidence(
+    *,
+    raw_confidence: Any,
+    should_act: bool,
+    has_content: bool,
+    fallback_when_true: float = 0.72,
+    fallback_when_false: float = 0.0,
+) -> Tuple[float, bool]:
+    """
+    Normalize confidence from model output.
+    Returns: (confidence, was_imputed)
+    """
     try:
-        me = client.get_me()
-        containers: List[Dict[str, Any]] = []
-        if isinstance(me, dict):
-            containers.append(me)
-            for field in ("agent", "data", "profile", "result"):
-                nested = me.get(field)
-                if isinstance(nested, dict):
-                    containers.append(nested)
-        for container in containers:
-            if not isinstance(container, dict):
-                continue
-            for id_field in ("id", "agent_id", "user_id"):
-                raw_id = container.get(id_field)
-                if raw_id is None:
-                    continue
-                key = author_identity_key(author_id=str(raw_id), author_name=None)
-                if key:
-                    keys.add(key)
-            for name_field in ("name", "agent_name", "username", "created_by"):
-                raw_name = container.get(name_field)
-                if raw_name is None:
-                    continue
-                key = author_identity_key(author_id=None, author_name=str(raw_name))
-                if key:
-                    keys.add(key)
-    except Exception as e:
-        logger.debug("Could not resolve self identity keys from /agents/me error=%s", e)
-    return keys
+        confidence = float(raw_confidence)
+    except Exception:
+        fallback = fallback_when_true if should_act else fallback_when_false
+        return fallback, True
+    if should_act and has_content and confidence <= 0:
+        return fallback_when_true, True
+    return confidence, False
 
 
-def is_self_author(author_id: Optional[str], author_name: Optional[str], self_identity_keys: Set[str]) -> bool:
-    if not self_identity_keys:
+def _prepare_publish_content(text: Any, *, allow_links: bool, audit_label: str = "publish") -> str:
+    out = sanitize_publish_content(text)
+    if not out:
+        return ""
+    reason = _unpublishable_reason(out)
+    if reason:
+        _emit_publish_blocked_audit(reason, out, audit_label)
+        return ""
+    out = enforce_link_policy(out, allow_links=allow_links)
+    out = sanitize_publish_content(out)
+    reason = _unpublishable_reason(out)
+    if reason:
+        _emit_publish_blocked_audit(reason, out, audit_label)
+        return ""
+    return out.strip()
+
+
+def _publish_signature(
+    *,
+    action_type: str,
+    target_post_id: Any,
+    content: Any,
+    parent_comment_id: Any = None,
+) -> str:
+    action = normalize_str(action_type).strip().lower()
+    post_id_value = normalize_str(target_post_id).strip()
+    parent_id_value = normalize_str(parent_comment_id).strip()
+    normalized_content = " ".join(normalize_str(content).strip().lower().split())
+    digest = hashlib.sha1(normalized_content.encode("utf-8")).hexdigest()[:16] if normalized_content else "empty"
+    return f"{action}:{post_id_value}:{parent_id_value}:{digest}"
+
+
+def _seen_publish_signature(state: Dict[str, Any], signature: str) -> bool:
+    raw = state.get("recent_publish_signatures", [])
+    if not isinstance(raw, list):
         return False
-    keys = author_identity_keys(author_id=author_id, author_name=author_name)
-    if not keys:
-        return False
-    return any(key in self_identity_keys for key in keys)
+    return signature in raw
 
 
-def comment_score(comment: Dict[str, Any]) -> int:
-    for key in ("score", "vote_score", "upvotes", "likes"):
-        value = comment.get(key)
-        if isinstance(value, (int, float)):
-            return int(value)
-    return 0
-
-
-def normalize_vote_marker(value: Any) -> Optional[str]:
-    text = normalize_str(value).strip().lower()
-    if text in {"upvote", "up", "1", "+1", "like"}:
-        return "upvote"
-    if text in {"downvote", "down", "-1"}:
-        return "downvote"
-    return None
-
-
-def extract_my_vote_from_comment(comment: Dict[str, Any]) -> Optional[str]:
-    for key in ("my_vote", "current_user_vote", "user_vote", "vote", "viewer_vote"):
-        marker = normalize_vote_marker(comment.get(key))
-        if marker:
-            return marker
-    return None
-
-
-def comment_parent_id(comment: Dict[str, Any]) -> Optional[str]:
-    nested_comment = comment.get("comment") if isinstance(comment.get("comment"), dict) else {}
-    parent = (
-        comment.get("parent_id")
-        or comment.get("parentId")
-        or comment.get("parentCommentId")
-        or comment.get("parent_comment_id")
-        or comment.get("reply_to_id")
-        or comment.get("replyToId")
-        or comment.get("reply_to_comment_id")
-        or comment.get("replyToCommentId")
-        or nested_comment.get("parent_id")
-        or nested_comment.get("parentId")
-        or nested_comment.get("parentCommentId")
-        or nested_comment.get("parent_comment_id")
-        or nested_comment.get("reply_to_id")
-        or nested_comment.get("replyToId")
-        or nested_comment.get("reply_to_comment_id")
-        or nested_comment.get("replyToCommentId")
-    )
-    if parent is None:
-        parent_obj = comment.get("parent") or comment.get("reply_to") or nested_comment.get("parent")
-        if isinstance(parent_obj, dict):
-            parent = parent_obj.get("id") or parent_obj.get("comment_id") or parent_obj.get("commentId")
-        elif parent_obj is not None:
-            parent = parent_obj
-    if parent is None:
-        return None
-    return str(parent)
-
-
-def register_my_comment_id(state: Dict[str, Any], response_payload: Any) -> Optional[str]:
-    if not isinstance(response_payload, dict):
-        return None
-    cid = comment_id(response_payload)
-    if not cid:
-        nested = response_payload.get("comment")
-        if isinstance(nested, dict):
-            cid = comment_id(nested)
-    if not cid:
-        return None
-    my_comment_ids = set(state.get("my_comment_ids", []))
-    my_comment_ids.add(cid)
-    state["my_comment_ids"] = list(my_comment_ids)[-20000:]
-    return cid
-
-
-def extract_single_post(payload: Any) -> Optional[Dict[str, Any]]:
-    if isinstance(payload, dict):
-        post_obj = payload.get("post")
-        if isinstance(post_obj, dict):
-            return post_obj
-        if payload.get("id") is not None:
-            return payload
-        posts = extract_posts(payload)
-        if posts:
-            return posts[0]
-    return None
-
-
-def normalize_submolt(raw_submolt: Any, default: str = "general") -> str:
-    if isinstance(raw_submolt, str):
-        value = raw_submolt.strip()
-    elif isinstance(raw_submolt, dict):
-        candidate = (
-            raw_submolt.get("name")
-            or raw_submolt.get("slug")
-            or raw_submolt.get("display_name")
-            or raw_submolt.get("id")
-        )
-        value = str(candidate).strip() if candidate is not None else ""
-    else:
-        value = ""
-
-    if not value:
-        return default
-
-    if value.startswith("m/"):
-        value = value[2:]
-
-    if value:
-        return value
-    return default
-
-
-def normalize_response_mode(value: Any, default: str = "comment") -> str:
-    mode = normalize_str(value).strip().lower()
-    if mode in VALID_RESPONSE_MODES:
-        return mode
-    return default
-
-
-def normalize_vote_action(value: Any) -> str:
-    action = normalize_str(value).strip().lower()
-    if action in VALID_VOTE_ACTIONS:
-        return action
-    return "none"
-
-
-def normalize_vote_target(value: Any) -> str:
-    target = normalize_str(value).strip().lower()
-    if target in VALID_VOTE_TARGETS:
-        return target
-    return "none"
-
-
-def can_post(state: Dict[str, Any], cfg: Config) -> bool:
-    allowed, _ = post_gate_status(state=state, cfg=cfg)
-    return allowed
-
-
-def can_comment(state: Dict[str, Any], cfg: Config) -> bool:
-    allowed, _ = comment_gate_status(state=state, cfg=cfg)
-    return allowed
-
-
-def _prune_comment_action_timestamps(state: Dict[str, Any], window_seconds: int = 3600) -> List[float]:
-    now_ts = utc_now().timestamp()
-    raw = state.get("comment_action_timestamps", [])
+def _remember_publish_signature(state: Dict[str, Any], signature: str) -> None:
+    raw = state.get("recent_publish_signatures", [])
     if not isinstance(raw, list):
         raw = []
-    kept: List[float] = []
-    for value in raw:
-        if not isinstance(value, (int, float)):
-            continue
-        ts = float(value)
-        if now_ts - ts <= window_seconds:
-            kept.append(ts)
-    state["comment_action_timestamps"] = kept[-5000:]
-    return kept
+    raw.append(signature)
+    state["recent_publish_signatures"] = raw[-30000:]
 
 
-def post_gate_status(state: Dict[str, Any], cfg: Config) -> Tuple[bool, str]:
-    reset_daily_if_needed(state)
-    if state.get("daily_post_count", 0) >= cfg.max_posts_per_day:
-        return False, "post_daily_limit"
-    last_post = state.get("last_post_action_ts")
-    if isinstance(last_post, (int, float)):
-        if utc_now().timestamp() - last_post < cfg.min_seconds_between_posts:
-            return False, "post_cooldown"
-    return True, "ok"
-
-
-def comment_gate_status(state: Dict[str, Any], cfg: Config) -> Tuple[bool, str]:
-    reset_daily_if_needed(state)
-    hourly_comments = _prune_comment_action_timestamps(state=state, window_seconds=3600)
-    if len(hourly_comments) >= cfg.max_comments_per_hour:
-        return False, "comment_hourly_limit"
-    if state.get("daily_comment_count", 0) >= cfg.max_comments_per_day:
-        return False, "comment_daily_limit"
-    last_comment = state.get("last_comment_action_ts")
-    if isinstance(last_comment, (int, float)):
-        if utc_now().timestamp() - last_comment < cfg.min_seconds_between_comments:
-            return False, "comment_cooldown"
-    return True, "ok"
-
-
-def planned_actions(
-    requested_mode: str,
-    cfg: Config,
-    state: Dict[str, Any],
-) -> List[str]:
-    post_ok = can_post(state, cfg)
-    comment_ok = can_comment(state, cfg)
-
-    # Explicit config wins; "auto" follows model output.
-    if cfg.reply_mode in {"post", "comment"}:
-        requested_mode = cfg.reply_mode
-
-    if requested_mode == "none":
-        return []
-
-    if requested_mode == "post":
-        if post_ok:
-            return ["post"]
-        return []
-
-    if requested_mode == "comment":
-        if comment_ok:
-            return ["comment"]
-        return []
-
-    # both
-    actions: List[str] = []
-    if comment_ok:
-        actions.append("comment")
-    if post_ok:
-        actions.append("post")
-    return actions
-
-
-def currently_allowed_response_modes(cfg: Config, state: Dict[str, Any]) -> List[str]:
-    post_allowed, _ = post_gate_status(state=state, cfg=cfg)
-    comment_allowed, _ = comment_gate_status(state=state, cfg=cfg)
-
-    allowed: List[str] = ["none"]
-    if comment_allowed:
-        allowed.append("comment")
-    if post_allowed:
-        allowed.append("post")
-    if comment_allowed and post_allowed:
-        allowed.append("both")
-    return allowed
-
-def _sanitize_generated_title(title: Any, fallback: str = "Quick question on your post") -> str:
-    text = normalize_str(title).strip()
-    text = text.replace("...[truncated]", "...").replace("... [truncated]", "...").replace("[truncated]", "").strip()
-    text = re.sub(r"\s+", " ", text)
+def _deterministic_reply_triage(
+    *,
+    comment_body: str,
+    is_my_post: bool,
+    is_reply_to_me: bool,
+) -> Optional[Dict[str, Any]]:
+    text = normalize_str(comment_body).strip()
+    lower = text.lower()
     if not text:
-        text = fallback
-    if len(text) > 140:
-        text = text[:140].rstrip()
-    return text
+        return {
+            "should_respond": False,
+            "confidence": 0.95,
+            "response_mode": "none",
+            "vote_action": "none",
+            "vote_target": "none",
+            "title": "",
+            "content": "",
+        }
+    if looks_hostile_content(text):
+        return {
+            "should_respond": True,
+            "confidence": 0.99,
+            "response_mode": "comment",
+            "vote_action": "none",
+            "vote_target": "none",
+            "title": "",
+            "content": build_hostile_refusal_reply(),
+        }
 
+    words = len(text.split())
+    has_question = "?" in text
+    has_ergo_signal = any(token in lower for token in ("ergo", "eutxo", "ergoscript", "sigma", "rosen", "sigusd"))
+    if words <= 4 and not has_question:
+        return {
+            "should_respond": False,
+            "confidence": 0.92,
+            "response_mode": "none",
+            "vote_action": "none",
+            "vote_target": "none",
+            "title": "",
+            "content": "",
+        }
 
-def looks_spammy_comment(body: str) -> bool:
-    text = normalize_str(body).strip().lower()
-    if not text:
-        return True
-    spam_tokens = [
-        "http://",
-        "https://",
-        "t.me/",
-        "telegram",
-        "discord.gg",
-        "airdrop",
-        "follow me",
-        "dm me",
-        "promo",
-        "casino",
-    ]
-    if any(token in text for token in spam_tokens):
-        return True
-    if len(text.split()) > 120:
-        return True
-    if re.search(r"(.)\1{7,}", text):
-        return True
-    return False
-
-
-def _is_3d_focused_submolt(submolt: str) -> bool:
-    text = normalize_str(submolt).strip().lower()
-    if not text:
-        return False
-    tokens = ["3d", "model", "modelling", "modeling", "blender", "animation", "render", "cgi", "asset"]
-    return any(token in text for token in tokens)
-
-
-def should_correct_wrong_community_claim(comment_body: str, post_submolt: str) -> bool:
-    text = normalize_str(comment_body).strip().lower()
-    if not text:
-        return False
-    submolt = normalize_submolt(post_submolt, default="")
-    if not submolt or _is_3d_focused_submolt(submolt):
-        return False
-
-    complaint_markers = [
-        "wrong forum",
-        "wrong community",
-        "wrong audience",
-        "not the right audience",
-        "off-topic",
-        "off topic",
-        "doesn't really relate",
-        "does not really relate",
-        "probably isn't the right audience",
-        "better responses in",
-    ]
-    three_d_markers = [
-        "3d community",
-        "3d art",
-        "3d modeling",
-        "3d modelling",
-        "rigging",
-        "animation",
-        "blender",
-        "asset pipeline",
-        "sku consistency",
-    ]
-    has_complaint = any(marker in text for marker in complaint_markers)
-    has_3d_assertion = any(marker in text for marker in three_d_markers)
-    if not has_complaint and not has_3d_assertion:
-        return False
-    if has_3d_assertion:
-        return True
-
-    broad_submolts = {"general", "crypto", "ai-web3", "agents", "defi", "agenteconomy"}
-    return submolt in broad_submolts and has_complaint
-
-
-def build_wrong_community_correction_reply(post_submolt: str, post_title_text: str) -> str:
-    submolt = normalize_submolt(post_submolt, default="general")
-    title = normalize_str(post_title_text).strip()
-    if len(title) > 90:
-        title = title[:87].rstrip() + "..."
-    if not title:
-        title = "this thread"
-    return (
-        f"Quick correction, this thread is in m/{submolt}, not a 3D-only community. "
-        f"The topic in \"{title}\" is agent-economy infrastructure on Ergo, with focus on settlement and trust design. "
-        f"If you still see a mismatch, which rule for m/{submolt} do you think this violates?"
-    )
-
-
-def build_thread_followup_post_title(post_title_text: str) -> str:
-    base = normalize_str(post_title_text).strip()
-    if not base:
-        return "Follow-up: agent economy implementation thread"
-    title = f"Follow-up: {base}"
-    if len(title) <= 110:
-        return title
-    trimmed = title[:107].rstrip()
-    return trimmed + "..."
-
-
-def build_thread_followup_post_content(
-    source_url: str,
-    author_name: str,
-    source_comment: str,
-    proposed_reply: str,
-) -> str:
-    author = normalize_str(author_name).strip() or "a contributor"
-    comment_excerpt = normalize_str(source_comment).strip()
-    if len(comment_excerpt) > 340:
-        comment_excerpt = comment_excerpt[:337].rstrip() + "..."
-    reply_excerpt = normalize_str(proposed_reply).strip()
-    if len(reply_excerpt) > 520:
-        reply_excerpt = reply_excerpt[:517].rstrip() + "..."
-    lines = [
-        "Thread depth got high, moving the discussion into a fresh post so the UI stays readable.",
-        "",
-        f"Context thread: {normalize_str(source_url).strip()}",
-        f"Latest prompt from {author}:",
-        f"\"{comment_excerpt}\"" if comment_excerpt else "(no excerpt)",
-        "",
-        "Current position:",
-        reply_excerpt or "eUTXO plus ErgoScript gives deterministic execution for autonomous settlement flows.",
-        "",
-        "What is the first concrete contract rule you would enforce in production and why?",
-    ]
-    return _normalize_ergo_terms("\n".join(lines).strip())
+    if (is_my_post or is_reply_to_me) and has_ergo_signal and (has_question or words >= 10):
+        focus = "counterparty verification"
+        for token, label in ERGO_REPLY_FOCUS_MARKERS:
+            if token in lower:
+                focus = label
+                break
+        reply = (
+            f"Good angle. We should make {focus} enforceable, not social. "
+            "On Ergo, eUTXO plus ErgoScript can pin release conditions to objective checks so agents settle without trust. "
+            "Which single constraint would you enforce first in production?"
+        )
+        return {
+            "should_respond": True,
+            "confidence": 0.82,
+            "response_mode": "comment",
+            "vote_action": "upvote",
+            "vote_target": "top_comment",
+            "title": "",
+            "content": reply,
+        }
+    return None
 
 
 def choose_top_comment(
@@ -1473,296 +407,6 @@ def choose_top_comment(
 
     candidates.sort(key=comment_score, reverse=True)
     return candidates[0]
-
-
-def can_reply(
-    state: Dict[str, Any],
-    cfg: Config,
-    author_id: Optional[str],
-    author_name: Optional[str],
-) -> Tuple[bool, str]:
-    reset_daily_if_needed(state)
-    now_ts = utc_now().timestamp()
-
-    post_allowed, post_reason = post_gate_status(state=state, cfg=cfg)
-    comment_allowed, comment_reason = comment_gate_status(state=state, cfg=cfg)
-
-    if cfg.reply_mode == "post" and not post_allowed:
-        return False, post_reason
-
-    if cfg.reply_mode == "comment" and not comment_allowed:
-        return False, comment_reason
-
-    if cfg.reply_mode not in {"post", "comment"} and not post_allowed and not comment_allowed:
-        return False, f"{post_reason}+{comment_reason}"
-
-    if author_name and author_name.lower() in cfg.do_not_reply_authors:
-        return False, "blocked_author"
-
-    if author_id and author_id.lower() in cfg.do_not_reply_authors:
-        return False, "blocked_author"
-
-    if author_id:
-        last_reply_ts = state.get("per_author_last_reply", {}).get(author_id)
-        if last_reply_ts and now_ts - last_reply_ts < cfg.min_seconds_between_same_author:
-            return False, "author_cooldown"
-
-    return True, "ok"
-
-
-def _remaining_since(last_ts: Any, min_seconds: int) -> int:
-    if not isinstance(last_ts, (int, float)):
-        return 0
-    remaining = int(min_seconds - (utc_now().timestamp() - last_ts))
-    return max(0, remaining)
-
-
-def cooldown_remaining_seconds(state: Dict[str, Any], cfg: Config) -> Tuple[int, int]:
-    post_remaining = _remaining_since(state.get("last_post_action_ts"), cfg.min_seconds_between_posts)
-    comment_remaining = _remaining_since(state.get("last_comment_action_ts"), cfg.min_seconds_between_comments)
-    return post_remaining, comment_remaining
-
-
-def seconds_since_last_post(state: Dict[str, Any]) -> Optional[int]:
-    last_post = state.get("last_post_action_ts")
-    if not isinstance(last_post, (int, float)):
-        return None
-    return max(0, int(utc_now().timestamp() - float(last_post)))
-
-
-def should_prioritize_proactive_post(state: Dict[str, Any], cfg: Config) -> bool:
-    post_allowed, _ = post_gate_status(state=state, cfg=cfg)
-    if not post_allowed:
-        return False
-    since_last_post = seconds_since_last_post(state=state)
-    if since_last_post is None:
-        return True
-    return since_last_post >= max(1, cfg.min_seconds_between_posts)
-
-
-def enqueue_pending_action(state: Dict[str, Any], cfg: Config, action: Dict[str, Any]) -> None:
-    queue = state.setdefault("pending_actions", [])
-    if len(queue) >= cfg.max_pending_actions:
-        queue.pop(0)
-    queue.append(action)
-
-
-def has_pending_comment_action(state: Dict[str, Any], post_id_value: str, parent_comment_id: str) -> bool:
-    for action in state.get("pending_actions", []):
-        if not isinstance(action, dict):
-            continue
-        if normalize_str(action.get("kind")).strip().lower() != "comment":
-            continue
-        if normalize_str(action.get("post_id")).strip() != normalize_str(post_id_value).strip():
-            continue
-        if normalize_str(action.get("parent_comment_id")).strip() != normalize_str(parent_comment_id).strip():
-            continue
-        return True
-    return False
-
-
-def mark_reply_action_timestamps(state: Dict[str, Any], action_kind: str) -> None:
-    now_ts = utc_now().timestamp()
-    state["last_action_ts"] = now_ts
-    if action_kind == "comment":
-        state["last_comment_action_ts"] = now_ts
-        ts_list = state.get("comment_action_timestamps", [])
-        if not isinstance(ts_list, list):
-            ts_list = []
-        ts_list.append(now_ts)
-        state["comment_action_timestamps"] = ts_list[-5000:]
-        _prune_comment_action_timestamps(state=state, window_seconds=3600)
-    elif action_kind == "post":
-        state["last_post_action_ts"] = now_ts
-
-
-def execute_pending_actions(
-    client: MoltbookClient,
-    cfg: Config,
-    state: Dict[str, Any],
-    logger,
-    my_name: Optional[str] = None,
-) -> int:
-    queue = list(state.get("pending_actions", []))
-    if not queue:
-        return 0
-    self_identity_keys: Set[str] = set()
-    if my_name:
-        self_identity_keys = resolve_self_identity_keys(client=client, my_name=my_name, logger=logger)
-
-    executed = 0
-    remaining: List[Dict[str, Any]] = []
-    for action in queue:
-        kind = normalize_str(action.get("kind")).strip().lower()
-        if kind == "comment":
-            allowed, reason = comment_gate_status(state=state, cfg=cfg)
-            if not allowed:
-                remaining.append(action)
-                logger.info("Pending action deferred kind=comment reason=%s", reason)
-                continue
-            pid = normalize_str(action.get("post_id"))
-            content = format_content({"content": normalize_str(action.get("content")), "followups": []})
-            parent_comment_id = normalize_str(action.get("parent_comment_id")) or None
-            if not pid or not content:
-                logger.warning("Dropping invalid pending comment action (missing post_id/content).")
-                continue
-            if parent_comment_id:
-                replied_ids = set(state.get("replied_to_comment_ids", []))
-                replied_pairs = set(state.get("replied_comment_pairs", []))
-                if parent_comment_id in replied_ids:
-                    logger.info(
-                        "Dropping pending reply already covered parent_comment_id=%s post_id=%s",
-                        parent_comment_id,
-                        pid,
-                    )
-                    continue
-                pair_key = f"{normalize_str(pid).strip()}:{normalize_str(parent_comment_id).strip()}"
-                if pair_key in replied_pairs:
-                    logger.info(
-                        "Dropping pending reply already covered pair=%s",
-                        pair_key,
-                    )
-                    continue
-                if has_my_reply_to_comment(
-                    client=client,
-                    post_id_value=pid,
-                    parent_comment_id=parent_comment_id,
-                    my_name=my_name,
-                    logger=logger,
-                    self_identity_keys=self_identity_keys,
-                ):
-                    replied_ids.add(parent_comment_id)
-                    state["replied_to_comment_ids"] = list(replied_ids)[-10000:]
-                    replied_pairs.add(pair_key)
-                    state["replied_comment_pairs"] = list(replied_pairs)[-20000:]
-                    logger.info(
-                        "Dropping pending reply already present on-chain parent_comment_id=%s post_id=%s",
-                        parent_comment_id,
-                        pid,
-                    )
-                    continue
-            logger.info(
-                "Executing pending action kind=comment post_id=%s parent_comment_id=%s",
-                pid,
-                parent_comment_id or "(none)",
-            )
-            comment_resp = client.create_comment(pid, content, parent_id=parent_comment_id)
-            register_my_comment_id(state=state, response_payload=comment_resp)
-            state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
-            mark_reply_action_timestamps(state=state, action_kind="comment")
-            replied_posts = set(state.get("replied_post_ids", []))
-            replied_posts.add(pid)
-            state["replied_post_ids"] = list(replied_posts)[-10000:]
-            maybe_upvote_post_after_comment(
-                client=client,
-                state=state,
-                logger=logger,
-                post_id_value=pid,
-            )
-            if parent_comment_id:
-                replied_ids = set(state.get("replied_to_comment_ids", []))
-                replied_ids.add(parent_comment_id)
-                state["replied_to_comment_ids"] = list(replied_ids)[-10000:]
-                replied_pairs = set(state.get("replied_comment_pairs", []))
-                replied_pairs.add(f"{normalize_str(pid).strip()}:{normalize_str(parent_comment_id).strip()}")
-                state["replied_comment_pairs"] = list(replied_pairs)[-20000:]
-            executed += 1
-            print_success_banner(
-                action="pending-comment",
-                pid=pid,
-                url=normalize_str(action.get("url")) or post_url(pid),
-                title=normalize_str(action.get("title")) or "Queued comment",
-            )
-            continue
-
-        if kind == "vote_comment":
-            cid = normalize_str(action.get("comment_id"))
-            vote_action = normalize_vote_action(action.get("vote_action"))
-            if not cid or vote_action == "none":
-                logger.warning("Dropping invalid pending comment vote action.")
-                continue
-            if vote_action == "downvote" and not cfg.allow_comment_downvote:
-                logger.info("Dropping unsupported pending downvote-comment action comment_id=%s", cid)
-                continue
-            logger.info("Executing pending action kind=vote_comment comment_id=%s vote=%s", cid, vote_action)
-            client.vote_comment(cid, vote_action=vote_action)
-            voted_ids = set(state.get("voted_comment_ids", []))
-            voted_ids.add(cid)
-            state["voted_comment_ids"] = list(voted_ids)[-10000:]
-            executed += 1
-            print_success_banner(
-                action=f"pending-{vote_action}-comment",
-                pid=cid,
-                url=normalize_str(action.get("url")),
-                title=normalize_str(action.get("title")) or "Queued comment vote",
-            )
-            continue
-
-        if kind == "vote_post":
-            pid = normalize_str(action.get("post_id"))
-            vote_action = normalize_vote_action(action.get("vote_action"))
-            if not pid or vote_action == "none":
-                logger.warning("Dropping invalid pending post vote action.")
-                continue
-            logger.info("Executing pending action kind=vote_post post_id=%s vote=%s", pid, vote_action)
-            client.vote_post(pid, vote_action=vote_action)
-            executed += 1
-            print_success_banner(
-                action=f"pending-{vote_action}-post",
-                pid=pid,
-                url=normalize_str(action.get("url")) or post_url(pid),
-                title=normalize_str(action.get("title")) or "Queued post vote",
-            )
-            continue
-
-        logger.warning("Dropping unsupported pending action kind=%s", kind)
-
-    state["pending_actions"] = remaining
-    if executed > 0:
-        logger.info("Executed pending actions count=%s remaining=%s", executed, len(remaining))
-    return executed
-
-
-def maybe_upvote_post_after_comment(
-    client: MoltbookClient,
-    state: Dict[str, Any],
-    logger,
-    post_id_value: str,
-) -> None:
-    voted_post_ids = set(state.get("voted_post_ids", []))
-    if post_id_value in voted_post_ids:
-        return
-    try:
-        client.vote_post(post_id_value, vote_action="upvote")
-        voted_post_ids.add(post_id_value)
-        state["voted_post_ids"] = list(voted_post_ids)[-10000:]
-        logger.info("Auto-upvoted post after comment post_id=%s", post_id_value)
-        print_success_banner(
-            action="auto-upvote-post",
-            pid=post_id_value,
-            url=post_url(post_id_value),
-            title="Auto upvote after comment",
-        )
-    except Exception as e:
-        logger.warning("Auto-upvote after comment failed post_id=%s error=%s", post_id_value, e)
-
-
-def wait_for_comment_slot(state: Dict[str, Any], cfg: Config, logger) -> bool:
-    allowed, reason = comment_gate_status(state=state, cfg=cfg)
-    if allowed:
-        return True
-    if reason != "comment_cooldown":
-        logger.info("Cannot wait for comment slot reason=%s", reason)
-        return False
-    _, comment_remaining = cooldown_remaining_seconds(state=state, cfg=cfg)
-    wait_seconds = max(1, comment_remaining)
-    logger.info("Waiting for comment cooldown to clear seconds=%s", wait_seconds)
-    time.sleep(wait_seconds)
-    allowed_after, reason_after = comment_gate_status(state=state, cfg=cfg)
-    if not allowed_after:
-        logger.info("Comment slot still unavailable after wait reason=%s", reason_after)
-        return False
-    return True
 
 
 def build_top_post_signals(posts: List[Dict[str, Any]], limit: int, source: str = "top") -> List[Dict[str, Any]]:
@@ -1857,37 +501,156 @@ def _build_forced_proactive_fallback(
     target_submolt: str,
     weekly_theme: str,
     required_archetype: str,
+    variant_seed: int = 0,
 ) -> Dict[str, Any]:
+    seed = int(variant_seed)
     ref_pid = ""
     ref_title = ""
+    ref_url = ""
     if top_signals:
-        ref_pid = normalize_str(top_signals[0].get("post_id")).strip()
-        ref_title = normalize_str(top_signals[0].get("title")).strip()
-    ref_url = post_url(ref_pid) if ref_pid else ""
-    title = f"{weekly_theme}: deterministic escrow for autonomous agents on Ergo".strip()
+        ref_idx = seed % max(1, len(top_signals))
+        chosen = top_signals[ref_idx] if 0 <= ref_idx < len(top_signals) else top_signals[0]
+        ref_pid = normalize_str(chosen.get("post_id")).strip()
+        ref_title = normalize_str(chosen.get("title")).strip()
+        ref_url = post_url(ref_pid) if ref_pid else ""
+
+    archetype = _normalize_archetype(required_archetype)
+
+    title_options: List[str] = []
+    if archetype == "chain_comparison":
+        title_options = [
+            "Ergo vs Solana for agent escrow: deterministic branches beat global state",
+            "Ergo vs Solana for agent payments: parallel settlement without state fights",
+            "Agent economies: why eUTXO settlement is simpler than global account state",
+        ]
+    elif archetype == "implementation_walkthrough":
+        title_options = [
+            "Shipping agent escrow on Ergo: a minimal eUTXO state machine",
+            "A deterministic dispute workflow on Ergo for agent-to-agent payments",
+            "Builder walkthrough: eUTXO receipts plus escrow for agent execution",
+        ]
+    elif archetype == "security_advisory":
+        title_options = [
+            "Skill supply chain risk: make agent execution receipts verifiable on Ergo",
+            "Stop trusting off-chain logs: anchor execution receipts on Ergo",
+            "Auditability gap in agent infra: eUTXO receipts close it",
+        ]
+    else:
+        title_options = [
+            "Deterministic escrow on Ergo for autonomous agents",
+            "Reputation-gated counterparties on Ergo for agent-to-agent payments",
+            "Execution receipts on Ergo: eUTXO as an agent settlement log",
+        ]
+    title = normalize_str(title_options[seed % max(1, len(title_options))]).strip()
     if len(title) > 140:
         title = title[:137].rstrip() + "..."
 
-    body_lines = [
-        "Agent economies fail when counterparties cannot prove execution and settlement needs manual trust.",
-        "Ergo eUTXO plus ErgoScript fixes this with deterministic contract paths and on-chain verifiable conditions.",
-        "",
+    hooks = [
         (
-            "Implementation sketch: lock service payments in an ErgoScript escrow box, then release only when the "
-            "proof hash and signature threshold match contract rules; otherwise route to a timeout + dispute branch "
-            "with reputation-gated arbiters."
+            "Agent workflows break when settlement depends on trust and manual arbitration.\n"
+            "On Ergo, eUTXO plus ErgoScript lets you encode escrow branches with verifiable release rules."
+        ),
+        (
+            "If an agent cannot prove execution, it cannot price its work.\n"
+            "Ergo gives a clean primitive for proofs: deterministic eUTXO transitions enforced by ErgoScript."
+        ),
+        (
+            "Counterparty risk is the tax on every agent economy.\n"
+            "Ergo reduces it by turning payment into a state machine with auditable conditions."
+        ),
+        (
+            "Most agent economies are still running on vibes and screenshots.\n"
+            "Ergo can anchor execution receipts and settlement rules so claims become checkable."
+        ),
+        (
+            "Disputes kill throughput when humans must interpret logs.\n"
+            "On Ergo you can restrict disputes to objective checks, timeouts, and threshold signatures."
+        ),
+        (
+            "When coordination lives off-chain, incentives drift and auditing becomes theater.\n"
+            "Ergo lets you commit to coordination steps as UTXO receipts with deterministic constraints."
+        ),
+        (
+            "Autonomy needs contracts, not etiquette.\n"
+            "Ergo eUTXO lets agents run payments through predictable branches instead of ad hoc exceptions."
         ),
     ]
+    sketches = [
+        (
+            "Minimal escrow: one box locks funds, registers carry (service_id, proof_hash, deadline), "
+            "and the contract releases only when the proof hash matches and required signatures are present."
+        ),
+        (
+            "Receipt chain: each work block produces a small UTXO that commits to a hash of the artifact. "
+            "The next receipt must reference the previous id, which creates a tamper-evident execution log."
+        ),
+        (
+            "Reputation gate: require a reputation proof token to be included when opening escrow. "
+            "Low-reputation agents can still participate by bonding more collateral in the same transaction."
+        ),
+        (
+            "Dispute branch: if no release occurs by deadline, either party can trigger a timeout path. "
+            "Funds route to a resolver set selected by a simple on-chain rule, then settle by threshold spend."
+        ),
+        (
+            "Parallel settlement: eUTXO makes it natural to split payments across many independent boxes. "
+            "That keeps agents from fighting over a single global balance update under load."
+        ),
+        (
+            "Service orchestration angle: treat each delegated step as a receipt box and pay per step. "
+            "Agents can price execution using objective counters, then settle through escrow."
+        ),
+        (
+            "Privacy angle: Sigma Protocols can verify membership or threshold conditions without leaking "
+            "the full identity graph, while settlement remains auditable."
+        ),
+        (
+            "Anti-sybil approach: require a stake or bond in the escrow open, then burn or slash it on provable "
+            "failure modes. That pushes spam cost on-chain."
+        ),
+        (
+            "Operational constraint: encode a max-latency budget as a deadline register. "
+            "If results arrive late, the contract routes to partial refund or re-run."
+        ),
+        (
+            "Proof format: the contract does not need raw logs. It only needs a deterministic hash commitment "
+            "plus a verification step that ties the commitment to the settlement transaction."
+        ),
+        (
+            "Builder tradeoff: objective checks scale, subjective arbitration does not. "
+            "Design the escrow so subjective cases are rare and expensive."
+        ),
+    ]
+    questions = [
+        "What is the first objective condition you would enforce in the escrow contract?",
+        "Which failure mode should trigger automatically: timeout, hash mismatch, or missing signatures?",
+        "Would you rather gate counterparties by reputation, by bond size, or by both?",
+        "What is the smallest receipt format you would accept as proof of work?",
+        "Which part should be on-chain first: escrow, receipts, or reputation gating?",
+        "What is your expected dispute rate, and what would you do when it spikes?",
+        "How would you price execution when the only thing you can verify is a hash commitment?",
+        "If you had one week, which agent workflow would you pilot end to end on Ergo?",
+        "What is your adversary model: human puppets, sybils, or colluding agents?",
+        "Which incentive breaks first in your design, and how do you patch it?",
+        "How strict should the timeout be for autonomous payments in your domain?",
+        "Which axis matters more to you: determinism, privacy, or throughput?",
+        "What would you measure as success: reduced disputes, faster settlement, or lower fraud?",
+    ]
+
+    hook = hooks[seed % len(hooks)]
+    sketch = sketches[(seed * 3 + 1) % len(sketches)]
+    question = questions[(seed * 5 + 2) % len(questions)]
+
+    body_lines = [hook, "", sketch]
     if ref_url:
-        body_lines.extend(["", f"Reference thread: {ref_url}"])
-    if ref_title:
-        body_lines.append(f"Reference topic: {ref_title}")
-    body_lines.extend(
-        [
-            "",
-            "Would you start with hard minimum reputation gates or bond-scaled adaptive gates for counterparties?",
-        ]
-    )
+        # Keep it light: link for context, no "I saw your post" framing.
+        body_lines.extend(["", f"Prompted by: {ref_url}"])
+        if ref_title:
+            body_lines.append(f"Topic: {ref_title}")
+    if weekly_theme:
+        # Small grounding line, avoids template scaffolding and keeps the post on-mission.
+        body_lines.extend(["", f"Theme today: {normalize_str(weekly_theme).strip()}"])
+    body_lines.extend(["", question])
     content = "\n".join(body_lines).strip()
     return {
         "should_post": True,
@@ -1924,6 +687,55 @@ def _proactive_posts_count_for_date(post_memory: Dict[str, Any], date_iso: str) 
 def _weekly_proactive_theme_hint() -> str:
     weekday = utc_now().weekday()
     return WEEKLY_PROACTIVE_THEMES.get(weekday, "Concrete Ergo mechanisms for agent autonomy")
+
+
+def _zero_action_streak_from_state(state: Dict[str, Any], limit: int = 24) -> int:
+    history_raw = state.get("cycle_metrics_history", [])
+    if not isinstance(history_raw, list):
+        return 0
+    streak = 0
+    for item in reversed(history_raw[-max(1, int(limit)) :]):
+        if not isinstance(item, dict):
+            continue
+        if int(item.get("actions", 0) or 0) > 0:
+            break
+        streak += 1
+    return streak
+
+
+def _best_posting_hours_utc(learning_snapshot: Dict[str, Any], limit: int = 3) -> List[int]:
+    if not isinstance(learning_snapshot, dict):
+        return []
+    visibility_metrics = learning_snapshot.get("visibility_metrics")
+    if not isinstance(visibility_metrics, dict):
+        return []
+    raw = visibility_metrics.get("best_posting_hours_utc")
+    if not isinstance(raw, list):
+        return []
+    out: List[int] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        hour = item.get("hour_utc")
+        if isinstance(hour, (int, float)):
+            hour_i = int(hour) % 24
+            if hour_i not in out:
+                out.append(hour_i)
+        if len(out) >= max(1, int(limit)):
+            break
+    return out
+
+
+def _is_near_best_hour(current_hour: int, best_hours: List[int], radius_hours: int = 1) -> bool:
+    if not best_hours:
+        return False
+    now = int(current_hour) % 24
+    radius = max(0, int(radius_hours))
+    for hour in best_hours:
+        distance = min((now - hour) % 24, (hour - now) % 24)
+        if distance <= radius:
+            return True
+    return False
 
 
 def _choose_proactive_submolt(
@@ -2014,6 +826,7 @@ def maybe_run_proactive_post(
     persona_text: str,
     domain_context_text: str,
     approve_all_actions: bool,
+    submolt_meta: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Tuple[int, bool, bool]:
     if not cfg.proactive_posting_enabled:
         return 0, False, approve_all_actions
@@ -2034,9 +847,17 @@ def maybe_run_proactive_post(
         )
         return 0, False, approve_all_actions
 
-    if not has_generation_provider(cfg):
-        logger.info("Proactive post skipped reason=no_generation_provider")
-        return 0, False, approve_all_actions
+    llm_available = has_generation_provider(cfg)
+    zero_action_streak = _zero_action_streak_from_state(state=state, limit=24)
+    if llm_available and zero_action_streak >= 4:
+        # During prolonged no-action runs, switch to deterministic posting to recover cadence.
+        llm_available = False
+        logger.info(
+            "Proactive deterministic lane enabled reason=zero_action_streak value=%s",
+            zero_action_streak,
+        )
+    if not llm_available:
+        logger.warning("Proactive post drafting provider unavailable; forcing deterministic fallback.")
 
     refresh_seconds = max(1, cfg.proactive_metrics_refresh_seconds)
     last_refresh = post_memory.get("last_metrics_refresh_ts")
@@ -2069,8 +890,7 @@ def maybe_run_proactive_post(
             trend_signal_map[source] = []
 
     if not any(trend_signal_map.values()):
-        logger.warning("Proactive post skipped reason=trend_posts_fetch_failed")
-        return 0, False, approve_all_actions
+        logger.warning("Proactive trend fetch failed; forcing deterministic fallback for this attempt.")
 
     dedup_by_post: Dict[str, Dict[str, Any]] = {}
     for source in trend_sources:
@@ -2097,6 +917,42 @@ def maybe_run_proactive_post(
         key=lambda item: (int(item.get("score", 0)), int(item.get("comment_count", 0))),
         reverse=True,
     )[: max(1, cfg.proactive_post_reference_limit * 2)]
+    if cfg.virality_enabled and top_signals:
+        now_dt = utc_now()
+        ref_history = {
+            "mode": "reference",
+            "recency_halflife_minutes": cfg.recency_halflife_minutes,
+            "early_comment_window_seconds": cfg.early_comment_window_seconds,
+            "active_keywords": [],
+            "recent_topic_signatures": state.get("recent_topic_signatures", []),
+        }
+        for signal in top_signals:
+            feed_sources = signal.get("sources")
+            if not isinstance(feed_sources, list):
+                feed_sources = [normalize_str(signal.get("source")).strip().lower()]
+            pseudo_post = {
+                "title": normalize_str(signal.get("title")),
+                "content": "",
+                "upvotes": int(signal.get("score", 0) or 0),
+                "comment_count": int(signal.get("comment_count", 0) or 0),
+                "__feed_sources": [normalize_str(x).strip().lower() for x in feed_sources if normalize_str(x).strip()],
+            }
+            submolt_key = normalize_submolt(signal.get("submolt"), default="")
+            signal["virality_score"] = score_post_candidate(
+                post=pseudo_post,
+                submolt_meta=(submolt_meta or {}).get(submolt_key, {}),
+                now=now_dt,
+                history=ref_history,
+            )
+        top_signals = sorted(
+            top_signals,
+            key=lambda item: (
+                float(item.get("virality_score", 0.0) or 0.0),
+                int(item.get("score", 0) or 0),
+                int(item.get("comment_count", 0) or 0),
+            ),
+            reverse=True,
+        )
     market_snapshot = update_market_signals(post_memory, top_signals)
     logger.info(
         "Proactive trend signals loaded count=%s source_counts=%s",
@@ -2105,8 +961,10 @@ def maybe_run_proactive_post(
     )
     learning_snapshot = build_learning_snapshot(post_memory, max_examples=5)
     if not top_signals:
-        logger.info("Proactive post skipped reason=no_top_signals")
-        return 0, False, approve_all_actions
+        logger.info("Proactive top-signal set empty; deterministic fallback will use generic strategy.")
+    best_hours_utc = _best_posting_hours_utc(learning_snapshot=learning_snapshot, limit=3)
+    current_hour_utc = int(utc_now().strftime("%H"))
+    near_best_hour = _is_near_best_hour(current_hour_utc, best_hours_utc, radius_hours=1)
 
     today_iso = time.strftime("%Y-%m-%d", time.gmtime())
     proactive_today = _proactive_posts_count_for_date(post_memory=post_memory, date_iso=today_iso)
@@ -2125,11 +983,13 @@ def maybe_run_proactive_post(
         learning_snapshot=learning_snapshot,
         force_general=force_general,
     )
+    attempt_seed = int(state.get("proactive_post_attempt_count", 0))
     fallback_post = _build_forced_proactive_fallback(
         top_signals=top_signals,
         target_submolt=target_submolt,
         weekly_theme=weekly_theme,
         required_archetype=required_archetype,
+        variant_seed=attempt_seed,
     )
     using_forced_fallback = False
     state["proactive_post_attempt_count"] = int(state.get("proactive_post_attempt_count", 0)) + 1
@@ -2137,7 +997,8 @@ def maybe_run_proactive_post(
     logger.info(
         (
             "Proactive plan mode=%s required_archetype=%s preferred=%s submolt=%s "
-            "attempt=%s daily_target=%s proactive_today=%s force_general=%s theme=%s"
+            "attempt=%s daily_target=%s proactive_today=%s force_general=%s theme=%s "
+            "hour_utc=%s best_hours_utc=%s near_best_hour=%s"
         ),
         archetype_mode,
         required_archetype,
@@ -2148,33 +1009,47 @@ def maybe_run_proactive_post(
         proactive_today,
         force_general,
         weekly_theme,
+        current_hour_utc,
+        ",".join(str(x) for x in best_hours_utc) if best_hours_utc else "(none)",
+        int(near_best_hour),
     )
     provider_used = "unknown"
-    try:
-        messages = build_proactive_post_messages(
-            persona=persona_text,
-            domain_context=domain_context_text,
-            top_posts=top_signals,
-            learning_snapshot=learning_snapshot,
-            target_submolt=target_submolt,
-            weekly_theme=weekly_theme,
-            required_archetype=required_archetype,
-            preferred_archetypes=preferred_archetypes,
-        )
-        draft, provider_used, _ = call_generation_model(cfg, messages)
-    except Exception as e:
-        logger.warning(
-            "Proactive post drafting failed provider_hint=%s error=%s fallback=deterministic",
-            cfg.llm_provider,
-            e,
-        )
+    if llm_available:
+        try:
+            messages = build_proactive_post_messages(
+                persona=persona_text,
+                domain_context=domain_context_text,
+                top_posts=top_signals,
+                learning_snapshot=learning_snapshot,
+                target_submolt=target_submolt,
+                weekly_theme=weekly_theme,
+                required_archetype=required_archetype,
+                preferred_archetypes=preferred_archetypes,
+            )
+            print_drafting_banner(
+                action_kind="post-proactive",
+                pid="(new)",
+                title=f"Proactive in m/{target_submolt}",
+                provider_hint=cfg.llm_provider,
+            )
+            draft, provider_used, _ = call_generation_model(cfg, messages)
+        except Exception as e:
+            logger.warning(
+                "Proactive post drafting failed provider_hint=%s error=%s fallback=deterministic",
+                cfg.llm_provider,
+                e,
+            )
+            draft = dict(fallback_post)
+            provider_used = "deterministic-fallback"
+            using_forced_fallback = True
+    else:
         draft = dict(fallback_post)
         provider_used = "deterministic-fallback"
         using_forced_fallback = True
     logger.info("Proactive post draft generated provider=%s", provider_used)
 
     draft_archetype = _normalize_archetype(draft.get("content_archetype"))
-    if draft_archetype != required_archetype:
+    if draft_archetype != required_archetype and llm_available:
         logger.warning(
             "Proactive archetype mismatch required=%s got=%s retrying_once=1",
             required_archetype,
@@ -2207,7 +1082,7 @@ def maybe_run_proactive_post(
             )
             record_declined_idea(
                 memory=post_memory,
-                title=_sanitize_generated_title(draft.get("title"), fallback="(untitled)"),
+                title=sanitize_generated_title(draft.get("title"), fallback="(untitled)"),
                 submolt=normalize_submolt(draft.get("submolt"), default=target_submolt),
                 reason=f"archetype_mismatch:{required_archetype}->{draft_archetype}",
             )
@@ -2217,7 +1092,20 @@ def maybe_run_proactive_post(
             draft_archetype = _normalize_archetype(draft.get("content_archetype"))
 
     should_post = bool(draft.get("should_post"))
-    confidence = float(draft.get("confidence", 0.0))
+    confidence, confidence_imputed = _normalized_model_confidence(
+        raw_confidence=draft.get("confidence", 0.0),
+        should_act=should_post,
+        has_content=bool(normalize_str(draft.get("content")).strip()),
+        fallback_when_true=max(cfg.min_confidence, 0.72),
+        fallback_when_false=0.4,
+    )
+    if confidence_imputed:
+        logger.info(
+            "Proactive confidence imputed should_post=%s raw=%r normalized=%.3f",
+            should_post,
+            draft.get("confidence"),
+            confidence,
+        )
     if not should_post or confidence < cfg.min_confidence:
         logger.info(
             "Proactive post declined should_post=%s confidence=%.3f threshold=%.3f fallback=deterministic",
@@ -2227,7 +1115,7 @@ def maybe_run_proactive_post(
         )
         record_declined_idea(
             memory=post_memory,
-            title=_sanitize_generated_title(draft.get("title"), fallback="(untitled)"),
+            title=sanitize_generated_title(draft.get("title"), fallback="(untitled)"),
             submolt=normalize_submolt(draft.get("submolt"), default=target_submolt),
             reason="model_declined_or_low_confidence",
         )
@@ -2238,16 +1126,19 @@ def maybe_run_proactive_post(
         confidence = float(draft.get("confidence", 0.99))
 
     submolt = normalize_submolt(draft.get("submolt"), default=target_submolt)
-    raw_title = _sanitize_generated_title(
+    raw_title = sanitize_generated_title(
         draft.get("title"),
         fallback="Ergo x agent economy: practical next step",
     )
     title = _optimize_proactive_title(raw_title, learning_snapshot=learning_snapshot)
     if title != raw_title:
         logger.info("Proactive title adapted for market signal original=%r adapted=%r", raw_title, title)
-    content = _ensure_direct_question(normalize_str(draft.get("content")).strip())
+    content = _ensure_direct_question(format_content(draft))
     content = _normalize_ergo_terms(content)
     content = _ensure_proactive_opening_gate(content)
+    content = enforce_link_policy(content, allow_links=True)
+    # Sanitize early so formatting scaffolds do not trip template detection or opening gates.
+    content = sanitize_publish_content(content)
     strategy_notes = normalize_str(draft.get("strategy_notes")).strip()
     content_archetype = draft_archetype
     raw_tags = draft.get("topic_tags") or []
@@ -2272,14 +1163,16 @@ def maybe_run_proactive_post(
             using_forced_fallback = True
             draft_archetype = _normalize_archetype(draft.get("content_archetype"))
             submolt = normalize_submolt(draft.get("submolt"), default=target_submolt)
-            raw_title = _sanitize_generated_title(
+            raw_title = sanitize_generated_title(
                 draft.get("title"),
                 fallback="Ergo x agent economy: practical next step",
             )
             title = _optimize_proactive_title(raw_title, learning_snapshot=learning_snapshot)
-            content = _ensure_direct_question(normalize_str(draft.get("content")).strip())
+            content = _ensure_direct_question(format_content(draft))
             content = _normalize_ergo_terms(content)
             content = _ensure_proactive_opening_gate(content)
+            content = enforce_link_policy(content, allow_links=True)
+            content = sanitize_publish_content(content)
             strategy_notes = normalize_str(draft.get("strategy_notes")).strip()
             content_archetype = draft_archetype
             raw_tags = draft.get("topic_tags") or []
@@ -2299,7 +1192,7 @@ def maybe_run_proactive_post(
                 reason=f"{final_reason}_after_fallback",
             )
             submolt = normalize_submolt(target_submolt)
-            title = _sanitize_generated_title(
+            title = sanitize_generated_title(
                 "Startup priority: deterministic Ergo escrow blueprint for autonomous agents"
             )
             content = (
@@ -2310,13 +1203,142 @@ def maybe_run_proactive_post(
                 "Would you start with hard reputation thresholds or bond-scaled adaptive gates for counterparties?"
             )
             content = _normalize_ergo_terms(_ensure_proactive_opening_gate(content))
+            content = enforce_link_policy(content, allow_links=True)
             content_archetype = _normalize_archetype(required_archetype)
             strategy_notes = "emergency_deterministic_priority_post"
             topic_tags = ["ergo", "eutxo", "ergoscript", "escrow", "agent-economy"]
 
+    hook_ref_text = " ".join(
+        [
+            normalize_str(item.get("title")).strip()
+            for item in top_signals[:3]
+            if isinstance(item, dict)
+        ]
+    )
+    optimized_title, optimized_content, hook_meta = select_best_hook_pair(
+        title=title,
+        content=content,
+        reference_text=hook_ref_text,
+        archetype=content_archetype,
+    )
+    if optimized_title != title or optimized_content != content:
+        top_title_score = None
+        top_lead_score = None
+        title_candidates_meta = hook_meta.get("title_candidates")
+        lead_candidates_meta = hook_meta.get("lead_candidates")
+        if isinstance(title_candidates_meta, list) and title_candidates_meta:
+            first = title_candidates_meta[0]
+            if isinstance(first, dict):
+                top_title_score = first.get("score")
+        if isinstance(lead_candidates_meta, list) and lead_candidates_meta:
+            first = lead_candidates_meta[0]
+            if isinstance(first, dict):
+                top_lead_score = first.get("score")
+        logger.info(
+            "Proactive hook optimization applied title_changed=%s lead_changed=%s top_title_score=%s top_lead_score=%s",
+            int(optimized_title != title),
+            int(optimized_content != content),
+            top_title_score,
+            top_lead_score,
+        )
+        title = optimized_title
+        content = optimized_content
+    content = _prepare_publish_content(content, allow_links=True, audit_label="proactive_post")
+    if not content:
+        # If sanitization removed everything (usually control payload leakage), fall back to a safe deterministic post
+        # so "post-first" priority doesn't stall for long periods.
+        logger.warning(
+            "Proactive post publish content empty after sanitize; forcing emergency deterministic post=1"
+        )
+        title = sanitize_generated_title(
+            title,
+            fallback="Startup priority: deterministic Ergo escrow blueprint for autonomous agents",
+        )
+        emergency = (
+            "Agent economies fail when counterparties cannot verify settlement paths.\n\n"
+            "Ergo eUTXO plus ErgoScript gives deterministic escrow branches with auditable release rules: "
+            "lock funds in an escrow box, require an objective evidence commitment (hash) plus signatures for release, "
+            "and route unresolved disputes to a timeout branch with a reputation-gated arbitrator set.\n\n"
+            "If you were shipping this next week, would you gate counterparties with a hard reputation threshold, "
+            "or scale the required bond size with reputation?"
+        )
+        emergency = _normalize_ergo_terms(_ensure_proactive_opening_gate(emergency))
+        emergency = enforce_link_policy(emergency, allow_links=True)
+        content = _prepare_publish_content(emergency, allow_links=True, audit_label="proactive_post_emergency")
+        if not content:
+            logger.info("Proactive post skipped reason=empty_publish_content_after_emergency")
+            return 0, False, approve_all_actions
+
+    submolt_meta = submolt_meta or {}
+    candidate_targets = [submolt] + list(cfg.target_submolts)
+    routed_submolt = choose_best_submolt_for_new_post(
+        title=title,
+        content=content,
+        archetype=content_archetype,
+        target_submolts=candidate_targets,
+        submolt_meta=submolt_meta,
+    )
+    if normalize_submolt(routed_submolt) != normalize_submolt(submolt):
+        logger.info("Proactive route adjusted from m/%s to m/%s via submolt intelligence", submolt, routed_submolt)
+        submolt = normalize_submolt(routed_submolt, default=submolt)
+    if submolt_meta and not is_valid_submolt_name(submolt, submolt_meta):
+        logger.warning("Proactive route invalid submolt=%s fallback=general", submolt)
+        submolt = "general"
+
+    publish_sig = _publish_signature(action_type="post", target_post_id="(new)", content=content, parent_comment_id=None)
+    if _seen_publish_signature(state, publish_sig):
+        # If we already published this content recently, regenerate BEFORE prompting the human so the
+        # confirmation gate always shows the exact content that would be sent.
+        logger.info("Proactive post draft duplicate detected pre_confirm=1; regenerating variant=deterministic")
+        regenerated = False
+        for bump in range(1, 9):
+            alt = _build_forced_proactive_fallback(
+                top_signals=top_signals,
+                target_submolt=submolt,
+                weekly_theme=weekly_theme,
+                required_archetype=required_archetype,
+                variant_seed=attempt_seed + bump,
+            )
+            alt_title = sanitize_generated_title(alt.get("title"), fallback=title)
+            alt_content = _ensure_direct_question(format_content(alt))
+            alt_content = _normalize_ergo_terms(alt_content)
+            alt_content = _ensure_proactive_opening_gate(alt_content)
+            alt_content = enforce_link_policy(alt_content, allow_links=True)
+            alt_content = sanitize_publish_content(alt_content)
+            alt_prepared = _prepare_publish_content(
+                alt_content, allow_links=True, audit_label="proactive_post_dup_regen"
+            )
+            if not alt_prepared or _is_template_like_generated_content(alt_prepared) or not _passes_proactive_opening_gate(alt_prepared):
+                continue
+            alt_sig = _publish_signature(
+                action_type="post", target_post_id="(new)", content=alt_prepared, parent_comment_id=None
+            )
+            if _seen_publish_signature(state, alt_sig):
+                continue
+            title = alt_title
+            content = alt_prepared
+            publish_sig = alt_sig
+            regenerated = True
+            logger.info("Proactive post regenerated after duplicate bump=%s", bump)
+            break
+        if not regenerated:
+            logger.info("Proactive post skipped reason=duplicate_publish_signature")
+            record_declined_idea(memory=post_memory, title=title, submolt=submolt, reason="duplicate_publish_signature")
+            return 0, False, approve_all_actions
+
     preview = content
     if strategy_notes:
-        preview = f"{content}\n\n[notes] {strategy_notes}"
+        # Keep notes out of the proposed publish body. Notes are for logs and analytics only.
+        logger.info("Proactive draft notes=%s", strategy_notes)
+    reference_sources: List[str] = []
+    if top_signals:
+        raw_sources = top_signals[0].get("sources")
+        if isinstance(raw_sources, list):
+            reference_sources = [normalize_str(x).strip().lower() for x in raw_sources if normalize_str(x).strip()]
+        if not reference_sources:
+            source_name = normalize_str(top_signals[0].get("source")).strip().lower()
+            if source_name:
+                reference_sources = [source_name]
 
     approved, approve_all_actions, should_stop = confirm_action(
         cfg=cfg,
@@ -2340,19 +1362,66 @@ def maybe_run_proactive_post(
             submolt=submolt,
             reason="not_approved",
         )
+        record_action_event(
+            cfg.analytics_db_path,
+            action_type="post",
+            target_post_id="(new)",
+            submolt=submolt,
+            feed_sources=reference_sources,
+            virality_score=None,
+            archetype=content_archetype,
+            model_confidence=confidence,
+            approved_by_human=False,
+            executed=False,
+            error="not_approved",
+            title=title,
+        )
         return 0, False, approve_all_actions
 
     if cfg.dry_run:
         logger.info("Proactive post dry_run submolt=%s title=%s", submolt, title)
+        record_action_event(
+            cfg.analytics_db_path,
+            action_type="post",
+            target_post_id="(new)",
+            submolt=submolt,
+            feed_sources=reference_sources,
+            virality_score=None,
+            archetype=content_archetype,
+            model_confidence=confidence,
+            approved_by_human=True,
+            executed=False,
+            error="dry_run",
+            title=title,
+        )
+        return 0, False, approve_all_actions
+
+    if _seen_publish_signature(state, publish_sig):
+        logger.info("Proactive post skipped reason=duplicate_publish_signature")
         return 0, False, approve_all_actions
 
     try:
         response = client.create_post(submolt=submolt, title=title, content=content)
     except Exception as e:
         logger.warning("Proactive post send failed submolt=%s title=%s error=%s", submolt, title, e)
+        record_action_event(
+            cfg.analytics_db_path,
+            action_type="post",
+            target_post_id="(new)",
+            submolt=submolt,
+            feed_sources=reference_sources,
+            virality_score=None,
+            archetype=content_archetype,
+            model_confidence=confidence,
+            approved_by_human=True,
+            executed=False,
+            error=normalize_str(e),
+            title=title,
+        )
         return 0, False, approve_all_actions
 
     created_post_id = post_id(response if isinstance(response, dict) else {}) or "(unknown)"
+    _remember_publish_signature(state, publish_sig)
     state["daily_post_count"] = state.get("daily_post_count", 0) + 1
     mark_reply_action_timestamps(state=state, action_kind="post")
     logger.info(
@@ -2371,6 +1440,55 @@ def maybe_run_proactive_post(
         topic_tags=topic_tags,
         content_archetype=content_archetype,
     )
+    record_action_event(
+        cfg.analytics_db_path,
+        action_type="post",
+        target_post_id=created_post_id,
+        submolt=submolt,
+        feed_sources=reference_sources,
+        virality_score=None,
+        archetype=content_archetype,
+        model_confidence=confidence,
+        approved_by_human=True,
+        executed=True,
+        error="",
+        title=title,
+    )
+    try:
+        reference_posts = []
+        for signal in top_signals[:3]:
+            if not isinstance(signal, dict):
+                continue
+            reference_posts.append(
+                {
+                    "post_id": normalize_str(signal.get("post_id")).strip(),
+                    "title": normalize_str(signal.get("title")).strip(),
+                    "submolt": normalize_submolt(signal.get("submolt"), default=""),
+                    "source": normalize_str(signal.get("source")).strip().lower(),
+                    "score": int(signal.get("score", 0) or 0),
+                    "comment_count": int(signal.get("comment_count", 0) or 0),
+                }
+            )
+        append_action_journal(
+            cfg.action_journal_path,
+            action_type="post",
+            target_post_id=normalize_str(created_post_id),
+            submolt=submolt,
+            title=title,
+            content=content,
+            url=post_url(created_post_id if created_post_id != "(unknown)" else None),
+            reference={"top_reference_posts": reference_posts},
+            meta={"source": "proactive"},
+        )
+    except Exception as e:
+        logger.debug("Proactive action journal write failed post_id=%s error=%s", created_post_id, e)
+    topic_sig = infer_topic_signature(title=title, content=content)
+    if topic_sig:
+        recent_topics = state.get("recent_topic_signatures", [])
+        if not isinstance(recent_topics, list):
+            recent_topics = []
+        recent_topics.append(topic_sig)
+        state["recent_topic_signatures"] = recent_topics[-400:]
     print_success_banner(
         action="post-proactive",
         pid=created_post_id,
@@ -2380,228 +1498,6 @@ def maybe_run_proactive_post(
     return 1, False, approve_all_actions
 
 
-def merge_unique_posts(posts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
-    seen_ids: Set[str] = set()
-    for post in posts:
-        pid = post_id(post)
-        if not pid:
-            continue
-        if pid in seen_ids:
-            continue
-        seen_ids.add(pid)
-        out.append(post)
-    return out
-
-
-def select_keyword_batch(
-    keywords: List[str],
-    batch_size: int,
-    cursor: int,
-) -> Tuple[List[str], int]:
-    if not keywords:
-        return [], 0
-    size = max(1, min(batch_size, len(keywords)))
-    if size >= len(keywords):
-        return keywords[:], 0
-
-    selected: List[str] = []
-    idx = cursor % len(keywords)
-    for _ in range(size):
-        selected.append(keywords[idx])
-        idx = (idx + 1) % len(keywords)
-    return selected, idx
-
-
-def has_my_comment_on_post(
-    client: MoltbookClient,
-    post_id_value: str,
-    my_name: Optional[str],
-    logger,
-) -> bool:
-    if not my_name:
-        return False
-    my_key = author_identity_key(author_id=None, author_name=my_name)
-    my_name_key = _normalized_name_key(my_name)
-    try:
-        payload = client.get_post_comments(post_id_value, limit=200)
-    except Exception as e:
-        logger.debug("Comment history check failed post_id=%s error=%s", post_id_value, e)
-        return False
-    for comment in extract_comments(payload):
-        author_id, author_name = comment_author(comment)
-        if my_key and author_identity_key(author_id, author_name) == my_key:
-            return True
-        if my_name_key and _normalized_name_key(author_name) == my_name_key:
-            return True
-    return False
-
-
-def has_my_reply_to_comment(
-    client: MoltbookClient,
-    post_id_value: str,
-    parent_comment_id: str,
-    my_name: Optional[str],
-    logger,
-    self_identity_keys: Optional[Set[str]] = None,
-) -> bool:
-    if not my_name:
-        return False
-    my_key = author_identity_key(author_id=None, author_name=my_name)
-    my_name_key = _normalized_name_key(my_name)
-    self_keys: Set[str] = set(self_identity_keys or set())
-    if my_key:
-        self_keys.add(my_key)
-    parent_key = normalize_str(parent_comment_id).strip()
-    if not parent_key:
-        return False
-    try:
-        payload = client.get_post_comments(post_id_value, limit=250)
-    except Exception as e:
-        logger.debug(
-            "Reply-parent history check failed post_id=%s parent_comment_id=%s error=%s",
-            post_id_value,
-            parent_comment_id,
-            e,
-        )
-        return False
-    for comment in extract_comments(payload):
-        if normalize_str(comment_parent_id(comment)).strip() != parent_key:
-            continue
-        author_id, author_name = comment_author(comment)
-        if self_keys and is_self_author(author_id, author_name, self_identity_keys=self_keys):
-            return True
-        if my_name_key and _normalized_name_key(author_name) == my_name_key:
-            return True
-    return False
-
-
-def discover_posts(
-    client: MoltbookClient,
-    cfg: Config,
-    logger,
-    keywords: List[str],
-    iteration: int,
-    search_state: Dict[str, Any],
-) -> Tuple[List[Dict[str, Any]], List[str]]:
-    sources: List[str] = []
-    search_posts: List[Dict[str, Any]] = []
-    submolt_posts: List[Dict[str, Any]] = []
-
-    if cfg.discovery_mode == "search":
-        retry_cycle = int(search_state.get("retry_cycle", 1))
-        if iteration < retry_cycle:
-            logger.info("Search temporarily paused until cycle=%s; using feed only this cycle.", retry_cycle)
-        else:
-            cursor = int(search_state.get("keyword_cursor", 0))
-            cycle_keywords, next_cursor = select_keyword_batch(
-                keywords=keywords,
-                batch_size=cfg.search_batch_size,
-                cursor=cursor,
-            )
-            search_state["keyword_cursor"] = next_cursor
-            search_errors = 0
-            not_found_errors = 0
-            sampled_error: Optional[str] = None
-            mission_posts = 0
-            for mission_query in cfg.mission_queries:
-                try:
-                    result = client.search_posts(query=mission_query, limit=cfg.search_limit, search_type="posts")
-                    posts = extract_posts(result)
-                    mission_posts += len(posts)
-                    search_posts.extend(posts)
-                except MoltbookAuthError:
-                    raise
-                except Exception as e:
-                    search_errors += 1
-                    err = str(e)
-                    sampled_error = sampled_error or err
-                    if "not found" in err.lower() or "unavailable" in err.lower():
-                        not_found_errors += 1
-                    logger.debug("Discovery mission search failed query=%s error=%s", mission_query, err)
-
-            for keyword in cycle_keywords:
-                try:
-                    result = client.search_posts(query=keyword, limit=cfg.search_limit, search_type="posts")
-                    posts = extract_posts(result)
-                    logger.debug("Discovery search keyword=%s results=%s", keyword, len(posts))
-                    search_posts.extend(posts)
-                except MoltbookAuthError:
-                    raise
-                except Exception as e:
-                    search_errors += 1
-                    err = str(e)
-                    sampled_error = sampled_error or err
-                    if "not found" in err.lower() or "unavailable" in err.lower():
-                        not_found_errors += 1
-                    logger.debug("Discovery search failed keyword=%s error=%s", keyword, err)
-
-            attempted_searches = len(cycle_keywords) + len(cfg.mission_queries)
-            if attempted_searches > 0 and search_errors > 0 and search_errors == attempted_searches:
-                search_state["retry_cycle"] = iteration + max(1, cfg.search_retry_after_failure_cycles)
-                logger.warning(
-                    (
-                        "Discovery search unavailable this cycle errors=%s/%s not_found=%s sample_error=%s. "
-                        "Pausing search until cycle=%s; using feed fallback."
-                    ),
-                    search_errors,
-                    attempted_searches,
-                    not_found_errors,
-                    sampled_error or "(none)",
-                    search_state["retry_cycle"],
-                )
-            else:
-                if search_posts:
-                    sources.append("search")
-                    logger.info(
-                        "Discovery search collected_posts=%s mission_queries=%s mission_posts=%s keyword_batch=%s/%s",
-                        len(search_posts),
-                        len(cfg.mission_queries),
-                        mission_posts,
-                        len(cycle_keywords),
-                        len(keywords),
-                    )
-                elif search_errors > 0:
-                    logger.info(
-                        (
-                            "Discovery search produced no posts this cycle "
-                            "(mission_queries=%s keyword_batch=%s/%s); using feed fallback."
-                        ),
-                        len(cfg.mission_queries),
-                        len(cycle_keywords),
-                        len(keywords),
-                    )
-
-    feed = client.get_feed(limit=cfg.feed_limit)
-    feed_posts = extract_posts(feed)
-    posts_resp = client.get_posts(sort=cfg.posts_sort, limit=cfg.posts_limit)
-    global_posts = extract_posts(posts_resp)
-    if cfg.target_submolts:
-        for submolt in cfg.target_submolts:
-            try:
-                payload = client.get_submolt_feed(name=submolt, sort=cfg.posts_sort, limit=cfg.posts_limit)
-                posts = extract_posts(payload)
-                if posts:
-                    submolt_posts.extend(posts)
-            except MoltbookAuthError:
-                raise
-            except Exception as e:
-                logger.debug("Discovery submolt feed failed submolt=%s error=%s", submolt, e)
-    if submolt_posts:
-        sources.append("submolts")
-    sources.extend(["posts", "feed"])
-    merged = merge_unique_posts(search_posts + submolt_posts + global_posts + feed_posts)
-    logger.info(
-        "Discovery merged search_posts=%s submolt_posts=%s posts_global=%s feed_posts=%s total=%s",
-        len(search_posts),
-        len(submolt_posts),
-        len(global_posts),
-        len(feed_posts),
-        len(merged),
-    )
-    return merged, sources
-
-
 def resolve_self_name(client: MoltbookClient, logger) -> Optional[str]:
     try:
         me = client.get_me()
@@ -2609,29 +1505,6 @@ def resolve_self_name(client: MoltbookClient, logger) -> Optional[str]:
     except Exception as e:
         logger.warning("Could not resolve current agent identity: %s", e)
         return None
-
-
-def extract_recent_posts_from_profile(profile_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-    containers: List[Any] = [profile_payload]
-    for key in ("agent", "profile", "data", "result"):
-        value = profile_payload.get(key)
-        if isinstance(value, dict):
-            containers.append(value)
-        elif isinstance(value, list):
-            posts = [item for item in value if isinstance(item, dict)]
-            if posts:
-                return posts
-
-    for container in containers:
-        if not isinstance(container, dict):
-            continue
-        for key in ("recentPosts", "recent_posts", "posts", "items"):
-            value = container.get(key)
-            if isinstance(value, list):
-                posts = [item for item in value if isinstance(item, dict)]
-                if posts:
-                    return posts
-    return []
 
 
 def run_startup_reply_scan(
@@ -2676,6 +1549,22 @@ def run_startup_reply_scan(
     replied_comment_pairs: Set[str] = set(state.get("replied_comment_pairs", []))
     replied_post_ids: Set[str] = set(state.get("replied_post_ids", []))
     thread_followup_posted_pairs: Set[str] = set(state.get("thread_followup_posted_pairs", []))
+    bad_bot_counts: Dict[str, int] = {
+        normalize_str(k).strip().lower(): int(v)
+        for k, v in dict(state.get("bad_bot_counts", {})).items()
+        if normalize_str(k).strip()
+    }
+    bad_bot_counts_by_post: Dict[str, int] = {
+        normalize_str(k).strip().lower(): int(v)
+        for k, v in dict(state.get("bad_bot_counts_by_post", {})).items()
+        if normalize_str(k).strip()
+    }
+    bad_bot_warned_comment_ids: Set[str] = set(state.get("bad_bot_warned_comment_ids", []))
+    bad_bot_warnings_by_author_day: Dict[str, int] = {
+        normalize_str(k).strip().lower(): int(v)
+        for k, v in dict(state.get("bad_bot_warnings_by_author_day", {})).items()
+        if normalize_str(k).strip()
+    }
     triage_cache_raw = state.get("reply_triage_cache", {})
     triage_cache: Dict[str, Dict[str, Any]] = {}
     if isinstance(triage_cache_raw, dict):
@@ -2687,6 +1576,7 @@ def run_startup_reply_scan(
     triage_llm_calls = 0
     triage_cache_hits = 0
     triage_deferred = 0
+    bad_bot_warnings_sent_this_scan = 0
     self_identity_keys: Set[str] = resolve_self_identity_keys(client=client, my_name=my_name, logger=logger)
     if not self_identity_keys and my_name:
         fallback_key = author_identity_key(author_id=None, author_name=my_name)
@@ -2901,9 +1791,147 @@ def run_startup_reply_scan(
             post_title = normalize_str(post.get("title")) or f"Post {pid}"
             url = post_url(pid)
             incoming_body = normalize_str(comment.get("content"))
-            if looks_spammy_comment(incoming_body):
-                skip_reasons["spam_comment"] = skip_reasons.get("spam_comment", 0) + 1
-                logger.info("Reply scan skipping spam comment_id=%s", cid)
+            forced_reply_content = ""
+            if should_correct_wrong_community_claim(incoming_body, post_submolt):
+                forced_reply_content = build_wrong_community_correction_reply(
+                    post_submolt=post_submolt,
+                    post_title_text=post_title,
+                )
+                logger.info(
+                    "Reply scan forcing submolt correction comment_id=%s submolt=%s",
+                    cid,
+                    post_submolt,
+                )
+            if looks_hostile_content(incoming_body):
+                skip_reasons["hostile_comment"] = skip_reasons.get("hostile_comment", 0) + 1
+                logger.info("Reply scan flagged hostile comment comment_id=%s", cid)
+            is_spammy = looks_spammy_comment(incoming_body) if not forced_reply_content else False
+            is_irrelevant_noise = looks_irrelevant_noise_comment(incoming_body) if not forced_reply_content else False
+            if (is_spammy or is_irrelevant_noise) and not forced_reply_content:
+                author_bad_key = _normalized_name_key(c_author_name) or normalize_str(c_author_key).strip().lower()
+                author_post_bad_key = f"{normalize_str(pid).strip().lower()}::{author_bad_key}" if author_bad_key else ""
+                if is_spammy and author_bad_key:
+                    bad_bot_counts[author_bad_key] = bad_bot_counts.get(author_bad_key, 0) + 1
+                    if author_post_bad_key:
+                        bad_bot_counts_by_post[author_post_bad_key] = bad_bot_counts_by_post.get(author_post_bad_key, 0) + 1
+                if is_spammy:
+                    skip_reasons["spam_comment"] = skip_reasons.get("spam_comment", 0) + 1
+                    logger.info("Reply scan skipping spam comment_id=%s", cid)
+                else:
+                    skip_reasons["irrelevant_noise_comment"] = skip_reasons.get("irrelevant_noise_comment", 0) + 1
+                    logger.info("Reply scan skipping low-signal comment_id=%s", cid)
+                # Warn only on repeated, overt spam behavior to avoid false positives on legitimate technical comments.
+                warning_strike_threshold = max(2, int(cfg.badbot_warning_min_strikes))
+                if (
+                    is_spammy
+                    and is_overt_spam_comment(incoming_body)
+                    and
+                    is_my_post
+                    and cfg.badbot_warning_enabled
+                    and bad_bot_warnings_sent_this_scan < max(0, cfg.badbot_max_warnings_per_scan)
+                    and cid not in bad_bot_warned_comment_ids
+                    and author_bad_key
+                ):
+                    strike_count = int(bad_bot_counts.get(author_bad_key, 1))
+                    post_strike_count = int(bad_bot_counts_by_post.get(author_post_bad_key, 0)) if author_post_bad_key else 0
+                    author_warn_count = int(bad_bot_warnings_by_author_day.get(author_bad_key, 0) or 0)
+                    if (
+                        strike_count >= warning_strike_threshold
+                        and post_strike_count >= warning_strike_threshold
+                        and author_warn_count < max(0, cfg.badbot_max_warnings_per_author_per_day)
+                    ):
+                        # Use daily warning count for tone so stale historical totals do not create hostile messaging.
+                        warning_level = author_warn_count + 1
+                        warning_reply = build_badbot_warning_reply(
+                            author_name=c_author_name or author_bad_key,
+                            strike_count=warning_level,
+                        )
+                        warning_reply = _prepare_publish_content(
+                            warning_reply,
+                            allow_links=False,
+                            audit_label="badbot_warning",
+                        )
+                        if not warning_reply:
+                            skip_reasons["empty_badbot_warning"] = skip_reasons.get("empty_badbot_warning", 0) + 1
+                            continue
+                        approved, approve_all_actions, should_stop = confirm_action(
+                            cfg=cfg,
+                            logger=logger,
+                            action=f"warn-badbot-{cid}",
+                            pid=pid,
+                            title=post_title,
+                            submolt=post_submolt,
+                            url=url,
+                            author=c_author_name or "(unknown)",
+                            content_preview=preview_text(warning_reply),
+                            approve_all=approve_all_actions,
+                        )
+                        if should_stop:
+                            state["seen_comment_ids"] = list(seen_comment_ids)[-10000:]
+                            save_state(cfg.state_path, state)
+                            return approve_all_actions
+                        if approved:
+                            comment_allowed, _ = comment_gate_status(state=state, cfg=cfg)
+                            if comment_allowed:
+                                warning_sig = _publish_signature(
+                                    action_type="comment",
+                                    target_post_id=pid,
+                                    parent_comment_id=cid,
+                                    content=warning_reply,
+                                )
+                                if _seen_publish_signature(state, warning_sig):
+                                    logger.info(
+                                        "Reply scan skipping duplicate badbot warning comment_id=%s",
+                                        cid,
+                                    )
+                                    continue
+                                try:
+                                    comment_resp = client.create_comment(pid, warning_reply, parent_id=cid)
+                                    register_my_comment_id(state=state, response_payload=comment_resp)
+                                    _remember_publish_signature(state, warning_sig)
+                                    state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
+                                    mark_reply_action_timestamps(state=state, action_kind="comment")
+                                    replied_to_comment_ids.add(cid)
+                                    replied_comment_pairs.add(pair_key)
+                                    bad_bot_warned_comment_ids.add(cid)
+                                    bad_bot_warnings_by_author_day[author_bad_key] = author_warn_count + 1
+                                    bad_bot_warnings_sent_this_scan += 1
+                                    actions += 1
+                                    try:
+                                        append_action_journal(
+                                            cfg.action_journal_path,
+                                            action_type="comment",
+                                            target_post_id=pid,
+                                            submolt=post_submolt,
+                                            title=post_title,
+                                            content=warning_reply,
+                                            parent_comment_id=cid,
+                                            reference_post_id=pid,
+                                            url=url,
+                                            reference={
+                                                "post_id": pid,
+                                                "post_title": post_title,
+                                                "comment_id": cid,
+                                                "comment_author": c_author_name or c_author_key,
+                                                "comment_content": incoming_body,
+                                            },
+                                            meta={"source": "startup_reply_scan", "kind": "badbot_warning"},
+                                        )
+                                    except Exception as e:
+                                        logger.debug(
+                                            "Action journal write failed post_id=%s comment_id=%s error=%s",
+                                            pid,
+                                            cid,
+                                            e,
+                                        )
+                                    print_success_banner(
+                                        action="comment-badbot-warning",
+                                        pid=pid,
+                                        url=url,
+                                        title=post_title,
+                                    )
+                                except Exception as e:
+                                    logger.warning("Reply scan badbot warning failed comment_id=%s error=%s", cid, e)
                 continue
             if turns_with_author >= THREAD_ESCALATE_TURNS:
                 if author_post_key in thread_followup_posted_pairs:
@@ -2927,6 +1955,14 @@ def run_startup_reply_scan(
                         "eUTXO plus ErgoScript lets us enforce deterministic settlement rules while keeping counterparties auditable."
                     ),
                 )
+                followup_content = _prepare_publish_content(
+                    followup_content,
+                    allow_links=True,
+                    audit_label="thread_followup_post",
+                )
+                if not followup_content:
+                    skip_reasons["empty_followup_content"] = skip_reasons.get("empty_followup_content", 0) + 1
+                    continue
                 post_allowed, post_reason = post_gate_status(state=state, cfg=cfg)
                 if not post_allowed:
                     key = f"thread_followup_{post_reason}"
@@ -2960,8 +1996,22 @@ def run_startup_reply_scan(
                     save_state(cfg.state_path, state)
                     return approve_all_actions
                 if approved:
+                    followup_sig = _publish_signature(
+                        action_type="post",
+                        target_post_id="(new)",
+                        parent_comment_id=None,
+                        content=followup_content,
+                    )
+                    if _seen_publish_signature(state, followup_sig):
+                        logger.info(
+                            "Reply scan skipping duplicate followup post source_post_id=%s comment_id=%s",
+                            pid,
+                            cid,
+                        )
+                        continue
                     try:
                         post_resp = client.create_post(submolt=post_submolt, title=followup_title, content=followup_content)
+                        _remember_publish_signature(state, followup_sig)
                         created_post_id = post_id(post_resp) or (post_resp.get("post") or {}).get("id") or "(unknown)"
                         state["daily_post_count"] = state.get("daily_post_count", 0) + 1
                         mark_reply_action_timestamps(state=state, action_kind="post")
@@ -2972,6 +2022,32 @@ def run_startup_reply_scan(
                         state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
                         state["replied_comment_pairs"] = list(replied_comment_pairs)[-20000:]
                         actions += 1
+                        try:
+                            append_action_journal(
+                                cfg.action_journal_path,
+                                action_type="post",
+                                target_post_id=str(created_post_id),
+                                submolt=post_submolt,
+                                title=followup_title,
+                                content=followup_content,
+                                reference_post_id=pid,
+                                url=post_url(str(created_post_id)) if created_post_id != "(unknown)" else url,
+                                reference={
+                                    "post_id": pid,
+                                    "post_title": post_title,
+                                    "comment_id": cid,
+                                    "comment_author": c_author_name or c_author_key,
+                                    "comment_content": incoming_body,
+                                },
+                                meta={"source": "startup_reply_scan", "kind": "thread_followup"},
+                            )
+                        except Exception as e:
+                            logger.debug(
+                                "Action journal write failed followup source_post_id=%s new_post_id=%s error=%s",
+                                pid,
+                                created_post_id,
+                                e,
+                            )
                         print_success_banner(
                             action="post-followup",
                             pid=str(created_post_id),
@@ -3011,29 +2087,13 @@ def run_startup_reply_scan(
             if triage:
                 triage_cache_hits += 1
             else:
-                if not was_new_comment:
-                    triage_deferred += 1
-                    skip_reasons["triage_existing_no_cache"] = skip_reasons.get("triage_existing_no_cache", 0) + 1
-                    continue
-                if triage_llm_calls >= triage_llm_budget:
-                    triage_deferred += 1
-                    skip_reasons["triage_budget_deferred"] = skip_reasons.get("triage_budget_deferred", 0) + 1
-                    if was_new_comment:
-                        seen_comment_ids.discard(cid)
-                        new_replies = max(0, new_replies - 1)
-                    continue
-                try:
-                    messages = build_reply_triage_messages(
-                        persona=persona_text,
-                        domain_context=domain_context_text,
-                        post=post,
-                        comment=comment,
-                        post_id=pid,
-                        comment_id=cid,
-                    )
-                    triage, triage_provider, _ = call_generation_model(cfg, messages)
-                    triage_llm_calls += 1
-                    provider_counts[triage_provider] = provider_counts.get(triage_provider, 0) + 1
+                deterministic = _deterministic_reply_triage(
+                    comment_body=incoming_body,
+                    is_my_post=is_my_post,
+                    is_reply_to_me=is_reply_to_me,
+                )
+                if deterministic:
+                    triage = deterministic
                     triage_cache[cid] = {
                         "should_respond": bool(triage.get("should_respond")),
                         "confidence": float(triage.get("confidence", 0.0)),
@@ -3044,40 +2104,89 @@ def run_startup_reply_scan(
                         "vote_target": normalize_vote_target(triage.get("vote_target")),
                         "ts": utc_now().isoformat(),
                     }
-                    logger.debug(
-                        "Reply triage generated comment_id=%s provider=%s",
-                        cid,
-                        triage_provider,
-                    )
-                except Exception as e:
-                    triage_fail_count += 1
-                    err_text = normalize_str(e)
-                    is_parse_fail = (
-                        "Chatbase returned non-JSON text" in err_text
-                        or "empty text response" in err_text
-                        or "Expecting value: line 1 column 1" in err_text
-                    )
-                    if is_parse_fail:
-                        triage_parse_fail_count += 1
-                        if triage_parse_fail_count <= 2:
-                            logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
+                    skip_reasons["triage_deterministic"] = skip_reasons.get("triage_deterministic", 0) + 1
+                else:
+                    if not was_new_comment:
+                        triage_deferred += 1
+                        skip_reasons["triage_existing_no_cache"] = skip_reasons.get("triage_existing_no_cache", 0) + 1
+                        continue
+                    if triage_llm_calls >= triage_llm_budget:
+                        triage_deferred += 1
+                        skip_reasons["triage_budget_deferred"] = skip_reasons.get("triage_budget_deferred", 0) + 1
+                        if was_new_comment:
+                            seen_comment_ids.discard(cid)
+                            new_replies = max(0, new_replies - 1)
+                        continue
+                    try:
+                        messages = build_reply_triage_messages(
+                            persona=persona_text,
+                            domain_context=domain_context_text,
+                            post=post,
+                            comment=comment,
+                            post_id=pid,
+                            comment_id=cid,
+                        )
+                        triage, triage_provider, _ = call_generation_model(cfg, messages)
+                        triage_llm_calls += 1
+                        provider_counts[triage_provider] = provider_counts.get(triage_provider, 0) + 1
+                        triage_cache[cid] = {
+                            "should_respond": bool(triage.get("should_respond")),
+                            "confidence": float(triage.get("confidence", 0.0)),
+                            "response_mode": normalize_response_mode(triage.get("response_mode"), default="none"),
+                            "title": normalize_str(triage.get("title")).strip(),
+                            "content": normalize_str(triage.get("content")).strip(),
+                            "vote_action": normalize_vote_action(triage.get("vote_action")),
+                            "vote_target": normalize_vote_target(triage.get("vote_target")),
+                            "ts": utc_now().isoformat(),
+                        }
+                        logger.debug(
+                            "Reply triage generated comment_id=%s provider=%s",
+                            cid,
+                            triage_provider,
+                        )
+                    except Exception as e:
+                        triage_fail_count += 1
+                        err_text = normalize_str(e)
+                        is_parse_fail = (
+                            "Chatbase returned non-JSON text" in err_text
+                            or "empty text response" in err_text
+                            or "Expecting value: line 1 column 1" in err_text
+                        )
+                        if is_parse_fail:
+                            triage_parse_fail_count += 1
+                            if triage_parse_fail_count <= 2:
+                                logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
+                            else:
+                                logger.debug("Reply triage parse failure comment_id=%s error=%s", cid, e)
                         else:
-                            logger.debug("Reply triage parse failure comment_id=%s error=%s", cid, e)
-                    else:
-                        logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
-                    triage = {
-                        "should_respond": False,
-                        "confidence": 0.0,
-                        "vote_action": "none",
-                        "vote_target": "none",
-                        "response_mode": "none",
-                        "title": "",
-                        "content": "",
-                    }
+                            logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
+                        triage = {
+                            "should_respond": False,
+                            "confidence": 0.0,
+                            "vote_action": "none",
+                            "vote_target": "none",
+                            "response_mode": "none",
+                            "title": "",
+                            "content": "",
+                        }
 
             vote_action = normalize_vote_action(triage.get("vote_action"))
             response_mode = normalize_response_mode(triage.get("response_mode"), default="none")
-            confidence = float(triage.get("confidence", 0))
+            triage_should_respond = bool(triage.get("should_respond"))
+            confidence, triage_confidence_imputed = _normalized_model_confidence(
+                raw_confidence=triage.get("confidence", 0),
+                should_act=triage_should_respond,
+                has_content=bool(normalize_str(triage.get("content")).strip()),
+                fallback_when_true=max(cfg.min_confidence, 0.72),
+                fallback_when_false=0.0,
+            )
+            if triage_confidence_imputed and triage_should_respond:
+                logger.debug(
+                    "Reply triage confidence imputed comment_id=%s raw=%r normalized=%.3f",
+                    cid,
+                    triage.get("confidence"),
+                    confidence,
+                )
             url = post_url(pid)
             post_submolt = normalize_submolt(post.get("submolt"))
             post_title = normalize_str(post.get("title")) or f"Post {pid}"
@@ -3127,6 +2236,28 @@ def run_startup_reply_scan(
                             voted_comment_ids.add(cid)
                             state["voted_comment_ids"] = list(voted_comment_ids)[-10000:]
                             actions += 1
+                            try:
+                                append_action_journal(
+                                    cfg.action_journal_path,
+                                    action_type=f"{vote_action}-comment",
+                                    target_post_id=pid,
+                                    submolt=normalize_submolt(post.get("submolt")),
+                                    title=f"{vote_action} comment on '{post_title}'",
+                                    content="",
+                                    parent_comment_id=cid,
+                                    reference_post_id=pid,
+                                    url=url,
+                                    reference={
+                                        "post_id": pid,
+                                        "post_title": post_title,
+                                        "comment_id": cid,
+                                        "comment_author": c_author_name or c_author_key,
+                                        "comment_content": incoming_body,
+                                    },
+                                    meta={"source": "startup_reply_scan", "kind": "vote_comment", "vote": vote_action},
+                                )
+                            except Exception as e:
+                                logger.debug("Vote action journal write failed comment_id=%s error=%s", cid, e)
                             print_success_banner(
                                 action=f"{vote_action}-comment",
                                 pid=cid,
@@ -3135,20 +2266,6 @@ def run_startup_reply_scan(
                             )
                         except Exception as e:
                             logger.warning("Reply vote failed comment_id=%s vote=%s error=%s", cid, vote_action, e)
-
-            forced_reply_content = ""
-            if should_correct_wrong_community_claim(incoming_body, post_submolt):
-                forced_reply_content = build_wrong_community_correction_reply(
-                    post_submolt=post_submolt,
-                    post_title_text=post_title,
-                )
-                response_mode = "comment"
-                confidence = max(confidence, cfg.min_confidence)
-                logger.info(
-                    "Reply scan forcing submolt correction comment_id=%s submolt=%s",
-                    cid,
-                    post_submolt,
-                )
 
             should_respond = bool(triage.get("should_respond")) or bool(forced_reply_content)
             if already_replied:
@@ -3165,6 +2282,11 @@ def run_startup_reply_scan(
                 reply_content = forced_reply_content
             elif should_respond and response_mode != "none" and confidence >= cfg.min_confidence:
                 reply_content = format_content(triage)
+            reply_content = _prepare_publish_content(
+                reply_content,
+                allow_links=False,
+                audit_label="thread_reply",
+            )
 
             if not reply_content:
                 if not should_respond:
@@ -3242,9 +2364,19 @@ def run_startup_reply_scan(
                     save_state(cfg.state_path, state)
                     return approve_all_actions
                 if approved:
+                    reply_sig = _publish_signature(
+                        action_type="comment",
+                        target_post_id=pid,
+                        parent_comment_id=cid,
+                        content=reply_content,
+                    )
+                    if _seen_publish_signature(state, reply_sig):
+                        logger.info("Reply scan skipping duplicate reply comment_id=%s", cid)
+                        continue
                     try:
                         comment_resp = client.create_comment(pid, reply_content, parent_id=cid)
                         register_my_comment_id(state=state, response_payload=comment_resp)
+                        _remember_publish_signature(state, reply_sig)
                         state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
                         mark_reply_action_timestamps(state=state, action_kind="comment")
                         replied_post_ids.add(pid)
@@ -3254,6 +2386,15 @@ def run_startup_reply_scan(
                             state=state,
                             logger=logger,
                             post_id_value=pid,
+                            journal_path=cfg.action_journal_path,
+                            submolt=normalize_submolt(post.get("submolt")),
+                            post_title=post_title,
+                            url=url,
+                            reference={
+                                "post_id": pid,
+                                "post_title": post_title,
+                            },
+                            meta={"source": "startup_reply_scan"},
                         )
                         replied_to_comment_ids.add(cid)
                         replied_comment_pairs.add(pair_key)
@@ -3265,6 +2406,33 @@ def run_startup_reply_scan(
                                 conversation_turns_by_author_on_post.get(c_author_key, 0) + 1
                             )
                         actions += 1
+                        try:
+                            append_action_journal(
+                                cfg.action_journal_path,
+                                action_type="comment",
+                                target_post_id=pid,
+                                submolt=normalize_submolt(post.get("submolt")),
+                                title=post_title,
+                                content=reply_content,
+                                parent_comment_id=cid,
+                                reference_post_id=pid,
+                                url=url,
+                                reference={
+                                    "post_id": pid,
+                                    "post_title": post_title,
+                                    "comment_id": cid,
+                                    "comment_author": c_author_name or c_author_key,
+                                    "comment_content": incoming_body,
+                                },
+                                meta={"source": "startup_reply_scan", "kind": "thread_reply"},
+                            )
+                        except Exception as e:
+                            logger.debug(
+                                "Action journal write failed post_id=%s comment_id=%s error=%s",
+                                pid,
+                                cid,
+                                e,
+                            )
                         print_success_banner(action="comment-reply", pid=pid, url=url, title=post_title)
                     except Exception as e:
                         logger.warning("Reply comment failed post_id=%s error=%s", pid, e)
@@ -3289,9 +2457,19 @@ def run_startup_reply_scan(
                     return approve_all_actions
                 if approved:
                     if wait_for_comment_slot(state=state, cfg=cfg, logger=logger):
+                        reply_sig = _publish_signature(
+                            action_type="comment",
+                            target_post_id=pid,
+                            parent_comment_id=cid,
+                            content=reply_content,
+                        )
+                        if _seen_publish_signature(state, reply_sig):
+                            logger.info("Reply scan skipping duplicate reply after wait comment_id=%s", cid)
+                            continue
                         try:
                             comment_resp = client.create_comment(pid, reply_content, parent_id=cid)
                             register_my_comment_id(state=state, response_payload=comment_resp)
+                            _remember_publish_signature(state, reply_sig)
                             state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
                             mark_reply_action_timestamps(state=state, action_kind="comment")
                             replied_post_ids.add(pid)
@@ -3310,8 +2488,44 @@ def run_startup_reply_scan(
                                 state=state,
                                 logger=logger,
                                 post_id_value=pid,
+                                journal_path=cfg.action_journal_path,
+                                submolt=normalize_submolt(post.get("submolt")),
+                                post_title=post_title,
+                                url=url,
+                                reference={
+                                    "post_id": pid,
+                                    "post_title": post_title,
+                                },
+                                meta={"source": "startup_reply_scan"},
                             )
                             actions += 1
+                            try:
+                                append_action_journal(
+                                    cfg.action_journal_path,
+                                    action_type="comment",
+                                    target_post_id=pid,
+                                    submolt=normalize_submolt(post.get("submolt")),
+                                    title=post_title,
+                                    content=reply_content,
+                                    parent_comment_id=cid,
+                                    reference_post_id=pid,
+                                    url=url,
+                                    reference={
+                                        "post_id": pid,
+                                        "post_title": post_title,
+                                        "comment_id": cid,
+                                        "comment_author": c_author_name or c_author_key,
+                                        "comment_content": incoming_body,
+                                    },
+                                    meta={"source": "startup_reply_scan", "kind": "thread_reply_after_wait"},
+                                )
+                            except Exception as e:
+                                logger.debug(
+                                    "Action journal write failed post_id=%s comment_id=%s error=%s",
+                                    pid,
+                                    cid,
+                                    e,
+                                )
                             print_success_banner(action="comment-reply", pid=pid, url=url, title=post_title)
                         except Exception as e:
                             logger.warning("Waited reply comment failed post_id=%s error=%s", pid, e)
@@ -3327,6 +2541,10 @@ def run_startup_reply_scan(
     state["replied_comment_pairs"] = list(replied_comment_pairs)[-20000:]
     state["thread_followup_posted_pairs"] = list(thread_followup_posted_pairs)[-10000:]
     state["reply_triage_cache"] = dict(list(triage_cache.items())[-10000:])
+    state["bad_bot_counts"] = bad_bot_counts
+    state["bad_bot_counts_by_post"] = bad_bot_counts_by_post
+    state["bad_bot_warned_comment_ids"] = list(bad_bot_warned_comment_ids)[-10000:]
+    state["bad_bot_warnings_by_author_day"] = bad_bot_warnings_by_author_day
     save_state(cfg.state_path, state)
     logger.info(
         "Reply scan complete scanned_comments=%s new_replies=%s actions=%s pending=%s",
@@ -3354,477 +2572,11 @@ def run_startup_reply_scan(
         triage_deferred,
         triage_llm_budget,
     )
+    leaderboard = top_badbots(bad_bot_counts, limit=5)
+    if leaderboard:
+        board_text = ", ".join([f"{name}:{count}" for name, count in leaderboard])
+        logger.info("BadBots leaderboard top=%s", board_text)
     return approve_all_actions
-
-
-def review_pending_keyword_suggestions(
-    cfg: Config,
-    logger,
-    keyword_store: Dict[str, Any],
-    active_keywords: List[str],
-    approve_all_keyword_changes: bool,
-) -> Tuple[List[str], Dict[str, Any], bool, bool]:
-    pending = list(keyword_store.get("pending_suggestions", []))
-    if not pending:
-        return active_keywords, keyword_store, approve_all_keyword_changes, False
-
-    logger.info("Pending keyword suggestions awaiting review count=%s", len(pending))
-    remaining: List[str] = []
-    should_stop_run = False
-    for keyword in pending:
-        approved, approve_all_keyword_changes, should_stop = confirm_keyword_addition(
-            logger=logger,
-            keyword=keyword,
-            approve_all=approve_all_keyword_changes,
-        )
-        if should_stop:
-            # Keep unreviewed suggestions for next manual run.
-            remaining.append(keyword)
-            should_stop_run = True
-            continue
-        if not approved:
-            continue
-        learned_before = keyword_store.get("learned_keywords", [])
-        learned_after = merge_keywords(learned_before, [keyword])
-        if len(learned_after) == len(learned_before):
-            continue
-        keyword_store["learned_keywords"] = learned_after
-        active_keywords = merge_keywords(cfg.keywords, learned_after)
-        logger.info(
-            "Keyword approved from pending keyword=%s learned_total=%s active_total=%s",
-            keyword,
-            len(learned_after),
-            len(active_keywords),
-        )
-        print_keyword_added_banner(keyword=keyword, learned_total=len(learned_after))
-
-    keyword_store["pending_suggestions"] = merge_keywords([], remaining)
-    save_keyword_store(cfg.keyword_store_path, keyword_store)
-    return active_keywords, keyword_store, approve_all_keyword_changes, should_stop_run
-
-
-def _deterministic_improvement_hints(
-    diagnostics: Dict[str, Any],
-    cycle_stats: Dict[str, Any],
-    learning_snapshot: Dict[str, Any],
-) -> List[str]:
-    hints: List[str] = []
-    bottleneck = normalize_str(diagnostics.get("bottleneck_label")).strip()
-    approval_rate = float(diagnostics.get("approval_rate", 0.0) or 0.0)
-    execution_rate = float(diagnostics.get("execution_rate", 0.0) or 0.0)
-    drafted = int(diagnostics.get("drafted", 0) or 0)
-    eligible_now = int(diagnostics.get("eligible_now", 0) or 0)
-    actions = int(diagnostics.get("actions", 0) or 0)
-
-    if bottleneck == "model_rejection" or (drafted >= 12 and approval_rate < 0.1):
-        hints.append("Model approval is weak. Prioritize relevance filters and stricter reject criteria before drafting.")
-    if bottleneck == "execution_blocked" or (eligible_now >= 20 and actions == 0):
-        hints.append("Execution conversion is weak. Focus on reducing non-actionable drafts and improving action readiness.")
-    if bottleneck == "cooldown_limited":
-        hints.append("Cooldown pressure is high. Prioritize comments or defer post-like actions while preserving discovery.")
-    if bottleneck == "duplication_pressure":
-        hints.append("Duplication pressure detected. Tighten dedupe/reply-once checks before generating new replies.")
-    if execution_rate < 0.05 and eligible_now >= 15:
-        hints.append("Eligible volume is high but execution is near zero. Add shortlist ranking before LLM calls.")
-
-    market_snapshot = learning_snapshot.get("market_snapshot")
-    if isinstance(market_snapshot, dict):
-        q_rate = market_snapshot.get("question_title_rate")
-        if isinstance(q_rate, (int, float)) and q_rate >= 0.35:
-            hints.append("Question-style titles are trending. Prefer direct question hooks in proactive posts.")
-        top_terms = market_snapshot.get("top_terms")
-        if isinstance(top_terms, list) and top_terms:
-            joined = ", ".join([normalize_str(t).strip() for t in top_terms[:6] if normalize_str(t).strip()])
-            if joined:
-                hints.append(f"Top market terms now: {joined}. Use them only when context actually fits.")
-    visibility_metrics = learning_snapshot.get("visibility_metrics")
-    if isinstance(visibility_metrics, dict):
-        target_upvotes = int(visibility_metrics.get("target_upvotes", 0) or 0)
-        hit_rate = float(visibility_metrics.get("recent_target_hit_rate", 0.0) or 0.0)
-        delta_pct = float(visibility_metrics.get("visibility_delta_pct", 0.0) or 0.0)
-        if target_upvotes > 0 and hit_rate < 0.35:
-            hints.append(
-                (
-                    "Visibility under target. Raise opening-hook specificity and implementation detail density "
-                    f"until recent target hit rate improves (target_upvotes={target_upvotes}, hit_rate={round(hit_rate, 3)})."
-                )
-            )
-        if delta_pct <= -0.15:
-            hints.append(
-                f"Visibility momentum is negative ({round(delta_pct * 100, 1)}%). Prioritize high-lift themes only."
-            )
-
-    raw_skip = cycle_stats.get("skip_reasons")
-    if isinstance(raw_skip, dict):
-        items = sorted(raw_skip.items(), key=lambda x: int(x[1]), reverse=True)
-        if items:
-            label, count = items[0]
-            hints.append(f"Dominant skip reason this cycle: {normalize_str(label)}={int(count)}.")
-        if int(raw_skip.get("quality_gate_failed", 0) or 0) >= 3:
-            hints.append(
-                "Many drafts fail the quality gate. Tighten prompt specificity and keep mechanism-first phrasing."
-            )
-        if int(raw_skip.get("trend_context_mismatch", 0) or 0) >= 5:
-            hints.append(
-                "Trend/context mismatch is high. Favor candidates with both market-term overlap and clear Ergo mechanism."
-            )
-    return hints[:8]
-
-
-def _deterministic_improvement_suggestions(
-    diagnostics: Dict[str, Any],
-    cycle_stats: Dict[str, Any],
-    learning_snapshot: Dict[str, Any],
-) -> Dict[str, Any]:
-    hints = _deterministic_improvement_hints(
-        diagnostics=diagnostics,
-        cycle_stats=cycle_stats,
-        learning_snapshot=learning_snapshot,
-    )
-    prompt_changes: List[Dict[str, Any]] = []
-    code_changes: List[Dict[str, Any]] = []
-    strategy_experiments: List[Dict[str, Any]] = []
-
-    bottleneck = normalize_str(diagnostics.get("bottleneck_label")).strip()
-    approval_rate = float(diagnostics.get("approval_rate", 0.0) or 0.0)
-    drafted = int(diagnostics.get("drafted", 0) or 0)
-    eligible_now = int(diagnostics.get("eligible_now", 0) or 0)
-    actions = int(diagnostics.get("actions", 0) or 0)
-    execution_rate = float(diagnostics.get("execution_rate", 0.0) or 0.0)
-
-    if bottleneck == "model_rejection" or (drafted >= 12 and approval_rate < 0.1):
-        prompt_changes.append(
-            {
-                "target": "drafting relevance gate",
-                "proposed_change": (
-                    "Require one explicit Ergo mechanism plus one thread-specific implementation angle before should_respond=true."
-                ),
-                "reason": "Low model approval means current candidates are too broad or generic.",
-                "expected_impact": "Higher approval rate and fewer wasted drafts.",
-            }
-        )
-    if eligible_now >= 20 and actions == 0:
-        code_changes.append(
-            {
-                "file_hint": "src/moltbook/autonomy/runner.py",
-                "proposed_change": (
-                    "Add pre-draft shortlist ranking so only top N eligible candidates reach the LLM each cycle."
-                ),
-                "reason": "High eligible volume with zero actions indicates poor conversion efficiency.",
-                "risk": "May miss edge-case opportunities if shortlist is too small.",
-            }
-        )
-    if bottleneck == "duplication_pressure":
-        code_changes.append(
-            {
-                "file_hint": "src/moltbook/autonomy/runner.py",
-                "proposed_change": (
-                    "Strengthen reply dedupe by caching parent-comment fingerprints with longer retention in state."
-                ),
-                "reason": "Repeated reply targets hurt trust and consume action budget.",
-                "risk": "Over-aggressive dedupe may skip valid follow-up contexts.",
-            }
-        )
-    if execution_rate < 0.08 and eligible_now >= 15:
-        strategy_experiments.append(
-            {
-                "idea": "Enable dynamic shortlist size based on last 3-cycle approval/execution rates.",
-                "metric": "execution_rate and actions per cycle after shortlist enabled",
-                "stop_condition": "Disable if execution_rate does not improve after 12 cycles",
-            }
-        )
-    visibility_metrics = learning_snapshot.get("visibility_metrics")
-    if isinstance(visibility_metrics, dict):
-        hit_rate = float(visibility_metrics.get("recent_target_hit_rate", 0.0) or 0.0)
-        target_upvotes = int(visibility_metrics.get("target_upvotes", 0) or 0)
-        if target_upvotes > 0 and hit_rate < 0.35:
-            prompt_changes.append(
-                {
-                    "target": "visibility targeting",
-                    "proposed_change": (
-                        "Require proactive drafts to open with one concrete pain point plus one Ergo mechanism in the first two lines."
-                    ),
-                    "reason": "Recent posts are underperforming the target upvote threshold.",
-                    "expected_impact": (
-                        f"Higher share of posts crossing {target_upvotes}+ upvotes by improving hook clarity."
-                    ),
-                }
-            )
-            code_changes.append(
-                {
-                    "file_hint": "src/moltbook/autonomy/runner.py",
-                    "proposed_change": (
-                        "Bias ranking toward terms with positive lift from proactive memory and penalize repeated low-lift terms."
-                    ),
-                    "reason": "Visibility target hit rate is low, so selection should follow measured term lift.",
-                    "risk": "Overfitting to short-term language trends can reduce topic diversity.",
-                }
-            )
-    raw_skip = cycle_stats.get("skip_reasons")
-    if isinstance(raw_skip, dict):
-        if int(raw_skip.get("quality_gate_failed", 0) or 0) >= 3:
-            prompt_changes.append(
-                {
-                    "target": "draft content shape",
-                    "proposed_change": (
-                        "Require one concrete Ergo mechanism sentence before any question; reject abstract framing."
-                    ),
-                    "reason": "Quality gate failures indicate drafts are still too generic.",
-                    "expected_impact": "Higher quality-pass rate and fewer dropped drafts.",
-                }
-            )
-
-    summary = (
-        "Deterministic diagnostics suggest conversion-focused tuning."
-        if hints
-        else "Deterministic diagnostics found no additional changes."
-    )
-    return {
-        "summary": summary,
-        "priority": "medium",
-        "prompt_changes": prompt_changes,
-        "code_changes": code_changes,
-        "strategy_experiments": strategy_experiments,
-    }
-
-
-def _suggestion_signature(kind: str, item: Dict[str, Any]) -> str:
-    if kind == "prompt_changes":
-        raw = " ".join([normalize_str(item.get("target")), normalize_str(item.get("proposed_change"))])
-    elif kind == "code_changes":
-        raw = " ".join([normalize_str(item.get("file_hint")), normalize_str(item.get("proposed_change"))])
-    else:
-        raw = " ".join(
-            [
-                normalize_str(item.get("idea")),
-                normalize_str(item.get("metric")),
-                normalize_str(item.get("stop_condition")),
-            ]
-        )
-    raw = re.sub(r"[^a-z0-9]+", " ", raw.lower())
-    return " ".join(raw.split())[:260]
-
-
-def _merge_improvement_payloads(
-    primary: Dict[str, Any],
-    fallback: Dict[str, Any],
-    max_items: int,
-) -> Dict[str, Any]:
-    merged: Dict[str, Any] = {
-        "summary": normalize_str(primary.get("summary")).strip() or normalize_str(fallback.get("summary")).strip(),
-        "priority": normalize_str(primary.get("priority")).strip() or "medium",
-        "prompt_changes": [],
-        "code_changes": [],
-        "strategy_experiments": [],
-    }
-    max_items = max(1, int(max_items))
-    for kind in ("prompt_changes", "code_changes", "strategy_experiments"):
-        seen: Set[str] = set()
-        out: List[Dict[str, Any]] = []
-        for source in (primary, fallback):
-            raw = source.get(kind)
-            if not isinstance(raw, list):
-                continue
-            for item in raw:
-                if not isinstance(item, dict):
-                    continue
-                sig = _suggestion_signature(kind, item)
-                if not sig or sig in seen:
-                    continue
-                seen.add(sig)
-                out.append(item)
-                if len(out) >= max_items:
-                    break
-            if len(out) >= max_items:
-                break
-        merged[kind] = out
-    return merged
-
-
-def maybe_write_self_improvement_suggestions(
-    cfg: Config,
-    logger,
-    iteration: int,
-    persona_text: str,
-    domain_context_text: str,
-    learning_snapshot: Dict[str, Any],
-    cycle_titles: List[str],
-    cycle_stats: Dict[str, Any],
-) -> None:
-    if not cfg.self_improve_enabled:
-        return
-    if cfg.self_improve_interval_cycles <= 0:
-        return
-    if iteration % cfg.self_improve_interval_cycles != 0:
-        return
-    if len(cycle_titles) < cfg.self_improve_min_titles:
-        logger.info(
-            "Self-improvement skipped cycle=%s reason=insufficient_titles titles=%s min_titles=%s",
-            iteration,
-            len(cycle_titles),
-            cfg.self_improve_min_titles,
-        )
-        return
-    use_llm = has_generation_provider(cfg)
-    if not use_llm:
-        logger.info(
-            "Self-improvement cycle=%s running deterministic-only mode reason=no_generation_provider",
-            iteration,
-        )
-
-    diagnostics = build_improvement_diagnostics(cycle_stats)
-    feedback_context = build_improvement_feedback_context(
-        path=cfg.self_improve_path,
-        current_cycle_stats=cycle_stats,
-    )
-    deterministic_hints = _deterministic_improvement_hints(
-        diagnostics=diagnostics,
-        cycle_stats=cycle_stats,
-        learning_snapshot=learning_snapshot,
-    )
-    deterministic_payload = _deterministic_improvement_suggestions(
-        diagnostics=diagnostics,
-        cycle_stats=cycle_stats,
-        learning_snapshot=learning_snapshot,
-    )
-
-    provider_used = "unknown"
-    llm_payload: Dict[str, Any] = {}
-    if use_llm:
-        try:
-            prior_suggestions = load_recent_improvement_entries(path=cfg.self_improve_path, limit=8)
-            messages = build_self_improvement_messages(
-                persona=persona_text,
-                domain_context=domain_context_text,
-                learning_snapshot=learning_snapshot,
-                recent_titles=cycle_titles,
-                cycle_stats=cycle_stats,
-                prior_suggestions=prior_suggestions,
-                feedback_context=feedback_context,
-                deterministic_hints=deterministic_hints,
-            )
-            generated, provider_used, _ = call_generation_model(cfg, messages)
-            if isinstance(generated, dict):
-                llm_payload = generated
-            else:
-                logger.warning("Self-improvement returned non-object payload cycle=%s", iteration)
-                provider_used = "deterministic"
-        except Exception as e:
-            logger.warning("Self-improvement failed cycle=%s error=%s", iteration, e)
-            provider_used = "deterministic"
-            llm_payload = {}
-    else:
-        provider_used = "deterministic"
-
-    max_suggestions = max(1, cfg.self_improve_max_suggestions)
-    # Keep a longer novelty memory so the same recommendation is not repeated every few cycles.
-    recent_raw = load_recent_improvement_raw_entries(path=cfg.self_improve_path, limit=72)
-    llm_suggestions = sanitize_improvement_suggestions(
-        suggestions=llm_payload,
-        recent_raw_entries=recent_raw,
-        max_items=max_suggestions,
-    )
-    combined_payload = _merge_improvement_payloads(
-        primary=llm_suggestions,
-        fallback=deterministic_payload,
-        max_items=max_suggestions,
-    )
-    suggestions = sanitize_improvement_suggestions(
-        suggestions=combined_payload,
-        recent_raw_entries=recent_raw,
-        max_items=max_suggestions,
-    )
-    if isinstance(suggestions.get("prompt_changes"), list):
-        suggestions["prompt_changes"] = suggestions["prompt_changes"][:max_suggestions]
-    if isinstance(suggestions.get("code_changes"), list):
-        suggestions["code_changes"] = suggestions["code_changes"][:max_suggestions]
-    if isinstance(suggestions.get("strategy_experiments"), list):
-        suggestions["strategy_experiments"] = suggestions["strategy_experiments"][:max_suggestions]
-
-    prompt_changes = suggestions.get("prompt_changes")
-    code_changes = suggestions.get("code_changes")
-    strategy_experiments = suggestions.get("strategy_experiments")
-    if not any(
-        (
-            isinstance(prompt_changes, list) and prompt_changes,
-            isinstance(code_changes, list) and code_changes,
-            isinstance(strategy_experiments, list) and strategy_experiments,
-        )
-    ):
-        logger.info(
-            "Self-improvement produced no novel actionable suggestions cycle=%s bottleneck=%s",
-            iteration,
-            diagnostics.get("bottleneck_label"),
-        )
-        return
-
-    append_improvement_suggestions(
-        path=cfg.self_improve_path,
-        cycle=iteration,
-        provider=provider_used,
-        suggestions=suggestions,
-        cycle_stats=cycle_stats,
-        diagnostics=diagnostics,
-    )
-    append_improvement_suggestions_text(
-        path=cfg.self_improve_text_path,
-        cycle=iteration,
-        provider=provider_used,
-        suggestions=suggestions,
-        cycle_stats=cycle_stats,
-        learning_snapshot=learning_snapshot,
-        diagnostics=diagnostics,
-        feedback_context=feedback_context,
-    )
-    update_improvement_backlog(
-        path=cfg.self_improve_backlog_path,
-        cycle=iteration,
-        provider=provider_used,
-        suggestions=suggestions,
-        diagnostics=diagnostics,
-    )
-    logger.info(
-        (
-            "Self-improvement suggestions saved cycle=%s provider=%s json_path=%s "
-            "text_path=%s backlog_path=%s bottleneck=%s"
-        ),
-        iteration,
-        provider_used,
-        cfg.self_improve_path,
-        cfg.self_improve_text_path,
-        cfg.self_improve_backlog_path,
-        diagnostics.get("bottleneck_label"),
-    )
-
-
-def discover_relevant_submolts(payload: Dict[str, Any], target_submolts: List[str]) -> List[str]:
-    target = {s.strip().lower() for s in target_submolts if s.strip()}
-    keywords = ("crypto", "defi", "web3", "ai", "agent", "ergo", "blockchain", "bitcoin")
-    discovered: List[str] = []
-    for item in extract_submolts(payload):
-        name = normalize_str(item.get("name") or item.get("slug")).strip().lower()
-        if not name:
-            continue
-        if name in target:
-            discovered.append(name)
-            continue
-        blob = " ".join(
-            [
-                name,
-                normalize_str(item.get("display_name")).lower(),
-                normalize_str(item.get("description")).lower(),
-            ]
-        )
-        if any(k in blob for k in keywords):
-            discovered.append(name)
-    out: List[str] = []
-    seen = set()
-    for name in discovered:
-        if name in seen:
-            continue
-        seen.add(name)
-        out.append(name)
-    return out
 
 
 def maybe_subscribe_relevant_submolts(
@@ -3903,6 +2655,96 @@ def maybe_subscribe_relevant_submolts(
     return approve_all_actions
 
 
+def maybe_follow_ergo_authors(
+    client: MoltbookClient,
+    cfg: Config,
+    logger,
+    state: Dict[str, Any],
+    posts: List[Dict[str, Any]],
+    my_name: Optional[str],
+    self_identity_keys: Set[str],
+    approve_all_actions: bool,
+) -> bool:
+    if not cfg.follow_ergo_authors_enabled:
+        return approve_all_actions
+    followed = {normalize_str(x).strip().lower() for x in state.get("followed_agents", []) if normalize_str(x).strip()}
+    dismissed = {
+        normalize_str(x).strip().lower()
+        for x in state.get("dismissed_follow_agents", [])
+        if normalize_str(x).strip()
+    }
+    candidates: List[Tuple[str, str, str, List[str]]] = []
+    for post in posts[:80]:
+        title = normalize_str(post.get("title")).strip()
+        content = normalize_str(post.get("content")).strip()
+        submolt = normalize_submolt(post.get("submolt"))
+        strong, terms = is_strong_ergo_post(title=title, content=content, submolt=submolt)
+        if not strong:
+            continue
+        author_id, author_name = post_author(post)
+        if is_self_author(author_id, author_name, self_identity_keys=self_identity_keys):
+            continue
+        author_key = normalize_str(author_name).strip().lower()
+        if not author_key or author_key in followed or author_key in dismissed:
+            continue
+        pid = post_id(post) or "(unknown)"
+        candidates.append((author_name or "(unknown)", pid, title or "(untitled)", terms[:4]))
+
+    if not candidates:
+        return approve_all_actions
+
+    followed_count = 0
+    for author_name, pid, title, terms in candidates:
+        if followed_count >= max(1, cfg.follow_ergo_authors_per_cycle):
+            break
+        approved, approve_all_actions, should_stop = confirm_action(
+            cfg=cfg,
+            logger=logger,
+            action="follow-agent",
+            pid=pid,
+            title=title,
+            submolt=normalize_submolt("general"),
+            url=post_url(pid),
+            author=author_name,
+            content_preview=preview_text(
+                f"Detected strong Ergo signal terms: {', '.join(terms) if terms else '(none)'}\n"
+                "Follow this author to improve relevant feed coverage."
+            ),
+            approve_all=approve_all_actions,
+        )
+        if should_stop:
+            break
+        author_key = normalize_str(author_name).strip().lower()
+        if not approved:
+            if author_key:
+                dismissed.add(author_key)
+            continue
+        try:
+            client.follow_agent(author_name)
+            followed_count += 1
+            if author_key:
+                followed.add(author_key)
+            logger.info("Followed author=%s reason=strong_ergo_signal", author_name)
+            print_success_banner(
+                action="follow-agent",
+                pid=pid,
+                url=post_url(pid),
+                title=f"Followed {author_name}",
+            )
+        except Exception as e:
+            msg = normalize_str(e).lower()
+            if "already" in msg:
+                if author_key:
+                    followed.add(author_key)
+                logger.info("Already following author=%s", author_name)
+                continue
+            logger.warning("Follow author failed author=%s error=%s", author_name, e)
+
+    state["followed_agents"] = sorted(followed)
+    state["dismissed_follow_agents"] = sorted(dismissed)
+    return approve_all_actions
+
+
 def run_loop() -> None:
     cfg = load_config()
     logger = setup_logging(cfg)
@@ -3947,6 +2789,11 @@ def run_loop() -> None:
             cfg.self_improve_text_path,
             cfg.self_improve_backlog_path,
         )
+    try:
+        init_analytics_db(cfg.analytics_db_path)
+        logger.info("Analytics DB ready path=%s", cfg.analytics_db_path)
+    except Exception as e:
+        logger.warning("Analytics DB initialization failed path=%s error=%s", cfg.analytics_db_path, e)
 
     try:
         claim_status = client.get_claim_status()
@@ -3960,11 +2807,14 @@ def run_loop() -> None:
         logger.warning("Could not verify claim status at startup: %s", e)
 
     my_name = resolve_self_name(client, logger)
+    # Always initialize so downstream branches cannot hit NameError/UnboundLocalError.
+    self_identity_keys: Set[str] = set()
     if my_name:
         logger.info("Authenticated as agent=%s", my_name)
     elif cfg.agent_name_hint:
         my_name = cfg.agent_name_hint
         logger.info("Using configured agent name hint=%s", my_name)
+    self_identity_keys = resolve_self_identity_keys(client=client, my_name=my_name, logger=logger)
 
     persona_text = load_persona_text(cfg.persona_path)
     domain_context_text = load_context_text(cfg.context_path)
@@ -3998,6 +2848,9 @@ def run_loop() -> None:
 
     state = load_state(cfg.state_path)
     post_memory = load_post_engine_memory(cfg.proactive_memory_path)
+    if not isinstance(state.get("recent_topic_signatures"), list):
+        state["recent_topic_signatures"] = []
+    submolt_meta_cache: Dict[str, Any] = {"fetched_ts": 0.0, "items": {}}
     seen: Set[str] = set(state.get("seen_post_ids", []))
     replied_posts: Set[str] = set(state.get("replied_post_ids", []))
     logger.info(
@@ -4011,11 +2864,100 @@ def run_loop() -> None:
     else:
         logger.info("Interactive confirmation disabled (autonomous send mode).")
 
+    def remember_topic_signature(title: str, content: str) -> None:
+        sig = infer_topic_signature(title=title, content=content)
+        if not sig:
+            return
+        recent = state.get("recent_topic_signatures", [])
+        if not isinstance(recent, list):
+            recent = []
+        recent.append(sig)
+        state["recent_topic_signatures"] = recent[-400:]
+
+    def analytics_event(
+        *,
+        action_type: str,
+        target_post_id: str,
+        submolt: str,
+        feed_sources: Optional[List[str]],
+        virality_score: Optional[float],
+        archetype: str,
+        model_confidence: Optional[float],
+        approved_by_human: bool,
+        executed: bool,
+        error: str = "",
+        title: str = "",
+    ) -> None:
+        try:
+            record_action_event(
+                cfg.analytics_db_path,
+                action_type=action_type,
+                target_post_id=target_post_id,
+                submolt=submolt,
+                feed_sources=feed_sources or [],
+                virality_score=virality_score,
+                archetype=archetype,
+                model_confidence=model_confidence,
+                approved_by_human=approved_by_human,
+                executed=executed,
+                error=error,
+                title=title,
+            )
+        except Exception as e:
+            logger.debug("Analytics event write failed action=%s target=%s error=%s", action_type, target_post_id, e)
+
+    def journal_written_action(
+        *,
+        action_type: str,
+        target_post_id: str,
+        submolt: str,
+        title: str,
+        content: str,
+        parent_comment_id: Optional[str] = None,
+        reference_post_id: Optional[str] = None,
+        url: Optional[str] = None,
+        reference: Optional[Dict[str, Any]] = None,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        try:
+            append_action_journal(
+                cfg.action_journal_path,
+                action_type=action_type,
+                target_post_id=target_post_id,
+                submolt=submolt,
+                title=title,
+                content=content,
+                parent_comment_id=parent_comment_id,
+                reference_post_id=reference_post_id,
+                url=url,
+                reference=reference,
+                meta=meta,
+            )
+        except Exception as e:
+            logger.debug(
+                "Action journal write failed action=%s target=%s error=%s",
+                action_type,
+                target_post_id,
+                e,
+            )
+
     iteration = 0
     approve_all_actions = False
     approve_all_keyword_changes = False
     startup_priority_post_sent = False
-    if should_prioritize_proactive_post(state=state, cfg=cfg):
+    startup_priority_post_pending = False
+    try:
+        submolt_meta = get_cached_submolt_meta(
+            client=client,
+            ttl_seconds=cfg.submolt_cache_seconds,
+            cache=submolt_meta_cache,
+            logger=logger,
+        )
+    except Exception as e:
+        logger.warning("Submolt metadata unavailable at startup: %s", e)
+        submolt_meta = {}
+    startup_priority_post_required = should_prioritize_proactive_post(state=state, cfg=cfg)
+    if startup_priority_post_required:
         since_last_post = seconds_since_last_post(state=state)
         logger.info(
             "Startup proactive priority trigger post_slot_open=true last_post_age_seconds=%s",
@@ -4031,6 +2973,7 @@ def run_loop() -> None:
             persona_text=persona_text,
             domain_context_text=domain_context_text,
             approve_all_actions=approve_all_actions,
+            submolt_meta=submolt_meta,
         )
         save_state(cfg.state_path, state)
         save_post_engine_memory(cfg.proactive_memory_path, post_memory)
@@ -4039,19 +2982,25 @@ def run_loop() -> None:
         if proactive_actions > 0:
             startup_priority_post_sent = True
             logger.info("Startup proactive priority posted_before_reply_scan=1")
+        else:
+            startup_priority_post_pending = True
+            logger.info("Startup proactive priority pending=1")
 
-    approve_all_actions = maybe_subscribe_relevant_submolts(
-        client=client,
-        cfg=cfg,
-        logger=logger,
-        state=state,
-        approve_all_actions=approve_all_actions,
-    )
-    save_state(cfg.state_path, state)
+    if startup_priority_post_pending:
+        logger.info("Startup submolt discovery deferred reason=priority_post_pending")
+    else:
+        approve_all_actions = maybe_subscribe_relevant_submolts(
+            client=client,
+            cfg=cfg,
+            logger=logger,
+            state=state,
+            approve_all_actions=approve_all_actions,
+        )
+        save_state(cfg.state_path, state)
 
     if startup_priority_post_sent:
         logger.info("Startup reply scan deferred reason=priority_post_sent")
-    elif should_prioritize_proactive_post(state=state, cfg=cfg):
+    elif startup_priority_post_pending or startup_priority_post_required:
         logger.info("Startup reply scan deferred reason=priority_post_pending")
     else:
         approve_all_actions = run_startup_reply_scan(
@@ -4072,6 +3021,25 @@ def run_loop() -> None:
                 my_name = resolve_self_name(client, logger)
                 if my_name:
                     logger.info("Resolved agent identity mid-run=%s", my_name)
+                    try:
+                        self_identity_keys = resolve_self_identity_keys(
+                            client=client,
+                            my_name=my_name,
+                            logger=logger,
+                        )
+                    except Exception as e:
+                        logger.debug("Could not refresh self identity keys mid-run error=%s", e)
+                        self_identity_keys = set()
+            try:
+                submolt_meta = get_cached_submolt_meta(
+                    client=client,
+                    ttl_seconds=cfg.submolt_cache_seconds,
+                    cache=submolt_meta_cache,
+                    logger=logger,
+                )
+            except Exception as e:
+                logger.debug("Submolt metadata refresh failed error=%s", e)
+                submolt_meta = submolt_meta_cache.get("items", {}) if isinstance(submolt_meta_cache.get("items"), dict) else {}
 
             print_cycle_banner(iteration=iteration, mode=cfg.discovery_mode, keywords=len(active_keywords))
             logger.info("Poll cycle=%s start", iteration)
@@ -4108,6 +3076,7 @@ def run_loop() -> None:
                     persona_text=persona_text,
                     domain_context_text=domain_context_text,
                     approve_all_actions=approve_all_actions,
+                    submolt_meta=submolt_meta,
                 )
                 if should_stop:
                     return
@@ -4116,7 +3085,7 @@ def run_loop() -> None:
                     early_post_action_sent = True
                     save_state(cfg.state_path, state)
                     save_post_engine_memory(cfg.proactive_memory_path, post_memory)
-            if priority_post_required and not early_post_action_sent:
+            if should_prioritize_proactive_post(state=state, cfg=cfg) and not early_post_action_sent:
                 logger.info(
                     "Cycle=%s priority_post_pending=true defer_reply_scan_and_discovery=1",
                     iteration,
@@ -4158,13 +3127,55 @@ def run_loop() -> None:
                 keywords=active_keywords,
                 iteration=iteration,
                 search_state=search_state,
+                post_id_fn=post_id,
             )
             logger.info("Poll cycle=%s discovered_posts=%s sources=%s", iteration, len(posts), ",".join(sources))
+            if posts:
+                approve_all_actions = maybe_follow_ergo_authors(
+                    client=client,
+                    cfg=cfg,
+                    logger=logger,
+                    state=state,
+                    posts=posts,
+                    my_name=my_name,
+                    self_identity_keys=self_identity_keys,
+                    approve_all_actions=approve_all_actions,
+                )
+            virality_scores: Dict[str, float] = {}
+            if cfg.virality_enabled and posts:
+                now_dt = utc_now()
+                history_for_virality = {
+                    "mode": "comment",
+                    "recency_halflife_minutes": cfg.recency_halflife_minutes,
+                    "early_comment_window_seconds": cfg.early_comment_window_seconds,
+                    "active_keywords": active_keywords,
+                    "recent_topic_signatures": state.get("recent_topic_signatures", []),
+                }
+                for post in posts:
+                    pid = post_id(post)
+                    if not pid:
+                        continue
+                    submolt = normalize_submolt(post.get("submolt"), default="general")
+                    score = score_post_candidate(
+                        post=post,
+                        submolt_meta=submolt_meta.get(submolt, {}),
+                        now=now_dt,
+                        history=history_for_virality,
+                    )
+                    virality_scores[pid] = score
+                    post["__virality_score"] = score
+                logger.info(
+                    "Virality scoring cycle=%s candidates=%s feed_sources=%s",
+                    iteration,
+                    len(virality_scores),
+                    summarize_sources(posts),
+                )
             learning_snapshot_cycle = build_learning_snapshot(post_memory, max_examples=5)
             posts, relevance_score_by_post, high_signal_terms = _rank_posts_for_drafting(
                 posts=posts,
                 learning_snapshot=learning_snapshot_cycle,
                 active_keywords=active_keywords,
+                virality_scores=virality_scores,
             )
             effective_shortlist_size, effective_signal_min_score, shortlist_mode = _adaptive_draft_controls(
                 cfg=cfg,
@@ -4185,8 +3196,12 @@ def run_loop() -> None:
                 for post in posts[:5]:
                     pid = post_id(post) or "(unknown)"
                     score = relevance_score_by_post.get(pid, 0)
+                    viral = virality_scores.get(pid)
                     title_preview = normalize_str(post.get("title")).strip()[:48] or "(untitled)"
-                    top_rank_preview.append(f"{score}:{pid}:{title_preview}")
+                    if isinstance(viral, (int, float)):
+                        top_rank_preview.append(f"{score}|v={viral:.2f}:{pid}:{title_preview}")
+                    else:
+                        top_rank_preview.append(f"{score}:{pid}:{title_preview}")
                 logger.info(
                     "Poll cycle=%s relevance_ranking terms=%s threshold=%s shortlist=%s mode=%s top=%s",
                     iteration,
@@ -4212,6 +3227,7 @@ def run_loop() -> None:
             provider_counts: Dict[str, int] = {}
             cycle_titles: List[str] = [normalize_str(post.get("title")).strip() for post in posts if normalize_str(post.get("title")).strip()]
             post_cd_remaining, comment_cd_remaining = cooldown_remaining_seconds(state=state, cfg=cfg)
+            no_action_slot_notice_shown = False
 
             if post_cd_remaining > 0 or comment_cd_remaining > 0:
                 logger.info(
@@ -4223,6 +3239,49 @@ def run_loop() -> None:
                     max(1, post_cd_remaining // 60) if post_cd_remaining > 0 else 0,
                     comment_cd_remaining,
                 )
+            llm_cycle_budget = max(1, cfg.max_drafts_per_cycle)
+            if post_cd_remaining > 0 and comment_cd_remaining <= 0:
+                llm_cycle_budget = min(llm_cycle_budget, 4)
+            if post_cd_remaining > 0 and comment_cd_remaining > 0:
+                llm_cycle_budget = min(llm_cycle_budget, 2)
+            if shortlist_mode in {"streak_recovery", "decline_recovery"}:
+                llm_cycle_budget = min(llm_cycle_budget, 2)
+            elif shortlist_mode == "conversion_collapse":
+                llm_cycle_budget = 1
+            elif shortlist_mode == "relax_context_gate":
+                llm_cycle_budget = min(llm_cycle_budget, 3)
+            if llm_cycle_budget != max(1, cfg.max_drafts_per_cycle):
+                logger.info(
+                    "Cycle=%s token_saver llm_cycle_budget=%s base_budget=%s",
+                    iteration,
+                    llm_cycle_budget,
+                    max(1, cfg.max_drafts_per_cycle),
+                )
+                print_status_banner(
+                    title="LLM TOKEN SAVER",
+                    rows=[
+                        ("cycle", iteration),
+                        ("shortlist_mode", shortlist_mode),
+                        ("llm_cycle_budget", llm_cycle_budget),
+                        ("base_budget", max(1, cfg.max_drafts_per_cycle)),
+                        ("cooldown", f"post={post_cd_remaining}s comment={comment_cd_remaining}s"),
+                    ],
+                    tone="yellow",
+                )
+            candidate_pool_cap = max(24, effective_shortlist_size * 5, llm_cycle_budget * 8)
+            if len(posts) > candidate_pool_cap:
+                dropped = len(posts) - candidate_pool_cap
+                posts = posts[:candidate_pool_cap]
+                logger.info(
+                    "Cycle=%s candidate_pool_trimmed kept=%s dropped=%s cap=%s",
+                    iteration,
+                    len(posts),
+                    dropped,
+                    candidate_pool_cap,
+                )
+            decline_guard_limit = MAX_CONSECUTIVE_DECLINES_GUARD
+            if shortlist_mode in {"conversion_collapse", "streak_recovery", "cooldown_pressure"}:
+                decline_guard_limit = 3
 
             def mark_seen(pid: Optional[str]) -> None:
                 if not pid:
@@ -4291,6 +3350,9 @@ def run_loop() -> None:
                     )
                     if not is_temporary_rate_block and reason != "author_cooldown":
                         mark_seen(pid)
+                    else:
+                        # Token saver: if no action slot exists right now, skip drafting and revisit later.
+                        skip_reasons["no_action_slots"] = skip_reasons.get("no_action_slots", 0) + 1
                     logger.debug(
                         "Cycle=%s skip post_id=%s author=%s reason=%s",
                         iteration,
@@ -4298,8 +3360,7 @@ def run_loop() -> None:
                         author_name or author_id or "(unknown)",
                         reason,
                     )
-                    if not is_temporary_rate_block:
-                        continue
+                    continue
                 else:
                     eligible_now += 1
                 signal_score = relevance_score_by_post.get(pid, 0)
@@ -4313,6 +3374,35 @@ def run_loop() -> None:
                         post_title_preview,
                         signal_score,
                         effective_signal_min_score,
+                    )
+                    continue
+                if shortlist_mode in {"conversion_collapse", "cooldown_pressure"}:
+                    mechanism_score = _post_mechanism_score(post=post)
+                    trend_overlap = _has_trending_overlap(post=post, trending_terms=trending_terms_cycle)
+                    if mechanism_score <= 0 and not trend_overlap:
+                        skip_reasons["high_signal_filter"] = skip_reasons.get("high_signal_filter", 0) + 1
+                        mark_seen(pid)
+                        logger.debug(
+                            "Cycle=%s skip post_id=%s title=%s reason=high_signal_filter mode=%s",
+                            iteration,
+                            pid,
+                            post_title_preview,
+                            shortlist_mode,
+                        )
+                        continue
+                if (
+                    post_score(post) < cfg.trending_min_post_score
+                    and post_comment_count(post) < cfg.trending_min_comment_count
+                ):
+                    skip_reasons["not_trending_enough"] = skip_reasons.get("not_trending_enough", 0) + 1
+                    mark_seen(pid)
+                    logger.debug(
+                        "Cycle=%s skip post_id=%s title=%s reason=not_trending_enough score=%s comments=%s",
+                        iteration,
+                        pid,
+                        post_title_preview,
+                        post_score(post),
+                        post_comment_count(post),
                     )
                     continue
                 if shortlist_mode == "tighten_quality":
@@ -4333,8 +3423,30 @@ def run_loop() -> None:
                 if allowed_modes == ["none"]:
                     skip_reasons["no_action_slots"] = skip_reasons.get("no_action_slots", 0) + 1
                     mark_seen(pid)
-                    logger.debug("Cycle=%s skip post_id=%s reason=no_action_slots", iteration, pid)
+                    logger.info("Cycle=%s skip post_id=%s reason=no_action_slots", iteration, pid)
+                    if not no_action_slot_notice_shown:
+                        print_status_banner(
+                            title="ACTION GATE BLOCKED",
+                            rows=[
+                                ("cycle", iteration),
+                                ("reason", "No post/comment slot currently open"),
+                                ("post_cooldown_remaining", f"{post_cd_remaining}s"),
+                                ("comment_cooldown_remaining", f"{comment_cd_remaining}s"),
+                                ("effect", "Skipping LLM drafts until an action slot opens"),
+                            ],
+                            tone="yellow",
+                        )
+                        no_action_slot_notice_shown = True
                     continue
+                if drafted_count >= llm_cycle_budget:
+                    skip_reasons["llm_budget_exhausted"] = skip_reasons.get("llm_budget_exhausted", 0) + 1
+                    logger.info(
+                        "Cycle=%s llm_budget_exhausted drafted=%s cap=%s",
+                        iteration,
+                        drafted_count,
+                        llm_cycle_budget,
+                    )
+                    break
 
                 provider_used = "unknown"
                 messages: List[Dict[str, str]] = []
@@ -4358,6 +3470,22 @@ def run_loop() -> None:
                             trending_terms=trending_terms_cycle,
                             max_terms=4,
                         ),
+                    )
+                    comment_allowed_llm = "comment" in allowed_modes
+                    post_allowed_llm = "post" in allowed_modes
+                    if comment_allowed_llm and post_allowed_llm:
+                        draft_action_kind = "decision"
+                    elif comment_allowed_llm:
+                        draft_action_kind = "comment"
+                    elif post_allowed_llm:
+                        draft_action_kind = "post"
+                    else:
+                        draft_action_kind = "none"
+                    print_drafting_banner(
+                        action_kind=draft_action_kind,
+                        pid=pid,
+                        title=post_title_preview,
+                        provider_hint=cfg.llm_provider,
                     )
                     draft, provider_used, _ = call_generation_model(cfg, messages)
                     provider_counts[provider_used] = provider_counts.get(provider_used, 0) + 1
@@ -4383,13 +3511,34 @@ def run_loop() -> None:
                     logger.info("Cycle=%s using_fallback_draft post_id=%s", iteration, pid)
 
                 should_respond = bool(draft.get("should_respond", False))
-                confidence = float(draft.get("confidence", 0))
+                confidence, confidence_imputed = _normalized_model_confidence(
+                    raw_confidence=draft.get("confidence", 0),
+                    should_act=should_respond,
+                    has_content=bool(normalize_str(draft.get("content")).strip()),
+                    fallback_when_true=max(cfg.min_confidence, 0.72),
+                    fallback_when_false=0.0,
+                )
+                if confidence_imputed and should_respond:
+                    logger.info(
+                        "Cycle=%s confidence_imputed post_id=%s title=%s raw=%r normalized=%.3f",
+                        iteration,
+                        pid,
+                        post_title_preview,
+                        draft.get("confidence"),
+                        confidence,
+                    )
                 can_try_recovery = (
                     recovery_attempts < MAX_RECOVERY_DRAFTS_PER_CYCLE
+                    and drafted_count < llm_cycle_budget
                     and signal_score >= (effective_signal_min_score + RECOVERY_SIGNAL_MARGIN)
                     and bool(messages)
+                    # Recovery is expensive and rarely worth it for comment-only cycles.
+                    and ("post" in allowed_modes)
                 )
-                if (not should_respond or confidence < cfg.min_confidence) and can_try_recovery:
+                should_recover = (not should_respond) or (
+                    confidence < cfg.min_confidence and not (confidence_imputed and should_respond)
+                )
+                if should_recover and can_try_recovery:
                     try:
                         recovery_messages = _build_recovery_messages(messages, signal_score=signal_score)
                         recovered_draft, recovery_provider, _ = call_generation_model(cfg, recovery_messages)
@@ -4399,7 +3548,13 @@ def run_loop() -> None:
                         if isinstance(recovered_draft, dict):
                             draft = recovered_draft
                             should_respond = bool(draft.get("should_respond", False))
-                            confidence = float(draft.get("confidence", 0))
+                            confidence, confidence_imputed = _normalized_model_confidence(
+                                raw_confidence=draft.get("confidence", 0),
+                                should_act=should_respond,
+                                has_content=bool(normalize_str(draft.get("content")).strip()),
+                                fallback_when_true=max(cfg.min_confidence, 0.72),
+                                fallback_when_false=0.0,
+                            )
                             logger.info(
                                 (
                                     "Cycle=%s recovery_draft_attempt post_id=%s title=%s "
@@ -4426,12 +3581,13 @@ def run_loop() -> None:
                         post_title_preview,
                     )
                     mark_seen(pid)
-                    if consecutive_declines >= MAX_CONSECUTIVE_DECLINES_GUARD:
+                    if consecutive_declines >= decline_guard_limit:
                         skip_reasons["consecutive_declines_guard"] = skip_reasons.get("consecutive_declines_guard", 0) + 1
                         logger.info(
-                            "Cycle=%s stopping drafts early reason=consecutive_declines_guard declines=%s",
+                            "Cycle=%s stopping drafts early reason=consecutive_declines_guard declines=%s threshold=%s",
                             iteration,
                             consecutive_declines,
+                            decline_guard_limit,
                         )
                         break
                     continue
@@ -4446,22 +3602,41 @@ def run_loop() -> None:
                         cfg.min_confidence,
                     )
                     mark_seen(pid)
-                    if consecutive_declines >= MAX_CONSECUTIVE_DECLINES_GUARD:
+                    if consecutive_declines >= decline_guard_limit:
                         skip_reasons["consecutive_declines_guard"] = skip_reasons.get("consecutive_declines_guard", 0) + 1
                         logger.info(
-                            "Cycle=%s stopping drafts early reason=consecutive_declines_guard declines=%s",
+                            "Cycle=%s stopping drafts early reason=consecutive_declines_guard declines=%s threshold=%s",
                             iteration,
                             consecutive_declines,
+                            decline_guard_limit,
                         )
                         break
                     continue
                 consecutive_declines = 0
                 model_approved += 1
                 requested_mode = normalize_response_mode(draft.get("response_mode"), default="comment")
+                source_blob = " ".join(
+                    [
+                        normalize_str(post.get("title")).strip(),
+                        normalize_str(post.get("content")).strip(),
+                        normalize_str(post.get("url")).strip(),
+                    ]
+                )
+                hostile_source = looks_hostile_content(source_blob)
 
                 content = format_content(draft)
                 content = _ensure_use_case_prompt_if_relevant(content=content, post=post)
                 content = _normalize_ergo_terms(content)
+                if hostile_source:
+                    requested_mode = "comment"
+                    content = build_hostile_refusal_reply()
+                    logger.info(
+                        "Cycle=%s hostile_source_guard post_id=%s forcing_defensive_comment=1",
+                        iteration,
+                        pid,
+                    )
+                # Sanitize early so template/format scaffolding does not cause false skips.
+                content = sanitize_publish_content(content)
                 if not content:
                     logger.warning("Cycle=%s skip post_id=%s reason=empty_content", iteration, pid)
                     mark_seen(pid)
@@ -4489,11 +3664,26 @@ def run_loop() -> None:
                     continue
 
                 url = post_url(pid)
-                title = _sanitize_generated_title(draft.get("title"), fallback="Quick question on your post")
+                fallback_title = sanitize_generated_title(
+                    f"Implementation question on: {post_title_preview}",
+                    fallback="Ergo implementation question",
+                )
+                title = sanitize_generated_title(draft.get("title"), fallback=fallback_title)
                 raw_submolt = post.get("submolt")
                 submolt = normalize_submolt(raw_submolt)
-                comment_content = content
-                post_content = _compose_reference_post_content(reference_url=url, content=content)
+                comment_content = _prepare_publish_content(
+                    content,
+                    allow_links=False,
+                    audit_label="main_cycle_comment",
+                )
+                post_content = _prepare_publish_content(
+                    _compose_reference_post_content(reference_url=url, content=content),
+                    allow_links=True,
+                    audit_label="main_cycle_post",
+                )
+                if hostile_source:
+                    post_content = ""
+                draft_archetype = normalize_str(draft.get("content_archetype")).strip().lower()
                 logger.debug(
                     "Cycle=%s normalized_submolt post_id=%s raw_type=%s value=%s",
                     iteration,
@@ -4503,6 +3693,16 @@ def run_loop() -> None:
                 )
 
                 actions = planned_actions(requested_mode=requested_mode, cfg=cfg, state=state)
+                if not actions and bool(post.get("__fast_lane_comment")):
+                    comment_allowed_now, _ = comment_gate_status(state=state, cfg=cfg)
+                    if comment_allowed_now:
+                        actions = ["comment"]
+                        logger.info(
+                            "Cycle=%s fast_lane override post_id=%s title=%s action=comment",
+                            iteration,
+                            pid,
+                            post_title_preview,
+                        )
                 if not actions:
                     comment_allowed_now, comment_gate_reason = comment_gate_status(state=state, cfg=cfg)
                     should_wait_comment = (
@@ -4527,6 +3727,19 @@ def run_loop() -> None:
                             return
                         if approved:
                             if wait_for_comment_slot(state=state, cfg=cfg, logger=logger):
+                                comment_sig = _publish_signature(
+                                    action_type="comment",
+                                    target_post_id=pid,
+                                    parent_comment_id=None,
+                                    content=comment_content,
+                                )
+                                if _seen_publish_signature(state, comment_sig):
+                                    logger.info(
+                                        "Cycle=%s skip post_id=%s reason=duplicate_comment_signature_after_wait",
+                                        iteration,
+                                        pid,
+                                    )
+                                    continue
                                 try:
                                     logger.info(
                                         "Cycle=%s action=comment attempt post_id=%s submolt=%s url=%s waited_for_cooldown=true",
@@ -4537,6 +3750,7 @@ def run_loop() -> None:
                                     )
                                     comment_resp = client.create_comment(pid, comment_content)
                                     register_my_comment_id(state=state, response_payload=comment_resp)
+                                    _remember_publish_signature(state, comment_sig)
                                     state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
                                     replied_posts.add(pid)
                                     state["replied_post_ids"] = list(replied_posts)[-10000:]
@@ -4545,6 +3759,15 @@ def run_loop() -> None:
                                         state=state,
                                         logger=logger,
                                         post_id_value=pid,
+                                        journal_path=cfg.action_journal_path,
+                                        submolt=submolt,
+                                        post_title=title,
+                                        url=url,
+                                        reference={
+                                            "post_id": pid,
+                                            "post_title": title,
+                                        },
+                                        meta={"source": "main_cycle"},
                                     )
                                     now_ts = utc_now().timestamp()
                                     state["last_action_ts"] = now_ts
@@ -4552,6 +3775,35 @@ def run_loop() -> None:
                                     acted += 1
                                     reply_actions += 1
                                     comment_action_sent = True
+                                    remember_topic_signature(title=title, content=comment_content)
+                                    journal_written_action(
+                                        action_type="comment",
+                                        target_post_id=pid,
+                                        submolt=submolt,
+                                        title=title,
+                                        content=comment_content,
+                                        reference_post_id=pid,
+                                        url=url,
+                                        reference={
+                                            "post_id": pid,
+                                            "post_title": title_text or post_title_preview,
+                                            "post_content": normalize_str(post.get("content")),
+                                            "post_author": author_name or author_id,
+                                        },
+                                        meta={"source": "main_cycle", "kind": "comment_after_wait"},
+                                    )
+                                    analytics_event(
+                                        action_type="comment",
+                                        target_post_id=pid,
+                                        submolt=submolt,
+                                        feed_sources=(post.get("__feed_sources") if isinstance(post.get("__feed_sources"), list) else []),
+                                        virality_score=virality_scores.get(pid),
+                                        archetype=normalize_str(draft.get("content_archetype")).strip().lower(),
+                                        model_confidence=confidence,
+                                        approved_by_human=True,
+                                        executed=True,
+                                        title=title,
+                                    )
                                     logger.info(
                                         "Cycle=%s action=comment success post_id=%s daily_comment_count=%s",
                                         iteration,
@@ -4560,12 +3812,39 @@ def run_loop() -> None:
                                     )
                                     print_success_banner(action="comment", pid=pid, url=url, title=title)
                                 except Exception as e:
+                                    analytics_event(
+                                        action_type="comment",
+                                        target_post_id=pid,
+                                        submolt=submolt,
+                                        feed_sources=(post.get("__feed_sources") if isinstance(post.get("__feed_sources"), list) else []),
+                                        virality_score=virality_scores.get(pid),
+                                        archetype=normalize_str(draft.get("content_archetype")).strip().lower(),
+                                        model_confidence=confidence,
+                                        approved_by_human=True,
+                                        executed=False,
+                                        error=normalize_str(e),
+                                        title=title,
+                                    )
                                     logger.warning(
                                         "Cycle=%s waited comment failed post_id=%s error=%s",
                                         iteration,
                                         pid,
                                         e,
                                     )
+                        else:
+                            analytics_event(
+                                action_type="comment",
+                                target_post_id=pid,
+                                submolt=submolt,
+                                feed_sources=(post.get("__feed_sources") if isinstance(post.get("__feed_sources"), list) else []),
+                                virality_score=virality_scores.get(pid),
+                                archetype=normalize_str(draft.get("content_archetype")).strip().lower(),
+                                model_confidence=confidence,
+                                approved_by_human=False,
+                                executed=False,
+                                error="wait_comment_not_approved",
+                                title=title,
+                            )
                             mark_seen(pid)
                             continue
                     logger.info(
@@ -4575,12 +3854,98 @@ def run_loop() -> None:
                         requested_mode,
                     )
                     continue
+                if "comment" in actions and not comment_content.strip():
+                    actions = [item for item in actions if item != "comment"]
+                    skip_reasons["empty_comment_content_after_policy"] = (
+                        skip_reasons.get("empty_comment_content_after_policy", 0) + 1
+                    )
+                    logger.info(
+                        "Cycle=%s removed_comment_action post_id=%s reason=empty_comment_content_after_policy",
+                        iteration,
+                        pid,
+                    )
+                    if not actions:
+                        continue
+                if "post" in actions and not post_content.strip():
+                    actions = [item for item in actions if item != "post"]
+                    skip_reasons["empty_post_content_after_policy"] = (
+                        skip_reasons.get("empty_post_content_after_policy", 0) + 1
+                    )
+                    logger.info(
+                        "Cycle=%s removed_post_action post_id=%s reason=empty_post_content_after_policy",
+                        iteration,
+                        pid,
+                    )
+                    if not actions:
+                        continue
+                post_submolt_route = submolt
+                if "post" in actions and submolt_meta:
+                    routed_submolt = choose_best_submolt_for_new_post(
+                        title=title,
+                        content=post_content,
+                        archetype=draft_archetype,
+                        target_submolts=[submolt] + list(cfg.target_submolts),
+                        submolt_meta=submolt_meta,
+                    )
+                    if normalize_submolt(routed_submolt) != normalize_submolt(submolt):
+                        logger.info(
+                            "Cycle=%s route adjusted reference_post_id=%s from m/%s to m/%s",
+                            iteration,
+                            pid,
+                            submolt,
+                            routed_submolt,
+                        )
+                    post_submolt_route = normalize_submolt(routed_submolt, default=submolt)
+                    if not is_valid_submolt_name(post_submolt_route, submolt_meta):
+                        logger.warning(
+                            "Cycle=%s invalid routed submolt=%s fallback=general reference_post_id=%s",
+                            iteration,
+                            post_submolt_route,
+                            pid,
+                        )
+                        post_submolt_route = "general"
+                if "post" in actions:
+                    reference_text = " ".join(
+                        [
+                            normalize_str(post.get("title")).strip(),
+                            normalize_str(post.get("content")).strip(),
+                            normalize_str(post.get("submolt")).strip(),
+                        ]
+                    )
+                    optimized_title, optimized_post_content, hook_meta = select_best_hook_pair(
+                        title=title,
+                        content=post_content,
+                        reference_text=reference_text,
+                        archetype=draft_archetype or "implementation_walkthrough",
+                    )
+                    if optimized_title != title or optimized_post_content != post_content:
+                        logger.info(
+                            "Cycle=%s hook optimization post_id=%s title_changed=%s lead_changed=%s",
+                            iteration,
+                            pid,
+                            int(optimized_title != title),
+                            int(optimized_post_content != post_content),
+                        )
+                        logger.debug(
+                            "Cycle=%s hook_meta post_id=%s title_candidates=%s lead_candidates=%s",
+                            iteration,
+                            pid,
+                            hook_meta.get("title_candidates"),
+                            hook_meta.get("lead_candidates"),
+                        )
+                        title = optimized_title
+                        post_content = _prepare_publish_content(
+                            optimized_post_content,
+                            allow_links=True,
+                            audit_label="main_cycle_post_optimized",
+                        )
                 logger.info(
-                    "Cycle=%s planned_actions post_id=%s requested_mode=%s effective_actions=%s",
+                    "Cycle=%s planned_actions post_id=%s requested_mode=%s effective_actions=%s post_route=%s",
                     iteration,
                     pid,
                     requested_mode,
                     ",".join(actions),
+                    post_submolt_route,
                 )
 
                 if cfg.dry_run:
@@ -4597,21 +3962,28 @@ def run_loop() -> None:
                     continue
 
                 reply_executed = False
+                feed_sources_for_event = post.get("__feed_sources")
+                if not isinstance(feed_sources_for_event, list):
+                    feed_sources_for_event = []
+                virality_for_event = virality_scores.get(pid)
                 for action in actions:
+                    reference_post_title = title_text or post_title_preview or f"Post {pid}"
+                    action_submolt = post_submolt_route if action == "post" else submolt
                     draft_preview = comment_content if action == "comment" else post_content
                     confirm_pid = pid
                     confirm_url = url
+                    action_title = title if action == "post" else reference_post_title
                     if action == "post":
                         confirm_pid = "(new)"
-                        confirm_url = f"https://moltbook.com/m/{submolt}"
+                        confirm_url = f"https://moltbook.com/m/{action_submolt}"
                         draft_preview = f"Reference post: {url}\n\n{post_content}"
                     approved, approve_all_actions, should_stop = confirm_action(
                         cfg=cfg,
                         logger=logger,
                         action=action,
                         pid=confirm_pid,
-                        title=title,
-                        submolt=submolt,
+                        title=action_title,
+                        submolt=action_submolt,
                         url=confirm_url,
                         author=author_name or author_id or "(unknown)",
                         content_preview=preview_text(draft_preview),
@@ -4621,20 +3993,60 @@ def run_loop() -> None:
                         return
                     if not approved:
                         logger.info("Cycle=%s action=%s skipped post_id=%s reason=not_approved", iteration, action, pid)
+                        analytics_event(
+                            action_type=action,
+                            target_post_id=pid if action != "post" else "(new)",
+                            submolt=action_submolt,
+                            feed_sources=feed_sources_for_event,
+                            virality_score=virality_for_event,
+                            archetype=draft_archetype,
+                            model_confidence=confidence,
+                            approved_by_human=False,
+                            executed=False,
+                            error="not_approved",
+                            title=title,
+                        )
                         mark_seen(pid)
                         continue
 
                     if action == "comment":
+                        comment_sig = _publish_signature(
+                            action_type="comment",
+                            target_post_id=pid,
+                            parent_comment_id=None,
+                            content=comment_content,
+                        )
+                        if _seen_publish_signature(state, comment_sig):
+                            logger.info(
+                                "Cycle=%s action=comment skipped post_id=%s reason=duplicate_publish_signature",
+                                iteration,
+                                pid,
+                            )
+                            analytics_event(
+                                action_type="comment",
+                                target_post_id=pid,
+                                submolt=action_submolt,
+                                feed_sources=feed_sources_for_event,
+                                virality_score=virality_for_event,
+                                archetype=draft_archetype,
+                                model_confidence=confidence,
+                                approved_by_human=True,
+                                executed=False,
+                                error="duplicate_publish_signature",
+                                title=reference_post_title,
+                            )
+                            continue
                         try:
                             logger.info(
                                 "Cycle=%s action=comment attempt post_id=%s submolt=%s url=%s",
                                 iteration,
                                 pid,
-                                submolt,
+                                action_submolt,
                                 url,
                             )
                             comment_resp = client.create_comment(pid, comment_content)
                             register_my_comment_id(state=state, response_payload=comment_resp)
+                            _remember_publish_signature(state, comment_sig)
                             state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
                             replied_posts.add(pid)
                             state["replied_post_ids"] = list(replied_posts)[-10000:]
@@ -4643,6 +4055,15 @@ def run_loop() -> None:
                                 state=state,
                                 logger=logger,
                                 post_id_value=pid,
+                                journal_path=cfg.action_journal_path,
+                                submolt=action_submolt,
+                                post_title=reference_post_title,
+                                url=url,
+                                reference={
+                                    "post_id": pid,
+                                    "post_title": reference_post_title,
+                                },
+                                meta={"source": "main_cycle"},
                             )
                             now_ts = utc_now().timestamp()
                             state["last_action_ts"] = now_ts
@@ -4651,19 +4072,66 @@ def run_loop() -> None:
                             reply_actions += 1
                             comment_action_sent = True
                             reply_executed = True
+                            remember_topic_signature(title=title, content=comment_content)
+                            journal_written_action(
+                                action_type="comment",
+                                target_post_id=pid,
+                                submolt=action_submolt,
+                                title=reference_post_title,
+                                content=comment_content,
+                                reference_post_id=pid,
+                                url=url,
+                                reference={
+                                    "post_id": pid,
+                                    "post_title": title_text or post_title_preview,
+                                    "post_content": normalize_str(post.get("content")),
+                                    "post_author": author_name or author_id,
+                                },
+                                meta={"source": "main_cycle", "kind": "comment"},
+                            )
                             logger.info(
                                 "Cycle=%s action=comment success post_id=%s daily_comment_count=%s",
                                 iteration,
                                 pid,
                                 state["daily_comment_count"],
                             )
-                            print_success_banner(action="comment", pid=pid, url=url, title=title)
+                            analytics_event(
+                                action_type="comment",
+                                target_post_id=pid,
+                                submolt=action_submolt,
+                                feed_sources=feed_sources_for_event,
+                                virality_score=virality_for_event,
+                                archetype=draft_archetype,
+                                model_confidence=confidence,
+                                approved_by_human=True,
+                                executed=True,
+                                title=reference_post_title,
+                            )
+                            print_success_banner(
+                                action="comment",
+                                pid=pid,
+                                url=url,
+                                title=reference_post_title,
+                            )
                         except Exception as e:
                             logger.warning(
                                 "Cycle=%s action=comment failed post_id=%s error=%s fallback=post",
                                 iteration,
                                 pid,
                                 e,
+                            )
+                            analytics_event(
+                                action_type="comment",
+                                target_post_id=pid,
+                                submolt=action_submolt,
+                                feed_sources=feed_sources_for_event,
+                                virality_score=virality_for_event,
+                                archetype=draft_archetype,
+                                model_confidence=confidence,
+                                approved_by_human=True,
+                                executed=False,
+                                error=normalize_str(e),
+                                title=title,
                             )
                             if "post" in actions:
                                 continue
@@ -4673,8 +4141,8 @@ def run_loop() -> None:
                                 action="post-fallback",
                                 pid="(new)",
                                 title=title,
-                                submolt=submolt,
-                                url=f"https://moltbook.com/m/{submolt}",
+                                submolt=post_submolt_route,
+                                url=f"https://moltbook.com/m/{post_submolt_route}",
                                 author=author_name or author_id or "(unknown)",
                                 content_preview=preview_text(f"Reference post: {url}\n\n{post_content}"),
                                 approve_all=approve_all_actions,
@@ -4687,16 +4155,78 @@ def run_loop() -> None:
                                     iteration,
                                     pid,
                                 )
+                                analytics_event(
+                                    action_type="post",
+                                    target_post_id="(new)",
+                                    submolt=post_submolt_route,
+                                    feed_sources=feed_sources_for_event,
+                                    virality_score=virality_for_event,
+                                    archetype=draft_archetype,
+                                    model_confidence=confidence,
+                                    approved_by_human=False,
+                                    executed=False,
+                                    error="post_fallback_not_approved",
+                                    title=title,
+                                )
                                 continue
                             logger.info(
                                 "Cycle=%s action=post attempt reference_post_id=%s submolt=%s reference_url=%s title=%s",
                                 iteration,
                                 pid,
-                                submolt,
+                                post_submolt_route,
                                 url,
                                 title,
                             )
-                            post_resp = client.create_post(submolt=submolt, title=title, content=post_content)
+                            post_sig = _publish_signature(
+                                action_type="post",
+                                target_post_id="(new)",
+                                parent_comment_id=None,
+                                content=post_content,
+                            )
+                            if _seen_publish_signature(state, post_sig):
+                                logger.info(
+                                    "Cycle=%s action=post skipped reference_post_id=%s reason=duplicate_publish_signature",
+                                    iteration,
+                                    pid,
+                                )
+                                analytics_event(
+                                    action_type="post",
+                                    target_post_id="(new)",
+                                    submolt=post_submolt_route,
+                                    feed_sources=feed_sources_for_event,
+                                    virality_score=virality_for_event,
+                                    archetype=draft_archetype,
+                                    model_confidence=confidence,
+                                    approved_by_human=True,
+                                    executed=False,
+                                    error="duplicate_publish_signature",
+                                    title=title,
+                                )
+                                continue
+                            try:
+                                post_resp = client.create_post(submolt=post_submolt_route, title=title, content=post_content)
+                                _remember_publish_signature(state, post_sig)
+                            except Exception as e:
+                                analytics_event(
+                                    action_type="post",
+                                    target_post_id="(new)",
+                                    submolt=post_submolt_route,
+                                    feed_sources=feed_sources_for_event,
+                                    virality_score=virality_for_event,
+                                    archetype=draft_archetype,
+                                    model_confidence=confidence,
+                                    approved_by_human=True,
+                                    executed=False,
+                                    error=normalize_str(e),
+                                    title=title,
+                                )
+                                logger.warning(
+                                    "Cycle=%s action=post failed reference_post_id=%s error=%s",
+                                    iteration,
+                                    pid,
+                                    e,
+                                )
+                                continue
                             created_post_id = post_id(post_resp if isinstance(post_resp, dict) else {}) or "(unknown)"
                             created_url = post_url(created_post_id if created_post_id != "(unknown)" else None)
                             state["daily_post_count"] = state.get("daily_post_count", 0) + 1
@@ -4709,6 +4239,23 @@ def run_loop() -> None:
                             reply_actions += 1
                             post_action_sent = True
                             reply_executed = True
+                            remember_topic_signature(title=title, content=post_content)
+                            journal_written_action(
+                                action_type="post",
+                                target_post_id=str(created_post_id),
+                                submolt=post_submolt_route,
+                                title=title,
+                                content=post_content,
+                                reference_post_id=pid,
+                                url=created_url,
+                                reference={
+                                    "post_id": pid,
+                                    "post_title": title_text or post_title_preview,
+                                    "post_content": normalize_str(post.get("content")),
+                                    "post_author": author_name or author_id,
+                                },
+                                meta={"source": "main_cycle", "kind": "post_fallback"},
+                            )
                             logger.info(
                                 (
                                     "Cycle=%s action=post success reference_post_id=%s "
@@ -4720,17 +4267,78 @@ def run_loop() -> None:
                                 created_url,
                                 state["daily_post_count"],
                             )
+                            analytics_event(
+                                action_type="post",
+                                target_post_id=str(created_post_id),
+                                submolt=post_submolt_route,
+                                feed_sources=feed_sources_for_event,
+                                virality_score=virality_for_event,
+                                archetype=draft_archetype,
+                                model_confidence=confidence,
+                                approved_by_human=True,
+                                executed=True,
+                                title=title,
+                            )
                             print_success_banner(action="post", pid=created_post_id, url=created_url, title=title)
                     elif action == "post":
                         logger.info(
                             "Cycle=%s action=post attempt reference_post_id=%s submolt=%s reference_url=%s title=%s",
                             iteration,
                             pid,
-                            submolt,
+                            action_submolt,
                             url,
                             title,
                         )
-                        post_resp = client.create_post(submolt=submolt, title=title, content=post_content)
+                        post_sig = _publish_signature(
+                            action_type="post",
+                            target_post_id="(new)",
+                            parent_comment_id=None,
+                            content=post_content,
+                        )
+                        if _seen_publish_signature(state, post_sig):
+                            logger.info(
+                                "Cycle=%s action=post skipped reference_post_id=%s reason=duplicate_publish_signature",
+                                iteration,
+                                pid,
+                            )
+                            analytics_event(
+                                action_type="post",
+                                target_post_id="(new)",
+                                submolt=action_submolt,
+                                feed_sources=feed_sources_for_event,
+                                virality_score=virality_for_event,
+                                archetype=draft_archetype,
+                                model_confidence=confidence,
+                                approved_by_human=True,
+                                executed=False,
+                                error="duplicate_publish_signature",
+                                title=title,
+                            )
+                            continue
+                        try:
+                            post_resp = client.create_post(submolt=action_submolt, title=title, content=post_content)
+                            _remember_publish_signature(state, post_sig)
+                        except Exception as e:
+                            analytics_event(
+                                action_type="post",
+                                target_post_id="(new)",
+                                submolt=action_submolt,
+                                feed_sources=feed_sources_for_event,
+                                virality_score=virality_for_event,
+                                archetype=draft_archetype,
+                                model_confidence=confidence,
+                                approved_by_human=True,
+                                executed=False,
+                                error=normalize_str(e),
+                                title=title,
+                            )
+                            logger.warning(
+                                "Cycle=%s action=post failed reference_post_id=%s error=%s",
+                                iteration,
+                                pid,
+                                e,
+                            )
+                            continue
                         created_post_id = post_id(post_resp if isinstance(post_resp, dict) else {}) or "(unknown)"
                         created_url = post_url(created_post_id if created_post_id != "(unknown)" else None)
                         state["daily_post_count"] = state.get("daily_post_count", 0) + 1
@@ -4743,6 +4351,23 @@ def run_loop() -> None:
                         reply_actions += 1
                         post_action_sent = True
                         reply_executed = True
+                        remember_topic_signature(title=title, content=post_content)
+                        journal_written_action(
+                            action_type="post",
+                            target_post_id=str(created_post_id),
+                            submolt=action_submolt,
+                            title=title,
+                            content=post_content,
+                            reference_post_id=pid,
+                            url=created_url,
+                            reference={
+                                "post_id": pid,
+                                "post_title": title_text or post_title_preview,
+                                "post_content": normalize_str(post.get("content")),
+                                "post_author": author_name or author_id,
+                            },
+                            meta={"source": "main_cycle", "kind": "post"},
+                        )
                         logger.info(
                             (
                                 "Cycle=%s action=post success reference_post_id=%s "
@@ -4753,6 +4378,18 @@ def run_loop() -> None:
                             created_post_id,
                             created_url,
                             state["daily_post_count"],
+                        )
+                        analytics_event(
+                            action_type="post",
+                            target_post_id=str(created_post_id),
+                            submolt=action_submolt,
+                            feed_sources=feed_sources_for_event,
+                            virality_score=virality_for_event,
+                            archetype=draft_archetype,
+                            model_confidence=confidence,
+                            approved_by_human=True,
+                            executed=True,
+                            title=title,
                         )
                         print_success_banner(action="post", pid=created_post_id, url=created_url, title=title)
 
@@ -4799,6 +4436,38 @@ def run_loop() -> None:
                                     f"{vote_action}-post",
                                     pid,
                                 )
+                                try:
+                                    append_action_journal(
+                                        cfg.action_journal_path,
+                                        action_type=f"{vote_action}-post",
+                                        target_post_id=pid,
+                                        submolt=submolt,
+                                        title=title,
+                                        content="",
+                                        reference_post_id=pid,
+                                        url=url,
+                                        reference={
+                                            "post_id": pid,
+                                            "post_title": title_text or post_title_preview,
+                                            "post_author": author_name or author_id,
+                                            "vote_action": vote_action,
+                                        },
+                                        meta={"source": "main_cycle", "kind": "vote_post"},
+                                    )
+                                except Exception as e:
+                                    logger.debug("Vote post journal write failed post_id=%s error=%s", pid, e)
+                                analytics_event(
+                                    action_type=f"{vote_action}-post",
+                                    target_post_id=pid,
+                                    submolt=submolt,
+                                    feed_sources=feed_sources_for_event,
+                                    virality_score=virality_for_event,
+                                    archetype=draft_archetype,
+                                    model_confidence=confidence,
+                                    approved_by_human=True,
+                                    executed=True,
+                                    title=title,
+                                )
                                 print_success_banner(
                                     action=f"{vote_action}-post",
                                     pid=pid,
@@ -4843,6 +4512,44 @@ def run_loop() -> None:
                                         iteration,
                                         f"{vote_action}-comment",
                                         top_comment_id,
+                                    )
+                                    try:
+                                        append_action_journal(
+                                            cfg.action_journal_path,
+                                            action_type=f"{vote_action}-comment",
+                                            target_post_id=top_comment_id,
+                                            submolt=submolt,
+                                            title=f"Comment by {top_comment_author or '(unknown)'}",
+                                            content="",
+                                            reference_post_id=pid,
+                                            url=url,
+                                            reference={
+                                                "post_id": pid,
+                                                "post_title": title_text or post_title_preview,
+                                                "comment_id": top_comment_id,
+                                                "comment_author": top_comment_author,
+                                                "comment_content": comment_body,
+                                                "vote_action": vote_action,
+                                            },
+                                            meta={"source": "main_cycle", "kind": "vote_comment"},
+                                        )
+                                    except Exception as e:
+                                        logger.debug(
+                                            "Vote comment journal write failed comment_id=%s error=%s",
+                                            top_comment_id,
+                                            e,
+                                        )
+                                    analytics_event(
+                                        action_type=f"{vote_action}-comment",
+                                        target_post_id=pid,
+                                        submolt=submolt,
+                                        feed_sources=feed_sources_for_event,
+                                        virality_score=virality_for_event,
+                                        archetype=draft_archetype,
+                                        model_confidence=confidence,
+                                        approved_by_human=True,
+                                        executed=True,
+                                        title=title,
                                     )
                                     print_success_banner(
                                         action=f"{vote_action}-comment",
@@ -4895,6 +4602,7 @@ def run_loop() -> None:
                     persona_text=persona_text,
                     domain_context_text=domain_context_text,
                     approve_all_actions=approve_all_actions,
+                    submolt_meta=submolt_meta,
                 )
                 if should_stop:
                     return
@@ -4927,6 +4635,18 @@ def run_loop() -> None:
             if skip_reasons:
                 summary = ", ".join([f"{k}={v}" for k, v in sorted(skip_reasons.items())])
                 logger.info("Poll cycle=%s skip_summary %s", iteration, summary)
+                if int(skip_reasons.get("no_action_slots", 0) or 0) > 0:
+                    print_status_banner(
+                        title="CYCLE SKIP SUMMARY",
+                        rows=[
+                            ("cycle", iteration),
+                            ("no_action_slots", int(skip_reasons.get("no_action_slots", 0) or 0)),
+                            ("drafted", drafted_count),
+                            ("model_approved", model_approved),
+                            ("actions_executed", acted),
+                        ],
+                        tone="yellow",
+                    )
 
             if cfg.keyword_learning_enabled:
                 interval = max(1, cfg.keyword_learning_interval_cycles)
@@ -5113,6 +4833,44 @@ def run_loop() -> None:
                 }
             )
             state["cycle_metrics_history"] = metrics_history[-240:]
+
+            if cfg.analytics_refresh_interval_cycles > 0 and iteration % cfg.analytics_refresh_interval_cycles == 0:
+                try:
+                    tracked_post_ids: Set[str] = set(replied_posts)
+                    proactive_entries = post_memory.get("proactive_posts", [])
+                    if isinstance(proactive_entries, list):
+                        for item in proactive_entries[-160:]:
+                            if not isinstance(item, dict):
+                                continue
+                            tracked = normalize_str(item.get("post_id")).strip()
+                            if tracked:
+                                tracked_post_ids.add(tracked)
+                    refresh_post_metrics(
+                        cfg.analytics_db_path,
+                        client=client,
+                        tracked_post_ids=tracked_post_ids,
+                        logger=logger,
+                        fetch_limit=max(40, cfg.posts_limit),
+                    )
+                except Exception as e:
+                    logger.warning("Analytics metrics refresh failed error=%s", e)
+
+            if cfg.analytics_summary_interval_cycles > 0 and iteration % cfg.analytics_summary_interval_cycles == 0:
+                try:
+                    top_skips = aggregate_skip_reasons(
+                        state.get("cycle_metrics_history", []),
+                        window=max(6, cfg.analytics_summary_interval_cycles),
+                    )
+                    summary = daily_summary(cfg.analytics_db_path, top_skip_reasons=top_skips)
+                    logger.info(
+                        "Daily analytics summary date=%s best_archetype=%s best_hook_pattern=%s top_skip_reasons=%s",
+                        summary.get("date"),
+                        summary.get("best_archetype"),
+                        summary.get("best_hook_pattern"),
+                        summary.get("top_skip_reasons"),
+                    )
+                except Exception as e:
+                    logger.warning("Analytics daily summary failed error=%s", e)
 
             # Sleep policy:
             # - Poll quickly when idle.

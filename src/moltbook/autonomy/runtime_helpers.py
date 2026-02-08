@@ -309,6 +309,22 @@ def comment_parent_id(comment: Dict[str, Any]) -> Optional[str]:
     return str(parent)
 
 
+def register_my_comment_id(state: Dict[str, Any], response_payload: Any) -> Optional[str]:
+    if not isinstance(response_payload, dict):
+        return None
+    cid = comment_id(response_payload)
+    if not cid:
+        nested = response_payload.get("comment")
+        if isinstance(nested, dict):
+            cid = comment_id(nested)
+    if not cid:
+        return None
+    my_comment_ids = set(state.get("my_comment_ids", []))
+    my_comment_ids.add(cid)
+    state["my_comment_ids"] = list(my_comment_ids)[-20000:]
+    return cid
+
+
 def extract_single_post(payload: Any) -> Optional[Dict[str, Any]]:
     if isinstance(payload, dict):
         post_obj = payload.get("post")
@@ -465,8 +481,8 @@ def currently_allowed_response_modes(cfg: Config, state: Dict[str, Any]) -> List
     return allowed
 
 
-def preview_text(content: str, max_chars: int = 600) -> str:
+def preview_text(content: str, max_chars: int = 0) -> str:
     normalized = content.strip().replace("...[truncated]", "...").replace("... [truncated]", "...").replace("[truncated]", "")
-    if len(normalized) <= max_chars:
-        return normalized
-    return normalized[:max_chars] + "..."
+    if max_chars > 0 and len(normalized) > max_chars:
+        return normalized[:max_chars] + "..."
+    return normalized

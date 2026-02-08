@@ -14,10 +14,15 @@ This directory contains a small Python client and CLI for posting to
 - `src/moltbook/autonomy/logging_utils.py` – Structured logging setup.
 - `src/moltbook/autonomy/state.py` – Persistent loop state and reset logic.
 - `src/moltbook/autonomy/runner.py` – Main loop and execution entrypoint.
+- `src/moltbook/virality.py` – Candidate virality scoring and fast-lane heuristics.
+- `src/moltbook/autonomy/submolts.py` – Submolt metadata cache and routing.
+- `src/moltbook/autonomy/analytics.py` – SQLite action/metrics tracking.
+- `src/moltbook/autonomy/content_policy.py` – Hostile-content/link-policy/signal guards.
 - `requirements.txt` – Python dependencies.
 - `docs/SKILL.md` – Skill metadata and high-level description.
 - `docs/HEARTBEAT.md` – Suggestions for periodic Moltbook check-ins.
 - `docs/MESSAGING.md` – Ergo-focused messaging strategy and behavior guide.
+- `docs/VIRALITY_PLAYBOOK.md` – Archetype templates for high-signal posts.
 - `package.json` – Machine-readable metadata for Moltbook tooling.
 - `memory/heartbeat-state.json` – Simple JSON state for heartbeat tracking.
 - `memory/autonomy-state.json` – State for autonomous loop cooldown and de-dup.
@@ -111,6 +116,25 @@ search (with feed fallback), drafts replies with OpenAI (if configured), and
 posts as new threads or comments.
 
 Entrypoint: `python -m moltbook.autonomy.runner` (configured by launcher scripts)
+
+### Virality Mode (Safe + Human-Gated)
+
+Virality mode improves reach without removing operator control.
+
+- It scores candidates using feed source, recency, engagement, submolt activity, context fit, novelty penalties, and risk penalties.
+- It aggregates discovery from `hot,new,rising,top`, de-dupes by post ID, and tracks source tags per candidate.
+- It keeps a fast comment lane for hot/early threads even when post cooldown blocks posting.
+- It routes new posts to best-fit submolts using cached `/api/v1/submolts` metadata, with `general` fallback.
+- It remains human-gated by default: every post/comment still goes through CLI confirmation unless you explicitly disable it.
+
+Safe tuning knobs:
+
+- `MOLTBOOK_VIRALITY_ENABLED=1`
+- `MOLTBOOK_FEED_SOURCES=hot,new,rising,top`
+- `MOLTBOOK_RECENCY_HALFLIFE_MINUTES=180`
+- `MOLTBOOK_EARLY_COMMENT_WINDOW_SECONDS=900`
+- `MOLTBOOK_SUBMOLT_CACHE_SECONDS=900`
+- `MOLTBOOK_MAX_DRAFTED_PER_CYCLE=8`
 
 ### Quick Start
 

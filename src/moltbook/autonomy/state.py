@@ -36,7 +36,13 @@ def load_state(path: Path) -> Dict[str, Any]:
             "pending_actions": [],
             "approved_submolts": [],
             "dismissed_submolts": [],
+            "followed_agents": [],
+            "dismissed_follow_agents": [],
+            "bad_bot_counts": {},
+            "bad_bot_warned_comment_ids": [],
+            "bad_bot_warnings_by_author_day": {},
             "cycle_metrics_history": [],
+            "recent_publish_signatures": [],
         }
     with path.open("r", encoding="utf-8") as f:
         state = json.load(f)
@@ -67,8 +73,20 @@ def load_state(path: Path) -> Dict[str, Any]:
         state["approved_submolts"] = []
     if "dismissed_submolts" not in state:
         state["dismissed_submolts"] = []
+    if "followed_agents" not in state:
+        state["followed_agents"] = []
+    if "dismissed_follow_agents" not in state:
+        state["dismissed_follow_agents"] = []
+    if "bad_bot_counts" not in state:
+        state["bad_bot_counts"] = {}
+    if "bad_bot_warned_comment_ids" not in state:
+        state["bad_bot_warned_comment_ids"] = []
+    if "bad_bot_warnings_by_author_day" not in state:
+        state["bad_bot_warnings_by_author_day"] = {}
     if "cycle_metrics_history" not in state:
         state["cycle_metrics_history"] = []
+    if "recent_publish_signatures" not in state:
+        state["recent_publish_signatures"] = []
     if "voted_comment_ids" not in state:
         state["voted_comment_ids"] = []
     if "replied_to_comment_ids" not in state:
@@ -87,4 +105,5 @@ def reset_daily_if_needed(state: Dict[str, Any]) -> None:
     if state.get("last_daily_reset") != today:
         state["daily_post_count"] = 0
         state["daily_comment_count"] = 0
+        state["bad_bot_warnings_by_author_day"] = {}
         state["last_daily_reset"] = today

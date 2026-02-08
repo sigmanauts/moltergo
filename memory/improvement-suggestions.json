@@ -8882,7 +8882,117 @@
       "strategy_experiments": [],
       "summary": "No novel actionable suggestions this cycle.",
       "ts": "2026-02-07T12:59:27.268164+00:00"
+    },
+    {
+      "code_changes": [
+        {
+          "file_hint": "src/moltbook/autonomy/strategy.py",
+          "proposed_change": "Add explicit streak recovery mode in adaptive controls to lower draft budgets and avoid trend-context over-pruning after repeated zero-action cycles.",
+          "reason": "Recurring zero-action streak indicates the current adaptive loop is stuck.",
+          "risk": "May reduce topic diversity temporarily while recovery mode is active."
+        }
+      ],
+      "cycle": 12,
+      "cycle_stats": {
+        "actions": 0,
+        "comment_action_sent": false,
+        "draft_shortlist_mode": "cooldown_pressure",
+        "draft_shortlist_size": 18,
+        "draft_signal_min_score": 2,
+        "drafted": 4,
+        "effective_draft_shortlist_size": 8,
+        "effective_draft_signal_min_score": 3,
+        "eligible_now": 9,
+        "high_signal_term_count": 46,
+        "inspected": 143,
+        "market_question_title_rate": 0.05,
+        "market_signal_count": 120,
+        "market_top_submolts": [
+          {
+            "avg_weighted_score": 98003.5,
+            "name": "offmychest"
+          },
+          {
+            "avg_weighted_score": 23821.23,
+            "name": "general"
+          },
+          {
+            "avg_weighted_score": 8243.0,
+            "name": "shitposts"
+          }
+        ],
+        "max_suggestions": 6,
+        "model_approved": 0,
+        "new_candidates": 9,
+        "post_action_sent": false,
+        "proactive_recent_avg_comments": 16.333,
+        "proactive_recent_avg_upvotes": 9.583,
+        "proactive_recent_avg_visibility_score": 51.967,
+        "proactive_target_hit_rate": 0.0,
+        "proactive_target_upvotes": 25,
+        "proactive_top_lift_terms": [
+          "efficiency",
+          "economies",
+          "chain",
+          "consider",
+          "parallel",
+          "without",
+          "processing",
+          "contrast"
+        ],
+        "proactive_visibility_delta_pct": -0.0451,
+        "skip_reasons": {
+          "llm_budget_exhausted": 1,
+          "not_trending_enough": 6
+        },
+        "trending_terms": [
+          "economy",
+          "autonomous",
+          "chain",
+          "skill",
+          "decentralized",
+          "escrow",
+          "built",
+          "being"
+        ]
+      },
+      "diagnostics": {
+        "action_rate": 0.0,
+        "actions": 0,
+        "approval_rate": 0.0,
+        "bottleneck_label": "low_conversion",
+        "candidate_rate": 0.0629,
+        "draft_rate": 0.4444,
+        "drafted": 4,
+        "eligible_now": 9,
+        "execution_rate": 0.0,
+        "inspected": 143,
+        "model_approved": 0,
+        "new_candidates": 9,
+        "top_skip_reasons": [
+          {
+            "count": 6,
+            "name": "not_trending_enough"
+          },
+          {
+            "count": 1,
+            "name": "llm_budget_exhausted"
+          }
+        ]
+      },
+      "priority": "medium",
+      "prompt_changes": [],
+      "provider": "deterministic",
+      "strategy_experiments": [
+        {
+          "idea": "Track recovery-mode effectiveness vs. baseline over 12 cycles.",
+          "metric": "approval_rate, execution_rate, and zero_action_streak",
+          "stop_condition": "Disable if zero_action_streak does not improve within 12 cycles"
+        }
+      ],
+      "summary": "No novel actionable suggestions this cycle.",
+      "ts": "2026-02-07T19:45:12.639913+00:00"
     }
   ],
-  "last_updated_ts": "2026-02-07T12:59:27.268173+00:00"
+  "last_updated_ts": "2026-02-07T19:45:12.640077+00:00"
 }

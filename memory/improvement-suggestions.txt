@@ -4444,3 +4444,49 @@ Code Changes:
 Strategy Experiments:
 1. (none)
 
+========================================================================
+Timestamp: 2026-02-07T19:45:12.648116+00:00
+Cycle: 12
+Provider: deterministic
+Priority: medium
+
+Summary:
+No novel actionable suggestions this cycle.
+
+Cycle Stats:
+inspected=143 new_candidates=9 eligible_now=9 drafted=4 model_approved=0 actions=0
+
+Diagnostics:
+bottleneck=low_conversion candidate_rate=0.063 draft_rate=0.444 approval_rate=0.000 execution_rate=0.000
+top_skip_reasons=not_trending_enough=6, llm_budget_exhausted=1
+
+Feedback Context:
+historical_window=18 avg_approval_rate=0.000 avg_execution_rate=0.000 zero_action_streak=18
+top_bottlenecks=cooldown_limited=16, low_conversion=2
+visibility avg_recent_upvotes=9.52 avg_recent_visibility=72.97 avg_target_hit_rate=0.000 upvotes_trend=0.083 visibility_trend=1.664
+visibility_top_terms=comparison, chain, when, terms, economies, evaluating, axes, market
+
+Visibility Hypotheses:
+1. Lean into high-signal terms that already won for us: economies, transaction, solana, efficiency
+2. Use terms with measured lift in our own posts: efficiency, economies, chain, consider, parallel, without
+3. Prioritize proactive posts in strongest submolts: general
+4. Our best posting hours (UTC) so far: 04:00, 23:00, 02:00
+5. Recent visibility is below target (25 upvotes): hit_rate=0.0. Prioritize sharper hooks plus concrete implementation stakes.
+6. Inject current market language from hot/rising feeds: economy, autonomous, chain, skill, decentralized, escrow
+
+Prompt Changes:
+1. (none)
+
+Code Changes:
+1.
+   file_hint: src/moltbook/autonomy/strategy.py
+   proposed_change: Add explicit streak recovery mode in adaptive controls to lower draft budgets and avoid trend-context over-pruning after repeated zero-action cycles.
+   reason: Recurring zero-action streak indicates the current adaptive loop is stuck.
+   risk: May reduce topic diversity temporarily while recovery mode is active.
+
+Strategy Experiments:
+1.
+   idea: Track recovery-mode effectiveness vs. baseline over 12 cycles.
+   metric: approval_rate, execution_rate, and zero_action_streak
+   stop_condition: Disable if zero_action_streak does not improve within 12 cycles
+

@@ -101,6 +101,11 @@ class Config:
     keyword_learning_max_suggestions: int
     draft_shortlist_size: int
     draft_signal_min_score: int
+    virality_enabled: bool
+    feed_sources: List[str]
+    recency_halflife_minutes: int
+    early_comment_window_seconds: int
+    submolt_cache_seconds: int
     dynamic_shortlist_enabled: bool
     dynamic_shortlist_min: int
     dynamic_shortlist_max: int
@@ -111,6 +116,15 @@ class Config:
     startup_reply_scan_replied_post_limit: int
     reply_triage_llm_calls_per_scan: int
     reply_scan_interval_cycles: int
+    max_drafts_per_cycle: int
+    trending_min_post_score: int
+    trending_min_comment_count: int
+    follow_ergo_authors_enabled: bool
+    follow_ergo_authors_per_cycle: int
+    badbot_warning_enabled: bool
+    badbot_warning_min_strikes: int
+    badbot_max_warnings_per_scan: int
+    badbot_max_warnings_per_author_per_day: int
     proactive_posting_enabled: bool
     proactive_post_attempt_cooldown_seconds: int
     proactive_post_reference_limit: int
@@ -126,6 +140,10 @@ class Config:
     self_improve_path: Path
     self_improve_text_path: Path
     self_improve_backlog_path: Path
+    analytics_db_path: Path
+    action_journal_path: Path
+    analytics_refresh_interval_cycles: int
+    analytics_summary_interval_cycles: int
     max_pending_actions: int
     do_not_reply_authors: List[str]
     openai_api_key: Optional[str]
@@ -207,6 +225,18 @@ def load_config() -> Config:
     keyword_learning_max_suggestions = int(os.getenv("MOLTBOOK_KEYWORD_LEARNING_MAX_SUGGESTIONS", "6"))
     draft_shortlist_size = int(os.getenv("MOLTBOOK_DRAFT_SHORTLIST_SIZE", "18"))
     draft_signal_min_score = int(os.getenv("MOLTBOOK_DRAFT_SIGNAL_MIN_SCORE", "2"))
+    virality_enabled = os.getenv("MOLTBOOK_VIRALITY_ENABLED", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    feed_sources = [s.strip().lower() for s in os.getenv("MOLTBOOK_FEED_SOURCES", "hot,new,rising,top").split(",")]
+    feed_sources = [s for s in feed_sources if s in {"hot", "new", "rising", "top"}]
+    if not feed_sources:
+        feed_sources = ["hot", "new", "rising", "top"]
+    recency_halflife_minutes = int(os.getenv("MOLTBOOK_RECENCY_HALFLIFE_MINUTES", "180"))
+    early_comment_window_seconds = int(os.getenv("MOLTBOOK_EARLY_COMMENT_WINDOW_SECONDS", "900"))
+    submolt_cache_seconds = int(os.getenv("MOLTBOOK_SUBMOLT_CACHE_SECONDS", "900"))
     dynamic_shortlist_enabled = os.getenv("MOLTBOOK_DYNAMIC_SHORTLIST_ENABLED", "1").strip().lower() in {
         "1",
         "true",
@@ -224,7 +254,29 @@ def load_config() -> Config:
     startup_reply_scan_comment_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_COMMENT_LIMIT", "40"))
     startup_reply_scan_replied_post_limit = int(os.getenv("MOLTBOOK_STARTUP_REPLY_SCAN_REPLIED_POST_LIMIT", "25"))
     reply_triage_llm_calls_per_scan = int(os.getenv("MOLTBOOK_REPLY_TRIAGE_LLM_CALLS_PER_SCAN", "3"))
-    reply_scan_interval_cycles = int(os.getenv("MOLTBOOK_REPLY_SCAN_INTERVAL_CYCLES", "3"))
+    reply_scan_interval_cycles = int(os.getenv("MOLTBOOK_REPLY_SCAN_INTERVAL_CYCLES", "1"))
+    max_drafts_per_cycle_raw = os.getenv("MOLTBOOK_MAX_DRAFTED_PER_CYCLE", "").strip()
+    if not max_drafts_per_cycle_raw:
+        max_drafts_per_cycle_raw = os.getenv("MOLTBOOK_MAX_DRAFTS_PER_CYCLE", "8").strip()
+    max_drafts_per_cycle = int(max_drafts_per_cycle_raw or "8")
+    trending_min_post_score = int(os.getenv("MOLTBOOK_TRENDING_MIN_POST_SCORE", "2"))
+    trending_min_comment_count = int(os.getenv("MOLTBOOK_TRENDING_MIN_COMMENT_COUNT", "3"))
+    follow_ergo_authors_enabled = os.getenv("MOLTBOOK_FOLLOW_ERGO_AUTHORS_ENABLED", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    follow_ergo_authors_per_cycle = int(os.getenv("MOLTBOOK_FOLLOW_ERGO_AUTHORS_PER_CYCLE", "2"))
+    badbot_warning_enabled = os.getenv("MOLTBOOK_BADBOT_WARNING_ENABLED", "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    badbot_warning_min_strikes = int(os.getenv("MOLTBOOK_BADBOT_WARNING_MIN_STRIKES", "4"))
+    badbot_max_warnings_per_scan = int(os.getenv("MOLTBOOK_BADBOT_MAX_WARNINGS_PER_SCAN", "3"))
+    badbot_max_warnings_per_author_per_day = int(
+        os.getenv("MOLTBOOK_BADBOT_MAX_WARNINGS_PER_AUTHOR_PER_DAY", "2")
+    )
     proactive_posting_enabled = os.getenv("MOLTBOOK_PROACTIVE_POSTING_ENABLED", "1").strip().lower() in {
         "1",
         "true",
@@ -257,6 +309,10 @@ def load_config() -> Config:
     self_improve_backlog_path = Path(
         os.getenv("MOLTBOOK_SELF_IMPROVE_BACKLOG_PATH", "memory/improvement-backlog.json")
     )
+    analytics_db_path = Path(os.getenv("MOLTBOOK_ANALYTICS_DB_PATH", "memory/analytics.sqlite"))
+    action_journal_path = Path(os.getenv("MOLTBOOK_ACTION_JOURNAL_PATH", "memory/action-journal.jsonl"))
+    analytics_refresh_interval_cycles = int(os.getenv("MOLTBOOK_ANALYTICS_REFRESH_INTERVAL_CYCLES", "3"))
+    analytics_summary_interval_cycles = int(os.getenv("MOLTBOOK_ANALYTICS_SUMMARY_INTERVAL_CYCLES", "12"))
     max_pending_actions = int(os.getenv("MOLTBOOK_MAX_PENDING_ACTIONS", "200"))
 
     do_not_reply_authors = [a.lower() for a in _parse_csv_env("MOLTBOOK_DO_NOT_REPLY_AUTHORS")]
@@ -329,6 +385,11 @@ def load_config() -> Config:
         keyword_learning_max_suggestions=keyword_learning_max_suggestions,
         draft_shortlist_size=draft_shortlist_size,
         draft_signal_min_score=draft_signal_min_score,
+        virality_enabled=virality_enabled,
+        feed_sources=feed_sources,
+        recency_halflife_minutes=recency_halflife_minutes,
+        early_comment_window_seconds=early_comment_window_seconds,
+        submolt_cache_seconds=submolt_cache_seconds,
         dynamic_shortlist_enabled=dynamic_shortlist_enabled,
         dynamic_shortlist_min=dynamic_shortlist_min,
         dynamic_shortlist_max=dynamic_shortlist_max,
@@ -339,6 +400,15 @@ def load_config() -> Config:
         startup_reply_scan_replied_post_limit=startup_reply_scan_replied_post_limit,
         reply_triage_llm_calls_per_scan=reply_triage_llm_calls_per_scan,
         reply_scan_interval_cycles=reply_scan_interval_cycles,
+        max_drafts_per_cycle=max_drafts_per_cycle,
+        trending_min_post_score=trending_min_post_score,
+        trending_min_comment_count=trending_min_comment_count,
+        follow_ergo_authors_enabled=follow_ergo_authors_enabled,
+        follow_ergo_authors_per_cycle=follow_ergo_authors_per_cycle,
+        badbot_warning_enabled=badbot_warning_enabled,
+        badbot_warning_min_strikes=badbot_warning_min_strikes,
+        badbot_max_warnings_per_scan=badbot_max_warnings_per_scan,
+        badbot_max_warnings_per_author_per_day=badbot_max_warnings_per_author_per_day,
         proactive_posting_enabled=proactive_posting_enabled,
         proactive_post_attempt_cooldown_seconds=proactive_post_attempt_cooldown_seconds,
         proactive_post_reference_limit=proactive_post_reference_limit,
@@ -354,6 +424,10 @@ def load_config() -> Config:
         self_improve_path=self_improve_path,
         self_improve_text_path=self_improve_text_path,
         self_improve_backlog_path=self_improve_backlog_path,
+        analytics_db_path=analytics_db_path,
+        action_journal_path=action_journal_path,
+        analytics_refresh_interval_cycles=analytics_refresh_interval_cycles,
+        analytics_summary_interval_cycles=analytics_summary_interval_cycles,
         max_pending_actions=max_pending_actions,
         do_not_reply_authors=do_not_reply_authors,
         openai_api_key=openai_api_key,

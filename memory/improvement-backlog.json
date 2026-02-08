@@ -4916,9 +4916,43 @@
       ],
       "seen_count": 1,
       "signature": "strategy_experiments:create a tagging system for posts based on relevance to current trending terms and high signal topics visibility score and engagement metrics of tagged posts if no significant increase in visibility scores is observed after four weeks"
+    },
+    {
+      "change": "Add explicit streak recovery mode in adaptive controls to lower draft budgets and avoid trend-context over-pruning after repeated zero-action cycles.",
+      "first_seen_cycle": 12,
+      "first_seen_ts": "2026-02-07T19:45:12.649923+00:00",
+      "headline": "src/moltbook/autonomy/strategy.py",
+      "kind": "code_changes",
+      "last_bottleneck": "low_conversion",
+      "last_priority": "medium",
+      "last_seen_cycle": 12,
+      "last_seen_ts": "2026-02-07T19:45:12.649923+00:00",
+      "priority_score": 2.35,
+      "providers": [
+        "deterministic"
+      ],
+      "seen_count": 1,
+      "signature": "code_changes:src moltbook autonomy strategy py add explicit streak recovery mode in adaptive controls to lower draft budgets and avoid trend context over pruning after repeated zero action cycles"
+    },
+    {
+      "change": "approval_rate, execution_rate, and zero_action_streak",
+      "first_seen_cycle": 12,
+      "first_seen_ts": "2026-02-07T19:45:12.649923+00:00",
+      "headline": "Track recovery-mode effectiveness vs. baseline over 12 cycles.",
+      "kind": "strategy_experiments",
+      "last_bottleneck": "low_conversion",
+      "last_priority": "medium",
+      "last_seen_cycle": 12,
+      "last_seen_ts": "2026-02-07T19:45:12.649923+00:00",
+      "priority_score": 1.95,
+      "providers": [
+        "deterministic"
+      ],
+      "seen_count": 1,
+      "signature": "strategy_experiments:track recovery mode effectiveness vs baseline over 12 cycles approval rate execution rate and zero action streak disable if zero action streak does not improve within 12 cycles"
     }
   ],
-  "last_cycle": 504,
-  "last_updated_ts": "2026-02-07T12:59:27.277454+00:00",
-  "top_bottleneck": "cooldown_limited"
+  "last_cycle": 12,
+  "last_updated_ts": "2026-02-07T19:45:12.649923+00:00",
+  "top_bottleneck": "low_conversion"
 }

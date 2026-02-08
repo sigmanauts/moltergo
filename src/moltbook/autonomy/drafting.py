@@ -52,15 +52,19 @@ GENERIC_KEYWORD_BLACKLIST = {
     "agents",
 }
 
-MAX_PROMPT_PERSONA_CHARS = 1200
-MAX_PROMPT_CONTEXT_CHARS = 1400
-MAX_PROMPT_POST_CONTENT_CHARS = 420
-MAX_PROMPT_COMMENT_CONTENT_CHARS = 280
+MAX_PROMPT_PERSONA_CHARS = 700
+MAX_PROMPT_CONTEXT_CHARS = 700
+MAX_PROMPT_POST_CONTENT_CHARS = 280
+MAX_PROMPT_COMMENT_CONTENT_CHARS = 200
+MAX_TRIAGE_PERSONA_CHARS = 160
+MAX_TRIAGE_CONTEXT_CHARS = 220
+MAX_TRIAGE_POST_CONTENT_CHARS = 180
+MAX_TRIAGE_COMMENT_CONTENT_CHARS = 150
 MAX_PROMPT_TOP_POSTS = 5
 MAX_PROMPT_RECENT_TITLES = 16
 MAX_PROMPT_PRIOR_SUGGESTIONS = 4
 MAX_PROMPT_LEARNING_EXAMPLES = 2
-MAX_CHATBASE_MESSAGE_CHARS = 4800
+MAX_CHATBASE_MESSAGE_CHARS = 2400
 MAX_OPENAI_MESSAGE_CHARS = 9000
 CONTROL_PAYLOAD_PATTERN = re.compile(
     r"\b(should_respond|response_mode|vote_action|vote_target|confidence|should_post|content_archetype)\s*[:=]",
@@ -68,6 +72,19 @@ CONTROL_PAYLOAD_PATTERN = re.compile(
 )
 TRIAGE_SCAFFOLD_PATTERN = re.compile(r"(^|\n)\s*(assessment|action)\s*:\s*", re.IGNORECASE)
 TRIAGE_REPLY_LABEL_PATTERN = re.compile(r"\breply(?:\s*\([^)]{0,40}\))?\s*:\s*", re.IGNORECASE)
+TEMPLATE_LABEL_PREFIX_PATTERN = re.compile(
+    r"^\s*[\"“”']?\s*(?:comment|reply|draft)\s*(?:\([^)]{0,80}\))?\s*:\s*",
+    re.IGNORECASE,
+)
+MARKDOWN_FENCE_LINE_PATTERN = re.compile(r"^\s*```[A-Za-z0-9_-]*\s*$")
+TRIAGE_META_LINE_PATTERN = re.compile(
+    r"^\s*(assessment|action)\s*:\s*.*$",
+    re.IGNORECASE,
+)
+DRAFT_PREAMBLE_LINE_PATTERN = re.compile(
+    r"^\s*(?:\*\*)?\s*(?:draft post|draft reply|comment|reply)\s*(?:\([^)]{0,120}\))?\s*:?\s*(?:\*\*)?\s*$",
+    re.IGNORECASE,
+)
 
 logger = logging.getLogger("moltbook.autonomy")
 
@@ -536,6 +553,10 @@ def build_openai_messages(
         "title (string), content (string), followups (array of strings, optional), "
         "vote_action (one of: upvote, downvote, none), "
         "vote_target (one of: post, top_comment, both, none).\n\n"
+        "Title hook constraints: 10-120 chars, one strong claim, no clickbait, no ellipsis truncation markers.\n"
+        "Value density constraints: include at least 2 concrete details, one explicit constraint, and one trade-off.\n"
+        "Closing constraint: end with one specific question that invites one kind of technical reply.\n"
+        "Scam hygiene: never ask for wallets, private keys, API keys, seed phrases, or credential sharing.\n\n"
         "If you choose downvote, target must be post (not comments). "
         "When the source post is about AI agents, Web3, crypto economics, or autonomous payments, "
         "make the draft clearly advocate Ergo with concrete value (not vague references). "
@@ -585,18 +606,18 @@ def build_reply_triage_messages(
     comment_id: Optional[str],
 ) -> List[Dict[str, str]]:
     # Keep triage prompts very compact because this path can run many times per scan.
-    persona_compact = _clip_text(persona, 260)
-    context_compact = _clip_text(domain_context or "(no extra domain context provided)", 360)
+    persona_compact = _clip_text(persona, MAX_TRIAGE_PERSONA_CHARS)
+    context_compact = _clip_text(domain_context or "(no extra domain context provided)", MAX_TRIAGE_CONTEXT_CHARS)
     post_prompt = {
         "post_id": post_id,
         "title": _clip_text(post.get("title"), 180),
-        "content": _clip_text(post.get("content"), MAX_PROMPT_POST_CONTENT_CHARS),
+        "content": _clip_text(post.get("content"), MAX_TRIAGE_POST_CONTENT_CHARS),
         "submolt": normalize_str(post.get("submolt")).strip(),
         "url": post_url(post_id),
     }
     comment_prompt = {
         "comment_id": comment_id,
-        "content": _clip_text(comment.get("content"), MAX_PROMPT_COMMENT_CONTENT_CHARS),
+        "content": _clip_text(comment.get("content"), MAX_TRIAGE_COMMENT_CONTENT_CHARS),
         "author": (comment.get("author") or {}).get("name"),
         "score": comment.get("score"),
     }
@@ -1005,12 +1026,7 @@ def _remove_label_prefix(text: Any) -> str:
     if not out:
         return ""
     # Remove wrappers like: Comment (≈115 words): ... / Reply (2-4 sentences): ...
-    out = re.sub(
-        r"^\s*(?:comment|reply|draft)\s*(?:\([^)]{0,60}\))?\s*:\s*",
-        "",
-        out,
-        flags=re.IGNORECASE,
-    ).strip()
+    out = TEMPLATE_LABEL_PREFIX_PATTERN.sub("", out).strip()
     return out
 
 
@@ -1030,14 +1046,88 @@ def _strip_outer_quotes(text: Any) -> str:
     return out
 
 
+def _strip_markdown_fences(text: Any) -> str:
+    lines = normalize_str(text).splitlines()
+    if not lines:
+        return ""
+    cleaned: List[str] = []
+    for line in lines:
+        if MARKDOWN_FENCE_LINE_PATTERN.match(line):
+            continue
+        cleaned.append(line)
+    out = "\n".join(cleaned)
+    # Some models inline the fence with content (e.g., "```yaml comment: ... ```").
+    # We treat all triple-backtick fences as formatting noise for publishing.
+    out = re.sub(r"```[A-Za-z0-9_-]*", "", out)
+    out = out.replace("```", "")
+    out = re.sub(r"(?im)^\s*yaml\s*$", "", out)
+    out = re.sub(r"(?im)^\s*\*\*\s*$", "", out)
+    return out.strip()
+
+
 def _sanitize_generated_content_text(text: Any) -> str:
     out = normalize_str(text).strip()
     if not out:
         return ""
     out = out.replace("...[truncated]", "...").replace("... [truncated]", "...").replace("[truncated]", "")
+    lower = out.lower()
+    if _contains_triage_scaffold_text(out) or ("reply" in lower and ("assessment" in lower or "action" in lower)):
+        extracted = _extract_reply_from_triage_blob(out)
+        if extracted:
+            out = extracted
+            lower = out.lower()
+    if lower.startswith("upvote") and "reply" in lower:
+        extracted = _extract_reply_from_triage_blob(out)
+        if extracted:
+            out = extracted
+    out = _strip_markdown_fences(out)
     out = _remove_label_prefix(out)
     out = _strip_outer_quotes(out)
+    out = TRIAGE_META_LINE_PATTERN.sub("", out).strip()
+    out = re.sub(r"(?is)^\s*(upvote|downvote)\.\s*", "", out).strip()
+    out = re.sub(
+        r"(?im)^\s*if you want,?\s+check my .*?(threads/profile|profile threads).*$",
+        "",
+        out,
+    ).strip()
+    out = _remove_label_prefix(out)
+    out = _strip_outer_quotes(out)
+    out = _strip_markdown_fences(out)
+    out = re.sub(r"\n{3,}", "\n\n", out).strip()
     out = out.strip()
+    return out
+
+
+def sanitize_publish_content(text: Any) -> str:
+    """
+    Final high-safety scrub applied immediately before publishing content.
+    This guards against wrapper leakage even if earlier draft parsing missed it.
+    """
+    out = _sanitize_generated_content_text(text)
+    if not out:
+        return ""
+    cleaned_lines: List[str] = []
+    for line in out.splitlines():
+        if DRAFT_PREAMBLE_LINE_PATTERN.match(normalize_str(line)):
+            continue
+        cleaned_lines.append(line)
+    out = "\n".join(cleaned_lines).strip()
+    if _contains_control_payload_markers(out):
+        return ""
+    # Remove a leftover leading metadata key if present.
+    out = re.sub(r"(?is)^\s*```+\s*(?:yaml\s+)?comment\s*:\s*", "", out).strip()
+    out = re.sub(r"(?is)^\s*```+\s*(?:yaml\s+)?reply\s*:\s*", "", out).strip()
+    out = re.sub(r"(?is)^\s*(?:yaml\s+)?comment\s*:\s*", "", out).strip()
+    out = re.sub(r"(?is)^\s*(?:yaml\s+)?reply\s*:\s*", "", out).strip()
+    out = re.sub(r"(?im)^\s*\*{0,2}\s*draft post[^\n]*\n?", "", out).strip()
+    out = re.sub(r"(?im)^\s*\*{0,2}\s*draft reply[^\n]*\n?", "", out).strip()
+    # Drop any remaining scaffolding headings like "## Draft post ..." anywhere in the text.
+    out = re.sub(r"(?im)^\s*#{1,6}\s*draft\s+(?:post|reply)\b[^\n]*\n?", "", out).strip()
+    # If a model wraps content in code fences despite instructions, strip any leftover backticks.
+    out = out.replace("```", "").strip()
+    # Remove empty markdown-like heading noise sometimes emitted by models.
+    out = re.sub(r"(?im)^\s*#+\s*$", "", out).strip()
+    out = re.sub(r"\n{3,}", "\n\n", out).strip()
     return out
 
 
@@ -1047,6 +1137,13 @@ def _sanitize_structured_response(parsed: Dict[str, Any], response_kind: str) ->
 
     content = _sanitize_generated_content_text(out.get("content"))
     out["content"] = content
+    # If the model claims it should act but provides no publishable content, treat as a decline.
+    if not content:
+        if kind in {"post_response", "reply_triage"}:
+            out["should_respond"] = False
+            out["response_mode"] = "none"
+        elif kind == "proactive_post":
+            out["should_post"] = False
     if kind == "reply_triage" and _contains_triage_scaffold_text(content):
         extracted_reply = _extract_reply_from_triage_blob(content)
         if extracted_reply:
@@ -1061,9 +1158,30 @@ def _sanitize_structured_response(parsed: Dict[str, Any], response_kind: str) ->
             out["should_post"] = False
 
     if kind in {"post_response", "reply_triage"}:
+        should_respond = _coerce_bool(out.get("should_respond"), default=False)
+        out["should_respond"] = should_respond
         mode = normalize_str(out.get("response_mode")).strip().lower()
+        if mode not in {"comment", "post", "both", "none"}:
+            mode = "comment" if should_respond else "none"
+        out["response_mode"] = mode
         if mode == "none":
             out["should_respond"] = False
+            should_respond = False
+        confidence_default = 0.72 if should_respond else (0.86 if kind == "reply_triage" else 0.4)
+        confidence = _coerce_float(out.get("confidence"), default=confidence_default)
+        # Chatbase sometimes emits should_respond=true with confidence=0 or invalid numeric text.
+        # Treat that as malformed confidence, not a hard decline.
+        if should_respond and confidence <= 0:
+            confidence = confidence_default
+        out["confidence"] = confidence
+    elif kind == "proactive_post":
+        should_post = _coerce_bool(out.get("should_post"), default=False)
+        out["should_post"] = should_post
+        confidence_default = 0.72 if should_post else 0.4
+        confidence = _coerce_float(out.get("confidence"), default=confidence_default)
+        if should_post and confidence <= 0:
+            confidence = confidence_default
+        out["confidence"] = confidence
     return out
 
 
@@ -1248,7 +1366,11 @@ def _coerce_reply_triage(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
         should_respond = False
         reply_text = ""
     vote_action = _parse_vote_action(raw, kv)
-    confidence = _coerce_float(kv.get("confidence"), default=0.72 if should_respond else 0.86)
+    confidence_default = 0.72 if should_respond else 0.86
+    confidence = _coerce_float(kv.get("confidence"), default=confidence_default)
+    # Chatbase sometimes emits confidence=0 for true decisions. Treat that as malformed.
+    if should_respond and confidence <= 0:
+        confidence = confidence_default
     response_mode = normalize_str(kv.get("response_mode")).strip().lower()
     if response_mode not in {"comment", "none"}:
         response_mode = "comment" if should_respond else "none"
@@ -1282,9 +1404,13 @@ def _coerce_proactive_post(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
     should_post = _coerce_bool(kv.get("should_post"), default=bool(body))
     if "do not post" in normalize_str(raw).lower():
         should_post = False
+    confidence_default = 0.72 if should_post else 0.4
+    confidence = _coerce_float(kv.get("confidence"), default=confidence_default)
+    if should_post and confidence <= 0:
+        confidence = confidence_default
     return {
         "should_post": bool(should_post and bool(body)),
-        "confidence": _coerce_float(kv.get("confidence"), default=0.72 if should_post else 0.4),
+        "confidence": confidence,
         "submolt": normalize_str(kv.get("submolt")).strip() or "general",
         "title": _sanitize_generated_content_text(_clip_text(title, 140)),
         "content": _clip_text(body, 3200),
@@ -1317,9 +1443,14 @@ def _coerce_post_response(raw: str, kv: Dict[str, str]) -> Dict[str, Any]:
     vote_target = normalize_str(kv.get("vote_target")).strip().lower()
     if vote_target not in {"post", "top_comment", "both", "none"}:
         vote_target = "none"
+    should_respond = bool(should and bool(content))
+    confidence_default = 0.66 if should_respond else 0.4
+    confidence = _coerce_float(kv.get("confidence"), default=confidence_default)
+    if should_respond and confidence <= 0:
+        confidence = confidence_default
     return {
-        "should_respond": bool(should and bool(content)),
-        "confidence": _coerce_float(kv.get("confidence"), default=0.66 if should else 0.4),
+        "should_respond": should_respond,
+        "confidence": confidence,
         "response_mode": response_mode if content else "none",
         "title": _sanitize_generated_content_text(normalize_str(kv.get("title")).strip())
         or _sanitize_generated_content_text(_clip_text(_extract_heading_title(raw), 140)),
@@ -1485,6 +1616,9 @@ def call_chatbase(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[Dict[str
 def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[Dict[str, Any], str, Dict[str, Any]]:
     provider = cfg.llm_provider
     response_kind = _infer_response_kind(messages)
+    # "post_response" is our historical internal name for the main decision prompt
+    # (which can yield comment/post/both/none). Use a clearer label in logs.
+    display_kind = "response" if response_kind == "post_response" else response_kind
     def can_chatbase() -> bool:
         return bool(cfg.chatbase_api_key and cfg.chatbase_chatbot_id)
 
@@ -1508,19 +1642,24 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
     if provider == "auto":
         provider_route = "auto(chatbase-first)"
     logger.info(
-        "LLM request kind=%s provider=%s model=%s messages=%s prompt_chars=%s prompt_tokens_est=%s",
-        response_kind,
+        (
+            "LLM request kind=%s provider=%s model=%s messages=%s "
+            "prompt_chars=%s prompt_tokens_est=%s chatbase_configured=%s openai_configured=%s"
+        ),
+        display_kind,
         provider_route,
         model_hint or "(default)",
         len(messages),
         prompt_chars,
         prompt_tokens_est,
+        int(can_chatbase()),
+        int(can_openai()),
     )
 
     def _log_response(provider_used: str, usage: Dict[str, Any]) -> None:
         logger.info(
             "LLM response kind=%s provider=%s prompt_tokens=%s completion_tokens=%s total_tokens=%s token_source=%s",
-            response_kind,
+            display_kind,
             provider_used,
             usage.get("prompt_tokens"),
             usage.get("completion_tokens"),
@@ -1587,10 +1726,10 @@ def fallback_draft() -> Dict[str, Any]:
 
 
 def format_content(draft: Dict[str, Any]) -> str:
-    content = _sanitize_generated_content_text(draft.get("content"))
+    content = sanitize_publish_content(draft.get("content"))
     if _contains_triage_scaffold_text(content):
         extracted = _extract_reply_from_triage_blob(content)
-        content = _sanitize_generated_content_text(extracted)
+        content = sanitize_publish_content(extracted)
     if _contains_control_payload_markers(content):
         content = ""
     if not content:
@@ -1599,15 +1738,15 @@ def format_content(draft: Dict[str, Any]) -> str:
     if followups:
         lines = [content]
         for item in followups:
-            text = _sanitize_generated_content_text(item)
+            text = sanitize_publish_content(item)
             if _contains_control_payload_markers(text):
                 continue
             if not text:
                 continue
             lines.append("")
             lines.append(text)
-        return "\n".join([line for line in lines if line.strip()])
-    return content
+        return sanitize_publish_content("\n".join([line for line in lines if line.strip()]))
+    return sanitize_publish_content(content)
 
 
 def sanitize_keyword(value: Any) -> Optional[str]:
