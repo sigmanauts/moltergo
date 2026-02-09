@@ -207,6 +207,15 @@ def _card(title: str, value: Any) -> str:
     )
 
 
+def _card_html(title: str, value_html: str) -> str:
+    return (
+        '<div class="card">'
+        f'<div class="card-title">{_h(title)}</div>'
+        f'<div class="card-value">{value_html}</div>'
+        "</div>"
+    )
+
+
 def _normalize_keyword_display(raw: Any) -> str:
     text = normalize_str(raw).strip()
     if not text:
@@ -375,6 +384,51 @@ def _render_table(headers: List[str], rows: List[List[Any]]) -> str:
     return "".join(out)
 
 
+def _render_unanswered_table(rows: List[Dict[str, Any]], now_utc: datetime) -> str:
+    if not rows:
+        return '<div class="empty">-</div>'
+    out: List[str] = ["<table>", "<thead><tr>"]
+    for h in ["age", "author", "submolt", "post", "comment", "url"]:
+        out.append(f"<th>{_h(h)}</th>")
+    out.append("</tr></thead><tbody>")
+    for item in rows:
+        url = normalize_str(item.get("url")).strip()
+        url_cell = f"<a href='{_h(url)}' target='_blank' rel='noopener'>{_h(url)}</a>" if url else "-"
+        author = item.get("author") or item.get("comment_author") or "(unknown)"
+        out.append("<tr>")
+        out.append(f"<td>{_h(_fmt_age_seconds(item.get('comment_created_at'), now_utc))}</td>")
+        out.append(f"<td>{_h(author)}</td>")
+        out.append(f"<td>{_h(item.get('submolt') or '-')}</td>")
+        out.append(f"<td>{_h(_clip(item.get('post_title'), 70))}</td>")
+        out.append(f"<td>{_h(_clip(item.get('comment_excerpt') or item.get('comment_content'), 90))}</td>")
+        out.append(f"<td>{url_cell}</td>")
+        out.append("</tr>")
+    out.append("</tbody></table>")
+    return "".join(out)
+
+
+def _render_activity_list(rows: List[Dict[str, Any]], now_utc: datetime) -> str:
+    if not rows:
+        return '<div class="empty">-</div>'
+    items: List[str] = ["<div class='activity-list'>"]
+    for row in rows:
+        action_type = normalize_str(row.get("action_type")).strip().lower()
+        title = normalize_str(row.get("title")).strip() or "(untitled)"
+        age = _fmt_age_seconds(row.get("ts"), now_utc)
+        url = normalize_str(row.get("url")).strip()
+        badge = _action_badge(action_type)
+        link = f"<a href='{_h(url)}' target='_blank' rel='noopener'>{_h(_clip(title, 70))}</a>" if url else _h(_clip(title, 70))
+        items.append(
+            "<div class='activity-row'>"
+            f"<div class='activity-badge'>{badge}</div>"
+            f"<div class='activity-title'>{link}</div>"
+            f"<div class='activity-age'>{_h(age)}</div>"
+            "</div>"
+        )
+    items.append("</div>")
+    return "".join(items)
+
+
 def render_action_dashboard_html(
     *,
     rows: List[Dict[str, Any]],
@@ -403,6 +457,34 @@ def render_action_dashboard_html(
     last_post_row = post_rows[-1] if post_rows else {}
     last_comment_row = comment_rows[-1] if comment_rows else {}
 
+    def _row_link_cell(row: Dict[str, Any]) -> str:
+        url = normalize_str(row.get("url")).strip()
+        title = normalize_str(row.get("title")).strip() or "(untitled)"
+        if url:
+            return f"<a href='{_h(url)}' target='_blank' rel='noopener'>{_h(_clip(title, 80))}</a>"
+        return _h(_clip(title, 80))
+
+    def _row_meta_cells(row: Dict[str, Any]) -> List[str]:
+        return [
+            _fmt_ts(row.get("ts")) or "-",
+            _fmt_age_seconds(row.get("ts"), now_utc),
+            normalize_str(row.get("submolt")).strip() or "-",
+            _row_link_cell(row),
+        ]
+
+    last_post_cells = _row_meta_cells(last_post_row) if last_post_row else ["-", "-", "-", "-"]
+    last_comment_cells = _row_meta_cells(last_comment_row) if last_comment_row else ["-", "-", "-", "-"]
+    last_post_url = normalize_str(last_post_row.get("url")).strip()
+    last_comment_url = normalize_str(last_comment_row.get("url")).strip()
+    last_post_title = normalize_str(last_post_row.get("title")).strip() or "(untitled)"
+    last_comment_title = normalize_str(last_comment_row.get("title")).strip() or "(untitled)"
+    last_post_link = (
+        f"<a href='{_h(last_post_url)}' target='_blank' rel='noopener'>open</a>" if last_post_url else "-"
+    )
+    last_comment_link = (
+        f"<a href='{_h(last_comment_url)}' target='_blank' rel='noopener'>open</a>" if last_comment_url else "-"
+    )
+
     overview_cards = "".join(
         [
             _card("Actions (window)", len(rows)),
@@ -422,7 +504,13 @@ def render_action_dashboard_html(
         ]
     )
 
+    replied_comment_ids: set[str] = set()
     if isinstance(state, dict) and state:
+        replied_comment_ids = set(
+            normalize_str(x).strip()
+            for x in state.get("replied_to_comment_ids", [])
+            if normalize_str(x).strip()
+        )
         last_action_ts = _epoch_to_iso(state.get("last_action_ts"))
         last_post_ts = _epoch_to_iso(state.get("last_post_action_ts"))
         last_comment_ts = _epoch_to_iso(state.get("last_comment_action_ts"))
@@ -460,6 +548,14 @@ def render_action_dashboard_html(
                     hourly_comment_count += 1
         comment_hourly_limit = 50
         comment_slot = "open" if hourly_comment_count < comment_hourly_limit else "full"
+        pending_replies = int(state.get("unanswered_comment_count", 0) or 0)
+        if replied_comment_ids:
+            pending_replies = max(0, pending_replies - sum(
+                1
+                for item in state.get("unanswered_comments", [])
+                if isinstance(item, dict)
+                and normalize_str(item.get("comment_id")).strip() in replied_comment_ids
+            ))
 
         runner_cards = "".join(
             [
@@ -472,6 +568,7 @@ def render_action_dashboard_html(
                 _card("Post slot", post_slot),
                 _card("Post cooldown remaining", post_cooldown_remaining),
                 _card("Comments (1h)", f"{hourly_comment_count}/{comment_hourly_limit} ({comment_slot})"),
+                _card("Pending replies", pending_replies),
                 _card(
                     "Pending actions",
                     len(state.get("pending_actions", [])) if isinstance(state.get("pending_actions"), list) else 0,
@@ -494,8 +591,24 @@ def render_action_dashboard_html(
                     "Approved submolts",
                     len(state.get("approved_submolts", [])) if isinstance(state.get("approved_submolts"), list) else 0,
                 ),
-                _card("Last post title", _clip(last_post_row.get("title"), 54) or "-"),
-                _card("Last comment title", _clip(last_comment_row.get("title"), 54) or "-"),
+                _card_html(
+                    "Last post",
+                    (
+                        f"<a href='{_h(last_post_url)}' target='_blank' rel='noopener'>"
+                        f"{_h(_clip(last_post_row.get('title'), 60) or '(untitled)')}</a>"
+                    )
+                    if last_post_url
+                    else _h(_clip(last_post_row.get("title"), 60) or "-"),
+                ),
+                _card_html(
+                    "Last comment",
+                    (
+                        f"<a href='{_h(last_comment_url)}' target='_blank' rel='noopener'>"
+                        f"{_h(_clip(last_comment_row.get('title'), 60) or '(comment)')}</a>"
+                    )
+                    if last_comment_url
+                    else _h(_clip(last_comment_row.get("title"), 60) or "-"),
+                ),
             ]
         )
     else:
@@ -588,6 +701,44 @@ def render_action_dashboard_html(
                 reason = normalize_str(item.get("reason")).strip() or "unknown"
                 declines_by_reason[reason] = declines_by_reason.get(reason, 0) + 1
     top_posts.sort(key=lambda x: (x.get("score", 0), x.get("upvotes", 0), x.get("comments", 0)), reverse=True)
+    recent_posts = []
+    if isinstance(post_memory, dict):
+        recent_entries = post_memory.get("proactive_posts")
+        if isinstance(recent_entries, list):
+            for item in recent_entries[-12:]:
+                if not isinstance(item, dict):
+                    continue
+                recent_posts.append(
+                    {
+                        "title": normalize_str(item.get("title")).strip(),
+                        "submolt": normalize_str(item.get("submolt")).strip(),
+                        "upvotes": int(item.get("upvotes") or 0),
+                        "comments": int(item.get("comment_count") or 0),
+                        "url": normalize_str(item.get("url")).strip(),
+                        "ts": item.get("ts"),
+                    }
+                )
+    recent_posts_rows = [
+        [
+            _fmt_age_seconds(p.get("ts"), now_utc),
+            normalize_str(p.get("submolt")).strip() or "-",
+            _clip(p.get("title"), 70),
+            str(int(p.get("upvotes", 0))),
+            str(int(p.get("comments", 0))),
+            p.get("url") or "",
+        ]
+        for p in recent_posts
+    ]
+    recent_perf_rows = [
+        [
+            _fmt_age_seconds(p.get("ts"), now_utc),
+            _clip(p.get("title"), 60),
+            str(int(p.get("upvotes", 0))),
+            str(int(p.get("comments", 0))),
+            p.get("url") or "",
+        ]
+        for p in recent_posts[:5]
+    ]
 
     imp_latest_summary = ""
     if isinstance(improvements, dict):
@@ -652,6 +803,18 @@ def render_action_dashboard_html(
         items.sort(key=lambda kv: kv[1], reverse=True)
         for name, strikes in items[:10]:
             badbot_rows.append([name, str(strikes)])
+
+    unanswered_rows: List[Dict[str, Any]] = []
+    if isinstance(state, dict) and isinstance(state.get("unanswered_comments"), list):
+        for item in state.get("unanswered_comments", []):
+            if not isinstance(item, dict):
+                continue
+            cid = normalize_str(item.get("comment_id")).strip()
+            if cid and cid in replied_comment_ids:
+                continue
+            unanswered_rows.append(item)
+            if len(unanswered_rows) >= 20:
+                break
 
     # Top threads and top authors from recent action window.
     thread_stats: Dict[str, Dict[str, Any]] = {}
@@ -755,48 +918,59 @@ def render_action_dashboard_html(
     parts.append("<meta name='viewport' content='width=device-width, initial-scale=1'/>")
     parts.append("<title>Moltergo Action Dashboard</title>")
     parts.append("<style>")
+    parts.append("@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');")
+    parts.append(":root{--bg:#0b0f14;--bg2:#0f141b;--panel:#141a22;--panel2:#10151c;--border:#2a3340;--accent:#7ee787;--accent2:#79c0ff;--warning:#f2cc60;--text:#e6edf3;--muted:#9da7b3}")
     parts.append("html{scroll-behavior:smooth}")
     parts.append(
-        "body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:radial-gradient(1200px 700px at 20% -10%,rgba(126,231,135,.08),transparent 60%),#0d1117;color:#e6edf3;margin:0;padding:0 14px 28px;}"
+        "body{font-family:'Space Grotesk',ui-sans-serif,system-ui;background:radial-gradient(1200px 700px at 10% -10%,rgba(126,231,135,.10),transparent 60%),radial-gradient(900px 600px at 110% 10%,rgba(88,166,255,.12),transparent 65%),var(--bg);color:var(--text);margin:0;padding:0 18px 32px;}"
     )
-    parts.append("h1{margin:18px 0 4px;font-size:22px;color:#7ee787}")
-    parts.append(".sub{color:#9da7b3;font-size:13px;margin-bottom:14px}")
-    parts.append(".container{max-width:1280px;margin:0 auto}")
+    parts.append("h1{margin:18px 0 6px;font-size:26px;color:var(--accent)}")
+    parts.append(".sub{color:var(--muted);font-size:13px;margin-bottom:16px}")
+    parts.append(".container{max-width:1340px;margin:0 auto}")
     parts.append(
-        "nav{position:sticky;top:0;z-index:5;background:rgba(13,17,23,.92);backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid #30363d;margin:0 -14px;padding:10px 14px}"
+        "nav{position:sticky;top:0;z-index:5;background:rgba(11,15,20,.92);backdrop-filter:saturate(160%) blur(12px);border-bottom:1px solid var(--border);margin:0 -18px;padding:10px 18px}"
     )
     parts.append(".navlinks{display:flex;flex-wrap:wrap;gap:10px;align-items:center}")
     parts.append(
-        ".navlinks a{display:inline-block;padding:5px 9px;border:1px solid #30363d;border-radius:999px;background:#0f141b;color:#c9d1d9;font-size:12px}"
+        ".navlinks a{display:inline-block;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--panel2);color:#c9d1d9;font-size:12px}"
     )
-    parts.append(".navlinks a:hover{border-color:#58a6ff}")
-    parts.append(".cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:8px 0 18px;}")
-    parts.append(".card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px;}")
-    parts.append(".card-title{font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.05em}")
-    parts.append(".card-value{font-size:18px;font-weight:700;color:#e6edf3;padding-top:3px}")
-    parts.append("h2{margin:20px 0 8px;font-size:16px;color:#79c0ff}")
+    parts.append(".navlinks a:hover{border-color:var(--accent2)}")
+    parts.append(".cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:8px 0 18px;}")
+    parts.append(".hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:12px 0 18px}")
+    parts.append(".hero-card{background:linear-gradient(140deg,#15202b,#0d1117 55%);border:1px solid #2b3240;border-radius:14px;padding:14px;box-shadow:0 0 0 1px rgba(126,231,135,.12) inset}")
+    parts.append(".hero-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}")
+    parts.append(".hero-title{font-size:16px;font-weight:700;color:var(--text);margin:6px 0 6px;line-height:1.25}")
+    parts.append(".hero-meta{font-size:12px;color:var(--muted)}")
+    parts.append(".hero-meta a{color:var(--accent)}")
+    parts.append(".card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;}")
+    parts.append(".card-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}")
+    parts.append(".card-value{font-size:18px;font-weight:700;color:var(--text);padding-top:3px}")
+    parts.append("h2{margin:22px 0 8px;font-size:16px;color:var(--accent2)}")
     parts.append("h3{margin:14px 0 6px;font-size:14px;color:#c9d1d9}")
     parts.append(".pills{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}")
     parts.append(
-        ".pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #30363d;background:#0f141b;color:#c9d1d9;font-size:12px}"
+        ".pill{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid var(--border);background:var(--panel2);color:#c9d1d9;font-size:12px}"
     )
-    parts.append(".split{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}")
-    parts.append(".split-col{background:#0f141b;border:1px solid #30363d;border-radius:8px;padding:10px}")
+    parts.append(".split{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}")
+    parts.append(".split-col{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px}")
     parts.append(".kv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:10px 0 18px}")
-    parts.append(".kv{background:#0f141b;border:1px solid #30363d;border-radius:8px;padding:8px}")
-    parts.append(".kv-k{font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.05em}")
-    parts.append(".kv-v{font-size:14px;font-weight:700;color:#e6edf3;padding-top:2px}")
-    parts.append("details>summary{cursor:pointer;color:#8b949e;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}")
-    parts.append("table{width:100%;border-collapse:collapse;background:#11161d;border:1px solid #30363d;border-radius:8px;overflow:hidden;}")
+    parts.append(".kv{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:8px}")
+    parts.append(".kv-k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}")
+    parts.append(".kv-v{font-size:14px;font-weight:700;color:var(--text);padding-top:2px}")
+    parts.append(".activity-list{display:grid;gap:8px}")
+    parts.append(".activity-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--panel2)}")
+    parts.append(".activity-age{color:var(--muted);font-size:12px}")
+    parts.append("details>summary{cursor:pointer;color:var(--muted);font-family:'IBM Plex Mono',ui-monospace}")
+    parts.append("table{width:100%;border-collapse:collapse;background:var(--panel2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}")
     parts.append("th,td{border-bottom:1px solid #222a33;padding:7px 8px;vertical-align:top;font-size:12px;text-align:left;}")
-    parts.append("th{background:#161b22;color:#8b949e;position:sticky;top:0;z-index:1}")
-    parts.append("tr:hover td{background:#0f141b}")
+    parts.append("th{background:var(--panel);color:var(--muted);position:sticky;top:0;z-index:1}")
+    parts.append("tr:hover td{background:#101621}")
     parts.append(".row-post td{border-left:3px solid #a371f7}")
     parts.append(".row-comment td{border-left:3px solid #1f6feb}")
     parts.append(".row-vote td{border-left:3px solid #9a7d2f}")
-    parts.append(".row-neutral td{border-left:3px solid #30363d}")
-    parts.append("a{color:#58a6ff;text-decoration:none}a:hover{text-decoration:underline}")
-    parts.append("pre{margin:0;white-space:pre-wrap;word-break:break-word;line-height:1.35;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}")
+    parts.append(".row-neutral td{border-left:3px solid var(--border)}")
+    parts.append("a{color:var(--accent2);text-decoration:none}a:hover{text-decoration:underline}")
+    parts.append("pre{margin:0;white-space:pre-wrap;word-break:break-word;line-height:1.35;font-family:'IBM Plex Mono',ui-monospace}")
     parts.append(
         ".badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}"
     )
@@ -804,16 +978,46 @@ def render_action_dashboard_html(
     parts.append(".badge-comment{background:#102438;color:#93c5fd;border:1px solid #1f6feb}")
     parts.append(".badge-vote{background:#2b2a13;color:#f2cc60;border:1px solid #9a7d2f}")
     parts.append(".badge-neutral{background:#2d333b;color:#c9d1d9;border:1px solid #484f58}")
-    parts.append(".empty{padding:12px;border:1px dashed #30363d;border-radius:8px;color:#8b949e;background:#11161d}")
+    parts.append(".empty{padding:12px;border:1px dashed var(--border);border-radius:10px;color:var(--muted);background:var(--panel2)}")
     parts.append("</style></head><body>")
     parts.append("<div class='container'>")
     parts.append("<h1>Moltergo Live Action Dashboard</h1>")
     parts.append(
         f"<div class='sub'>Source: {_h(journal_path)} | Generated: {_h(_fmt_ts(now_utc.isoformat()))} | Auto-refresh: {int(refresh_seconds)}s</div>"
     )
+    parts.append("<div class='hero'>")
+    parts.append(
+        "<div class='hero-card'>"
+        "<div class='hero-label'>Last Post</div>"
+        f"<div class='hero-title'>{_h(_clip(last_post_title, 120))}</div>"
+        f"<div class='hero-meta'>{_h(_fmt_age_seconds(last_post_row.get('ts'), now_utc))} • "
+        f"{_h(normalize_str(last_post_row.get('submolt')).strip() or '-')} • "
+        f"{last_post_link}"
+        "</div>"
+        "</div>"
+    )
+    parts.append(
+        "<div class='hero-card'>"
+        "<div class='hero-label'>Last Comment</div>"
+        f"<div class='hero-title'>{_h(_clip(last_comment_title, 120))}</div>"
+        f"<div class='hero-meta'>{_h(_fmt_age_seconds(last_comment_row.get('ts'), now_utc))} • "
+        f"{_h(normalize_str(last_comment_row.get('submolt')).strip() or '-')} • "
+        f"{last_comment_link}"
+        "</div>"
+        "</div>"
+    )
+    parts.append("</div>")
+    if isinstance(state, dict) and int(state.get("unanswered_comment_count", 0) or 0) > 0:
+        parts.append(
+            "<div class='empty' style='border-color:#f2cc60;color:#f2cc60'>"
+            f"Priority: {int(state.get('unanswered_comment_count', 0) or 0)} unanswered comments on our threads."
+            " Reply queue is being prioritized before new discovery."
+            "</div>"
+        )
     parts.append("<nav><div class='navlinks'>")
     for anchor, label in [
         ("overview", "Overview"),
+        ("now", "Now"),
         ("runner", "Runner"),
         ("learning", "Learning"),
         ("visibility", "Visibility"),
@@ -829,6 +1033,32 @@ def render_action_dashboard_html(
 
     parts.append("<h2 id='overview'>Overview</h2>")
     parts.append(f"<div class='cards'>{overview_cards}</div>")
+    parts.append("<h2 id='now'>Now</h2>")
+    parts.append(
+        "<div class='split'>"
+        "<div class='split-col'>"
+        "<h3>Last Post</h3>"
+        + _render_table(["time", "age", "submolt", "title"], [last_post_cells])
+        + "</div>"
+        "<div class='split-col'>"
+        "<h3>Last Comment</h3>"
+        + _render_table(["time", "age", "submolt", "title"], [last_comment_cells])
+        + "</div>"
+        "</div>"
+    )
+    if recent_perf_rows:
+        parts.append("<div class='split' style='margin-top:12px'>")
+        parts.append("<div class='split-col'>")
+        parts.append("<h3>Recent Post Performance</h3>")
+        parts.append(_render_table(["age", "title", "upvotes", "comments", "url"], recent_perf_rows))
+        parts.append("</div>")
+        parts.append("<div class='split-col'>")
+        parts.append("<h3>Recent Actions</h3>")
+        parts.append(_render_activity_list(rows[-6:], now_utc))
+        parts.append("</div>")
+        parts.append("</div>")
+    parts.append("<h3>Unanswered Comments on Our Threads</h3>")
+    parts.append(_render_unanswered_table(unanswered_rows, now_utc))
     parts.append("<h2 id='runner'>Runner State</h2>")
     parts.append(f"<div class='cards'>{runner_cards}</div>")
     parts.append("<h2 id='learning'>Learning</h2>")
@@ -865,6 +1095,14 @@ def render_action_dashboard_html(
             f"<div class='kv'><div class='kv-k'>{_h(key)}</div><div class='kv-v'>{_h(visibility_metrics.get(key, '-'))}</div></div>"
         )
     parts.append("</div>")
+    if recent_posts_rows:
+        parts.append("<h2>Recent Post Performance</h2>")
+        parts.append(
+            _render_table(
+                ["age", "submolt", "title", "upvotes", "comments", "url"],
+                recent_posts_rows,
+            )
+        )
     parts.append("<h2>Top Proactive Posts (by 2x upvotes + comments)</h2>")
     parts.append(
         _render_table(

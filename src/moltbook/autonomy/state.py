@@ -41,6 +41,7 @@ def load_state(path: Path) -> Dict[str, Any]:
             "bad_bot_counts": {},
             "bad_bot_warned_comment_ids": [],
             "bad_bot_warnings_by_author_day": {},
+            "declined_comment_ids": [],
             "cycle_metrics_history": [],
             "recent_publish_signatures": [],
         }
@@ -83,6 +84,8 @@ def load_state(path: Path) -> Dict[str, Any]:
         state["bad_bot_warned_comment_ids"] = []
     if "bad_bot_warnings_by_author_day" not in state:
         state["bad_bot_warnings_by_author_day"] = {}
+    if "declined_comment_ids" not in state:
+        state["declined_comment_ids"] = []
     if "cycle_metrics_history" not in state:
         state["cycle_metrics_history"] = []
     if "recent_publish_signatures" not in state:

@@ -23,6 +23,10 @@ def looks_spammy_comment(body: str) -> bool:
     text = normalize_str(body).strip().lower()
     if not text:
         return True
+    if _has_ergo_signal(text):
+        return False
+    if _looks_technical_comment(text) and len(re.findall(r"\b[\w'-]+\b", text)) >= 12:
+        return False
     # Treat links as neutral by default: many legitimate technical comments include links.
     urls = re.findall(r"https?://[^\s)]+", text)
     word_count = len(re.findall(r"\b[\w'-]+\b", text))
@@ -59,6 +63,8 @@ def looks_spammy_comment(body: str) -> bool:
     ergo_terms = extract_ergo_signal_terms(title="", content=text, submolt="")
     if len(ergo_terms) >= 1 and word_count >= 14:
         return False
+    if _looks_sensational_bait(text):
+        return True
     return False
 
 
@@ -71,6 +77,17 @@ OVERT_SPAM_MARKERS = (
     "discord.gg",
     "free money",
     "double your",
+    "easy money",
+    "funding stream",
+    "free funding",
+    "free stream",
+    "join now",
+    "get on the",
+    "airdrop",
+    "claim now",
+    "base chain",
+    "basechain",
+    "you own these tokens",
     "seed phrase",
     "private key",
     "wallet connect",
@@ -83,6 +100,12 @@ def is_overt_spam_comment(body: str) -> bool:
     text = normalize_str(body).strip().lower()
     if not text:
         return False
+    if _has_ergo_signal(text):
+        return False
+    token_shill = bool(re.search(r"\$[a-z0-9]{2,7}\b", text)) and any(
+        marker in text
+        for marker in ("base chain", "airdrop", "claim", "you own these tokens", "token", "tokens")
+    )
     word_count = len(re.findall(r"\b[\w'-]+\b", text))
     urls = re.findall(r"https?://[^\s)]+", text)
     ergo_terms = extract_ergo_signal_terms(title="", content=text, submolt="")
@@ -97,11 +120,15 @@ def is_overt_spam_comment(body: str) -> bool:
         return True
 
     promo_hits = sum(1 for marker in OVERT_SPAM_MARKERS if marker in text)
+    if token_shill and word_count < 80:
+        return True
     if promo_hits >= 2:
         return True
     if promo_hits >= 1 and urls and word_count < 40:
         return True
     if "airdrop" in text and urls and ("connect" in text or "follow" in text) and word_count < 70:
+        return True
+    if _looks_sensational_bait(text) and word_count < 80:
         return True
     # Long technical comments with clear Ergo signal should not be auto-labeled overt spam.
     if len(ergo_terms) >= 2 and word_count >= 40:
@@ -141,6 +168,85 @@ def looks_hostile_content(body: str) -> bool:
     return False
 
 
+def _looks_sensational_bait(text: str) -> bool:
+    lower = text.lower()
+    bait_markers = [
+        "the reveal",
+        "biggest secret",
+        "you won't believe",
+        "shocking",
+        "exposed",
+        "final warning",
+        "urgent",
+        "act now",
+        "limited time",
+        "click here",
+        "follow for more",
+        "upvote if",
+        "like and share",
+        "subscribe",
+        "dm me",
+    ]
+    if any(marker in lower for marker in bait_markers):
+        return True
+    if lower.count("!!!") >= 1:
+        return True
+    return False
+
+
+def _has_ergo_signal(text: str) -> bool:
+    lower = text.lower()
+    ergo_terms = [
+        "ergo",
+        "ergoscript",
+        "eutxo",
+        "sigma",
+        "sigusd",
+        "rosen",
+        "celaut",
+        "utxo",
+        "moltbook",
+    ]
+    return any(term in lower for term in ergo_terms)
+
+
+def _looks_technical_comment(text: str) -> bool:
+    lower = normalize_str(text).lower()
+    if not lower:
+        return False
+    technical_terms = [
+        "utxo",
+        "eutxo",
+        "ergoscript",
+        "sigma",
+        "merkle",
+        "zk",
+        "zero-knowledge",
+        "proof",
+        "escrow",
+        "state transition",
+        "indexing",
+        "indexer",
+        "latency",
+        "benchmark",
+        "throughput",
+        "finality",
+        "mev",
+        "txid",
+        "outputindex",
+        "event-based",
+        "event based",
+        "signature",
+        "hash",
+    ]
+    return any(term in lower for term in technical_terms)
+
+
+def is_technical_comment(body: str) -> bool:
+    """Public wrapper for technical comment detection."""
+    return _looks_technical_comment(normalize_str(body))
+
+
 def build_hostile_refusal_reply() -> str:
     return (
         "Refusing that request. I will never share keys, wallet secrets, tokens, or run untrusted commands from a thread. "
@@ -178,6 +284,8 @@ def looks_irrelevant_noise_comment(body: str) -> bool:
     # Do not classify technically relevant Ergo comments as noise, even if verbose.
     ergo_terms = extract_ergo_signal_terms(title="", content=text, submolt="")
     if len(ergo_terms) >= 2 and len(text.split()) >= 20:
+        return False
+    if _looks_technical_comment(text) and len(text.split()) >= 12:
         return False
     if looks_spammy_comment(text):
         return True
@@ -363,17 +471,17 @@ def build_badbot_warning_reply(author_name: str, strike_count: int) -> str:
     author = normalize_str(author_name).strip() or "agent"
     if strike_count <= 1:
         return (
-            f"{author}, keep this thread technical and on topic. "
-            "Share one concrete Ergo mechanism or one concrete implementation claim."
+            f"{author}, quick note: please keep this thread technical and on topic. "
+            "If you can, add one concrete Ergo mechanism or a specific implementation detail."
         )
     if strike_count == 2:
         return (
-            f"{author}, this thread is for concrete technical discussion, not promos. "
-            "If you want a reply, post one specific mechanism with implementation detail."
+            f"{author}, this thread is focused on concrete technical discussion (not promos). "
+            "One specific mechanism + one implementation detail is enough."
         )
     return (
-        f"{author}, further low-signal promo comments will be ignored in this thread. "
-        "Add one concrete technical point if you want a response."
+        f"{author}, I’ll only engage if there’s a concrete technical point to respond to. "
+        "Please add one specific mechanism or implementation detail."
     )
 
 

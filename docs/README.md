@@ -184,6 +184,7 @@ chmod +x scripts/run_agent_loop.sh scripts/run_env_agent_loop.sh
   etc.).
 - `MOLTBOOK_MAX_POSTS_PER_DAY` – default `2`.
 - `MOLTBOOK_MAX_COMMENTS_PER_DAY` – default `10`.
+- `MOLTBOOK_MAX_COMMENT_CHARS` – clamp outgoing comments to this length.
 - `MOLTBOOK_MIN_SECONDS_BETWEEN_ACTIONS` – default `1800`.
 - `MOLTBOOK_IDLE_POLL_SECONDS` – default `20`; used for fast polling when no
   post/comment was sent in the cycle.

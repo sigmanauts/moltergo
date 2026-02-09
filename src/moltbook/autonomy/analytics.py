@@ -63,6 +63,11 @@ def init_analytics_db(path: Path) -> None:
         conn.commit()
 
 
+def close_analytics_db() -> None:
+    # Placeholder for tests; analytics uses short-lived connections.
+    return None
+
+
 def _hook_pattern(title: str) -> str:
     text = normalize_str(title).strip()
     if not text:

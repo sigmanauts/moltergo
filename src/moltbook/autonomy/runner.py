@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ..moltbook_client import MoltbookAuthError, MoltbookClient
-from ..virality import infer_topic_signature, score_post_candidate, summarize_sources
+from ..virality import infer_topic_signature, parse_timestamp, score_post_candidate, summarize_sources
 
 from .actions import (
     can_reply,
     cooldown_remaining_seconds,
     execute_pending_actions,
+    has_seen_vote_signature,
     has_pending_comment_action,
     mark_reply_action_timestamps,
     maybe_upvote_post_after_comment,
+    remember_vote_signature,
     seconds_since_last_post,
     should_prioritize_proactive_post,
     wait_for_comment_slot,
@@ -31,12 +34,11 @@ from .analytics import (
 from .config import Config, load_config
 from .content_policy import (
     build_badbot_warning_reply,
-    build_hostile_refusal_reply,
     build_thread_followup_post_content,
     build_thread_followup_post_title,
-    build_wrong_community_correction_reply,
     enforce_link_policy,
     is_strong_ergo_post,
+    is_technical_comment,
     looks_hostile_content,
     looks_irrelevant_noise_comment,
     is_overt_spam_comment,
@@ -50,9 +52,11 @@ from .discovery import (
 )
 from .drafting import (
     build_reply_triage_messages,
+    build_reply_draft_messages,
     build_proactive_post_messages,
     build_openai_messages,
     call_generation_model,
+    clamp_comment_length,
     fallback_draft,
     format_content,
     load_context_text,
@@ -181,16 +185,20 @@ UNPUBLISHABLE_PAYLOAD_PATTERNS = (
     re.compile(r"```", re.IGNORECASE),
     re.compile(r"\bshould_respond\s*=\s*(true|false)\b", re.IGNORECASE),
     re.compile(r"\bresponse_mode\s*=\s*[a-z_]+\b", re.IGNORECASE),
+    re.compile(r"\"?(should_respond|response_mode|confidence|vote_action|vote_target|should_post)\"?\s*:", re.IGNORECASE),
     re.compile(r"\bdraft post\b", re.IGNORECASE),
     re.compile(r"\bdraft reply\b", re.IGNORECASE),
+    re.compile(r"^\s*(comment|reply)\s*(\(|:)", re.IGNORECASE | re.MULTILINE),
     re.compile(r"^\\s*(assessment|action)\\s*:", re.IGNORECASE | re.MULTILINE),
 )
 UNPUBLISHABLE_REASON_MAP = (
     (re.compile(r"```", re.IGNORECASE), "markdown_fence_payload"),
     (re.compile(r"\bshould_respond\s*=\s*(true|false)\b", re.IGNORECASE), "control_flag_payload"),
     (re.compile(r"\bresponse_mode\s*=\s*[a-z_]+\b", re.IGNORECASE), "response_mode_payload"),
+    (re.compile(r"\"?(should_respond|response_mode|confidence|vote_action|vote_target|should_post)\"?\s*:", re.IGNORECASE), "control_json_payload"),
     (re.compile(r"\bdraft post\b", re.IGNORECASE), "draft_wrapper_payload"),
     (re.compile(r"\bdraft reply\b", re.IGNORECASE), "draft_wrapper_payload"),
+    (re.compile(r"^\s*(comment|reply)\s*(\(|:)", re.IGNORECASE | re.MULTILINE), "meta_prefix_payload"),
     (re.compile(r"^\s*(assessment|action)\s*:", re.IGNORECASE | re.MULTILINE), "triage_scaffold_payload"),
 )
 PUBLISH_AUDIT_DEDUPE: Set[str] = set()
@@ -262,8 +270,14 @@ def _normalized_model_confidence(
     return confidence, False
 
 
-def _prepare_publish_content(text: Any, *, allow_links: bool, audit_label: str = "publish") -> str:
-    out = sanitize_publish_content(text)
+def _prepare_publish_content(
+    text: Any,
+    *,
+    allow_links: bool,
+    audit_label: str = "publish",
+    max_chars: Optional[int] = None,
+) -> str:
+    out = sanitize_publish_content(text, max_chars=max_chars)
     if not out:
         return ""
     reason = _unpublishable_reason(out)
@@ -271,7 +285,7 @@ def _prepare_publish_content(text: Any, *, allow_links: bool, audit_label: str =
         _emit_publish_blocked_audit(reason, out, audit_label)
         return ""
     out = enforce_link_policy(out, allow_links=allow_links)
-    out = sanitize_publish_content(out)
+    out = sanitize_publish_content(out, max_chars=max_chars)
     reason = _unpublishable_reason(out)
     if reason:
         _emit_publish_blocked_audit(reason, out, audit_label)
@@ -294,6 +308,65 @@ def _publish_signature(
     return f"{action}:{post_id_value}:{parent_id_value}:{digest}"
 
 
+def _normalize_title_for_dedupe(title: str) -> str:
+    text = normalize_str(title).strip().lower()
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return " ".join(text.split())
+
+
+def _title_similarity(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+def _title_token_jaccard(a: str, b: str) -> float:
+    tokens_a = set(a.split())
+    tokens_b = set(b.split())
+    if not tokens_a or not tokens_b:
+        return 0.0
+    inter = tokens_a.intersection(tokens_b)
+    union = tokens_a.union(tokens_b)
+    if not union:
+        return 0.0
+    return len(inter) / len(union)
+
+
+def _post_dedupe_fingerprint(title: str, content: str) -> str:
+    title_norm = _normalize_title_for_dedupe(title)
+    content_norm = " ".join(normalize_str(content).strip().lower().split())
+    clip = content_norm[:600]
+    digest = hashlib.sha1(f"{title_norm}\n{clip}".encode("utf-8")).hexdigest()[:16]
+    return digest
+
+
+def _is_duplicate_post(title: str, content: str, state: Dict[str, Any]) -> Tuple[bool, str]:
+    fingerprint = _post_dedupe_fingerprint(title, content)
+    recent_fps = state.get("recent_post_fingerprints", [])
+    if isinstance(recent_fps, list) and fingerprint in recent_fps:
+        return True, "duplicate_fingerprint"
+
+    norm_title = _normalize_title_for_dedupe(title)
+    recent_titles = state.get("recent_post_titles", [])
+    if isinstance(recent_titles, list) and norm_title:
+        for prev in list(recent_titles)[-200:]:
+            prev_norm = _normalize_title_for_dedupe(normalize_str(prev))
+            if not prev_norm:
+                continue
+            if _title_similarity(norm_title, prev_norm) >= 0.92:
+                return True, "duplicate_title_similarity"
+            if _title_token_jaccard(norm_title, prev_norm) >= 0.9:
+                return True, "duplicate_title_overlap"
+
+    recent_topics = state.get("recent_topic_signatures", [])
+    if isinstance(recent_topics, list):
+        sig = infer_topic_signature(title=title, content=content)
+        if sig and sig in list(recent_topics)[-40:]:
+            return True, "duplicate_topic_signature"
+
+    return False, ""
+
+
 def _seen_publish_signature(state: Dict[str, Any], signature: str) -> bool:
     raw = state.get("recent_publish_signatures", [])
     if not isinstance(raw, list):
@@ -309,14 +382,183 @@ def _remember_publish_signature(state: Dict[str, Any], signature: str) -> None:
     state["recent_publish_signatures"] = raw[-30000:]
 
 
+def _recent_replied_comment_ids_from_journal(journal_path: Optional[Path], max_bytes: int = 1_000_000) -> Set[str]:
+    if not journal_path or not journal_path.exists():
+        return set()
+    try:
+        size = journal_path.stat().st_size
+    except Exception:
+        return set()
+    try:
+        with journal_path.open("rb") as handle:
+            if size > max_bytes:
+                handle.seek(size - max_bytes)
+            blob = handle.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return set()
+    ids: Set[str] = set()
+    for line in blob.splitlines():
+        if "\"action_type\": \"comment\"" not in line:
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        cid = normalize_str(obj.get("parent_comment_id")).strip()
+        if cid:
+            ids.add(cid)
+    return ids
+
+
+def _auth_block_seconds_from_error(error_text: str) -> Tuple[int, str]:
+    text = normalize_str(error_text)
+    lower = text.lower()
+    if not text:
+        return 0, ""
+    if "account suspended" in lower:
+        hours_match = re.search(r"ends in\\s+(\\d+)\\s*hours?", lower)
+        if hours_match:
+            hours = max(1, int(hours_match.group(1)))
+            return hours * 3600, "account_suspended"
+        minutes_match = re.search(r"ends in\\s+(\\d+)\\s*minutes?", lower)
+        if minutes_match:
+            minutes = max(1, int(minutes_match.group(1)))
+            return minutes * 60, "account_suspended"
+        return 6 * 3600, "account_suspended"
+    if "invalid api key" in lower or "api keys start with" in lower:
+        return 6 * 3600, "invalid_api_key"
+    if "authentication required" in lower or "unauthorized" in lower:
+        return 30 * 60, "auth_required"
+    return 0, ""
+
+
+def _apply_auth_block(state: Dict[str, Any], error_text: str, logger) -> int:
+    seconds, reason = _auth_block_seconds_from_error(error_text)
+    if seconds <= 0:
+        return 0
+    now_ts = utc_now().timestamp()
+    until_ts = now_ts + seconds
+    state["auth_block_until_ts"] = max(float(state.get("auth_block_until_ts", 0) or 0), until_ts)
+    state["auth_block_reason"] = reason or "auth_error"
+    state["auth_block_last_error"] = normalize_str(error_text).strip()[:240]
+    if logger:
+        logger.warning(
+            "Auth block engaged reason=%s seconds=%s until_ts=%s",
+            state["auth_block_reason"],
+            seconds,
+            int(state["auth_block_until_ts"]),
+        )
+    return seconds
+
+
+def _auth_block_remaining_seconds(state: Dict[str, Any]) -> int:
+    until_ts = float(state.get("auth_block_until_ts", 0) or 0)
+    if until_ts <= 0:
+        return 0
+    now_ts = utc_now().timestamp()
+    remaining = int(max(0, until_ts - now_ts))
+    return remaining
+
+
+def _recent_post_fingerprints_from_journal(
+    journal_path: Optional[Path],
+    max_bytes: int = 2_000_000,
+) -> Tuple[List[str], List[str]]:
+    if not journal_path or not journal_path.exists():
+        return [], []
+    try:
+        size = journal_path.stat().st_size
+    except Exception:
+        return [], []
+    try:
+        with journal_path.open("rb") as handle:
+            if size > max_bytes:
+                handle.seek(size - max_bytes)
+            blob = handle.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return [], []
+    fingerprints: List[str] = []
+    titles: List[str] = []
+    for line in blob.splitlines():
+        if "\"action_type\"" not in line:
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        if normalize_str(obj.get("action_type")).strip().lower() != "post":
+            continue
+        title = normalize_str(obj.get("title")).strip()
+        content = normalize_str(obj.get("content")).strip()
+        if title:
+            titles.append(title)
+        if title or content:
+            fingerprints.append(_post_dedupe_fingerprint(title, content))
+    return fingerprints, titles
+
+
+def _latest_post_ts_from_journal(
+    journal_path: Optional[Path],
+    max_bytes: int = 2_000_000,
+) -> Optional[float]:
+    if not journal_path or not journal_path.exists():
+        return None
+    try:
+        size = journal_path.stat().st_size
+    except Exception:
+        return None
+    try:
+        with journal_path.open("rb") as handle:
+            if size > max_bytes:
+                handle.seek(size - max_bytes)
+            blob = handle.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return None
+    latest: Optional[float] = None
+    for line in blob.splitlines():
+        if "\"action_type\"" not in line:
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        if normalize_str(obj.get("action_type")).strip().lower() != "post":
+            continue
+        ts_value = parse_timestamp(obj.get("ts"))
+        if ts_value is None:
+            continue
+        if latest is None or ts_value > latest:
+            latest = ts_value
+    return latest
+
+
+def _latest_post_ts_from_profile(posts: List[Dict[str, Any]]) -> Optional[float]:
+    latest: Optional[float] = None
+    for post in posts:
+        ts = parse_timestamp(
+            post.get("created_at")
+            or post.get("createdAt")
+            or post.get("published_at")
+            or post.get("timestamp")
+        )
+        if ts is None:
+            continue
+        if latest is None or ts > latest:
+            latest = ts
+    return latest
+
+
 def _deterministic_reply_triage(
     *,
     comment_body: str,
     is_my_post: bool,
     is_reply_to_me: bool,
+    post_title: Optional[str] = None,
+    post_body: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     text = normalize_str(comment_body).strip()
     lower = text.lower()
+    thread_context = f"{normalize_str(post_title)} {normalize_str(post_body)}".strip().lower()
     if not text:
         return {
             "should_respond": False,
@@ -337,6 +579,33 @@ def _deterministic_reply_triage(
             "title": "",
             "content": build_hostile_refusal_reply(),
         }
+    if is_overt_spam_comment(text) or looks_spammy_comment(text) or looks_irrelevant_noise_comment(text):
+        if is_my_post and is_overt_spam_comment(text):
+            detail = "promo/link spam"
+            if "token" in lower or "$" in lower:
+                detail = "token shill"
+            elif "airdrop" in lower:
+                detail = "airdrop bait"
+            elif "free money" in lower:
+                detail = "get-rich-quick pitch"
+            return {
+                "should_respond": True,
+                "confidence": 0.85,
+                "response_mode": "comment",
+                "vote_action": "none",
+                "vote_target": "none",
+                "title": "",
+                "content": f"Off-topic {detail}. This thread is about coordination and settlement on Ergo. Bring a concrete mechanism or move on.",
+            }
+        return {
+            "should_respond": False,
+            "confidence": 0.9,
+            "response_mode": "none",
+            "vote_action": "none",
+            "vote_target": "none",
+            "title": "",
+            "content": "",
+        }
 
     words = len(text.split())
     has_question = "?" in text
@@ -352,20 +621,87 @@ def _deterministic_reply_triage(
             "content": "",
         }
 
+    trading_markers = (
+        "entry", "exit", "perps", "perp", "woofi", "long", "short", "leverage",
+        "backtest", "backtesting", "live", "paper trade", "trading", "broker",
+    )
+    off_topic_chain_markers = (
+        "solana", "mev", "validator", "slot", "gas war",
+    )
+    thread_mentions_chain = any(m in thread_context for m in off_topic_chain_markers)
+    is_trading_question = any(m in lower for m in trading_markers)
+    if is_trading_question:
+        reply = (
+            "We are not trading here. This thread is about coordination and settlement primitives. "
+            "If you want to help, point to one concrete coordination failure or a test case we should formalize."
+        )
+        return {
+            "should_respond": True,
+            "confidence": 0.78,
+            "response_mode": "comment",
+            "vote_action": "none",
+            "vote_target": "none",
+            "title": "",
+            "content": reply,
+        }
+
     if (is_my_post or is_reply_to_me) and has_ergo_signal and (has_question or words >= 10):
         focus = "counterparty verification"
         for token, label in ERGO_REPLY_FOCUS_MARKERS:
             if token in lower:
                 focus = label
                 break
+        openers = [
+            "Key point.",
+            "Strong signal.",
+            "That tracks.",
+            "Agreed on the core.",
+            "Yes, that is the crux.",
+        ]
+        opener = openers[hash(text) % len(openers)]
         reply = (
-            f"Good angle. We should make {focus} enforceable, not social. "
+            f"{opener} We should make {focus} enforceable, not social. "
             "On Ergo, eUTXO plus ErgoScript can pin release conditions to objective checks so agents settle without trust. "
             "Which single constraint would you enforce first in production?"
         )
         return {
             "should_respond": True,
             "confidence": 0.82,
+            "response_mode": "comment",
+            "vote_action": "upvote",
+            "vote_target": "top_comment",
+            "title": "",
+            "content": reply,
+        }
+    if is_my_post:
+        # Always respond on our own posts unless spam/hostile. Keep it short, concrete, and ask for one detail.
+        if "how long" in lower and "live" in lower:
+            reply = "Early prototype stage, not production live yet. If you want to help, suggest a concrete test case."
+        elif "backtest" in lower:
+            reply = "No backtest yet; this is protocol design, not a trading strategy. What test harness would you trust?"
+        elif any(m in lower for m in off_topic_chain_markers) and "ergo" not in lower and not thread_mentions_chain:
+            reply = (
+                "That reads like a Solana/MEV question. This thread is about Ergo coordination and settlement. "
+                "If you have an Ergo-specific mechanism or failure mode, drop it."
+            )
+        elif has_question:
+            reply = (
+                "Short answer: make outcomes auditable with eUTXO receipts + ErgoScript gates. "
+                "Which constraint would you enforce first (proof hash, signer quorum, or timeout)?"
+            )
+        elif words <= 10:
+            reply = (
+                "Can you expand with one concrete use case? "
+                "I can map it to a specific eUTXO/ErgoScript mechanism."
+            )
+        else:
+            reply = (
+                "Appreciate the detail. The key is turning that into a deterministic escrow/check. "
+                "What single success metric should the contract enforce?"
+            )
+        return {
+            "should_respond": True,
+            "confidence": 0.78,
             "response_mode": "comment",
             "vote_action": "upvote",
             "vote_target": "top_comment",
@@ -828,12 +1164,17 @@ def maybe_run_proactive_post(
     approve_all_actions: bool,
     submolt_meta: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Tuple[int, bool, bool]:
+    def _mark_attempt_result(reason: str) -> None:
+        state["last_proactive_post_attempt_result"] = normalize_str(reason).strip().lower()
+
     if not cfg.proactive_posting_enabled:
+        _mark_attempt_result("disabled")
         return 0, False, approve_all_actions
 
     post_allowed, post_reason = post_gate_status(state=state, cfg=cfg)
     if not post_allowed:
         logger.info("Proactive post skipped reason=%s", post_reason)
+        _mark_attempt_result(f"post_gate:{post_reason}")
         return 0, False, approve_all_actions
 
     if not proactive_post_attempt_allowed(state=state, cfg=cfg):
@@ -845,6 +1186,7 @@ def maybe_run_proactive_post(
             "Proactive post skipped reason=attempt_cooldown seconds=%s",
             effective_cooldown,
         )
+        _mark_attempt_result("attempt_cooldown")
         return 0, False, approve_all_actions
 
     llm_available = has_generation_provider(cfg)
@@ -869,6 +1211,11 @@ def maybe_run_proactive_post(
         try:
             profile = client.get_agent_profile(my_name)
             recent_posts = extract_recent_posts_from_profile(profile)
+            latest_profile_ts = _latest_post_ts_from_profile(recent_posts)
+            if isinstance(latest_profile_ts, (int, float)):
+                last_post_ts = state.get("last_post_action_ts")
+                if not isinstance(last_post_ts, (int, float)) or latest_profile_ts > float(last_post_ts):
+                    state["last_post_action_ts"] = float(latest_profile_ts)
             updated = refresh_metrics_from_recent_posts(post_memory, recent_posts)
             logger.info("Proactive memory metrics refreshed updated=%s recent_posts=%s", updated, len(recent_posts))
         except Exception as e:
@@ -1324,7 +1671,15 @@ def maybe_run_proactive_post(
         if not regenerated:
             logger.info("Proactive post skipped reason=duplicate_publish_signature")
             record_declined_idea(memory=post_memory, title=title, submolt=submolt, reason="duplicate_publish_signature")
+            _mark_attempt_result("duplicate_publish_signature")
             return 0, False, approve_all_actions
+
+    dup_post, dup_reason = _is_duplicate_post(title, content, state)
+    if dup_post:
+        logger.info("Proactive post skipped reason=%s", dup_reason)
+        record_declined_idea(memory=post_memory, title=title, submolt=submolt, reason=dup_reason)
+        _mark_attempt_result(dup_reason or "duplicate_post")
+        return 0, False, approve_all_actions
 
     preview = content
     if strategy_notes:
@@ -1356,6 +1711,7 @@ def maybe_run_proactive_post(
         return 0, True, approve_all_actions
     if not approved:
         logger.info("Proactive post skipped reason=not_approved")
+        _mark_attempt_result("not_approved")
         record_declined_idea(
             memory=post_memory,
             title=title,
@@ -1380,6 +1736,7 @@ def maybe_run_proactive_post(
 
     if cfg.dry_run:
         logger.info("Proactive post dry_run submolt=%s title=%s", submolt, title)
+        _mark_attempt_result("dry_run")
         record_action_event(
             cfg.analytics_db_path,
             action_type="post",
@@ -1398,12 +1755,14 @@ def maybe_run_proactive_post(
 
     if _seen_publish_signature(state, publish_sig):
         logger.info("Proactive post skipped reason=duplicate_publish_signature")
+        _mark_attempt_result("duplicate_publish_signature")
         return 0, False, approve_all_actions
 
     try:
         response = client.create_post(submolt=submolt, title=title, content=content)
     except Exception as e:
         logger.warning("Proactive post send failed submolt=%s title=%s error=%s", submolt, title, e)
+        _mark_attempt_result("post_send_failed")
         record_action_event(
             cfg.analytics_db_path,
             action_type="post",
@@ -1424,6 +1783,7 @@ def maybe_run_proactive_post(
     _remember_publish_signature(state, publish_sig)
     state["daily_post_count"] = state.get("daily_post_count", 0) + 1
     mark_reply_action_timestamps(state=state, action_kind="post")
+    _mark_attempt_result("posted")
     logger.info(
         "Proactive post success post_id=%s submolt=%s daily_post_count=%s",
         created_post_id,
@@ -1547,8 +1907,12 @@ def run_startup_reply_scan(
     voted_comment_ids: Set[str] = set(state.get("voted_comment_ids", []))
     replied_to_comment_ids: Set[str] = set(state.get("replied_to_comment_ids", []))
     replied_comment_pairs: Set[str] = set(state.get("replied_comment_pairs", []))
+    declined_comment_ids: Set[str] = set(state.get("declined_comment_ids", []))
     replied_post_ids: Set[str] = set(state.get("replied_post_ids", []))
     thread_followup_posted_pairs: Set[str] = set(state.get("thread_followup_posted_pairs", []))
+    journal_replied_ids = _recent_replied_comment_ids_from_journal(cfg.action_journal_path)
+    if journal_replied_ids:
+        replied_to_comment_ids.update(journal_replied_ids)
     bad_bot_counts: Dict[str, int] = {
         normalize_str(k).strip().lower(): int(v)
         for k, v in dict(state.get("bad_bot_counts", {})).items()
@@ -1577,6 +1941,7 @@ def run_startup_reply_scan(
     triage_cache_hits = 0
     triage_deferred = 0
     bad_bot_warnings_sent_this_scan = 0
+    unanswered_candidates: List[Dict[str, Any]] = []
     self_identity_keys: Set[str] = resolve_self_identity_keys(client=client, my_name=my_name, logger=logger)
     if not self_identity_keys and my_name:
         fallback_key = author_identity_key(author_id=None, author_name=my_name)
@@ -1647,6 +2012,73 @@ def run_startup_reply_scan(
         except Exception as e:
             logger.debug("Reply scan could not hydrate replied post_id=%s error=%s", pid, e)
 
+    # Backlog-targeted scan: ensure we include posts that contain unanswered comments.
+    backlog_posts: List[str] = []
+    backlog_comment_ids: Set[str] = set()
+    backlog_items = state.get("unanswered_comments")
+    if isinstance(backlog_items, list):
+        # Capture all backlog comment ids so we can triage even if comments are not "new".
+        for item in backlog_items:
+            if not isinstance(item, dict):
+                continue
+            cid = normalize_str(item.get("comment_id")).strip()
+            if cid:
+                backlog_comment_ids.add(cid)
+        # Hydrate a limited number of backlog posts for scan efficiency.
+        for item in backlog_items:
+            if not isinstance(item, dict):
+                continue
+            pid = normalize_str(item.get("post_id")).strip()
+            if not pid or pid in scan_post_ids:
+                continue
+            backlog_posts.append(pid)
+            if len(backlog_posts) >= max(10, cfg.startup_reply_scan_post_limit):
+                break
+    for pid in backlog_posts:
+        if pid in scan_post_ids:
+            continue
+        try:
+            payload = client.get_post(pid)
+            post_obj = extract_single_post(payload)
+            if not post_obj:
+                continue
+            if post_id(post_obj) != pid:
+                post_obj["id"] = pid
+            post_obj["__scan_source"] = "backlog_unanswered"
+            scan_post_ids.add(pid)
+            scan_posts.append(post_obj)
+        except Exception as e:
+            logger.debug("Reply scan could not hydrate backlog post_id=%s error=%s", pid, e)
+
+    # Prune unanswered backlog entries that are no longer present in the thread.
+    if isinstance(state.get("unanswered_comments"), list):
+        current_comment_ids: Set[str] = set()
+        # Prefer backlog_unanswered posts; if none, fall back to all scanned posts we own.
+        prune_posts = [p for p in scan_posts if normalize_str(p.get("__scan_source")) == "backlog_unanswered"]
+        if not prune_posts:
+            prune_posts = [p for p in scan_posts if _normalized_name_key((p.get("author") or {}).get("name")) in self_identity_keys]
+        for post in prune_posts:
+            pid = post_id(post)
+            if not pid:
+                continue
+            try:
+                payload = client.get_post_comments(pid, limit=200)
+            except Exception as e:
+                logger.debug("Reply scan prune comment hydrate failed post_id=%s error=%s", pid, e)
+                continue
+            for comment in extract_comment_list(payload):
+                cid = comment_id(comment)
+                if cid:
+                    current_comment_ids.add(normalize_str(cid).strip())
+        before = len(state.get("unanswered_comments") or [])
+        if current_comment_ids:
+            state["unanswered_comments"] = [
+                item for item in state["unanswered_comments"]
+                if normalize_str(item.get("comment_id")).strip() in current_comment_ids
+            ]
+            state["unanswered_comment_count"] = len(state["unanswered_comments"])
+            pruned = before - state["unanswered_comment_count"]
+            logger.info("Reply scan pruned stale unanswered comments pruned=%s before=%s after=%s", pruned, before, state["unanswered_comment_count"])
     logger.info(
         "Reply scan post set recent_posts=%s replied_posts=%s total_scan_posts=%s",
         recent_count,
@@ -1733,6 +2165,7 @@ def run_startup_reply_scan(
             cid = comment_id(comment)
             if not cid:
                 continue
+            is_backlog_comment = cid in backlog_comment_ids
 
             c_author_id, c_author_name = comment_author(comment)
             c_author_key = author_identity_key(c_author_id, c_author_name)
@@ -1743,17 +2176,27 @@ def run_startup_reply_scan(
                     cid,
                     c_author_name or "(unknown)",
                 )
+                if is_my_post:
+                    declined_comment_ids.add(cid)
                 continue
             if cid in my_comment_ids:
                 skip_reasons["self_comment_known"] = skip_reasons.get("self_comment_known", 0) + 1
+                if is_my_post:
+                    declined_comment_ids.add(cid)
                 continue
             if is_self_author(c_author_id, c_author_name, self_identity_keys=self_identity_keys):
                 skip_reasons["self_comment"] = skip_reasons.get("self_comment", 0) + 1
+                if is_my_post:
+                    declined_comment_ids.add(cid)
                 continue
             if not c_author_key:
-                skip_reasons["unknown_author"] = skip_reasons.get("unknown_author", 0) + 1
-                logger.debug("Reply scan skipping comment_id=%s reason=unknown_author", cid)
-                continue
+                if is_my_post:
+                    # Allow replies on our own posts even when author metadata is missing.
+                    c_author_key = f"unknown:{cid}"
+                else:
+                    skip_reasons["unknown_author"] = skip_reasons.get("unknown_author", 0) + 1
+                    logger.debug("Reply scan skipping comment_id=%s reason=unknown_author", cid)
+                    continue
             parent_cid = comment_parent_id(comment)
             is_reply_to_me = bool(
                 parent_cid
@@ -1767,6 +2210,27 @@ def run_startup_reply_scan(
             if not is_my_post and not is_reply_to_me:
                 skip_reasons["not_target_reply"] = skip_reasons.get("not_target_reply", 0) + 1
                 continue
+            if is_my_post:
+                excerpt = normalize_str(comment.get("content")).strip().replace("\n", " ")
+                if len(excerpt) > 140:
+                    excerpt = excerpt[:137].rstrip() + "..."
+                unanswered_candidates.append(
+                    {
+                        "post_id": pid,
+                        "comment_id": cid,
+                        "post_title": normalize_str(post.get("title")).strip(),
+                        "comment_author": c_author_name or c_author_id or "(unknown)",
+                        "author": c_author_name or c_author_id or "(unknown)",
+                        "comment_excerpt": excerpt,
+                        "comment_content": normalize_str(comment.get("content")).strip(),
+                        "comment_created_at": comment.get("created_at")
+                        or comment.get("createdAt")
+                        or comment.get("timestamp"),
+                        "submolt": normalize_submolt(post.get("submolt")),
+                        "url": post_url(pid),
+                        "source": normalize_str(post.get("__scan_source")).strip().lower() or "profile_recent",
+                    }
+                )
             pair_key = f"{normalize_str(pid).strip()}:{normalize_str(cid).strip()}"
             author_post_key = f"{normalize_str(pid).strip()}:{c_author_key or '(unknown-author)'}"
 
@@ -1784,6 +2248,8 @@ def run_startup_reply_scan(
                     replies_to_author,
                     MAX_REPLIES_PER_AUTHOR_PER_POST,
                 )
+                if is_my_post:
+                    declined_comment_ids.add(cid)
                 continue
 
             turns_with_author = conversation_turns_by_author_on_post.get(c_author_key, 0) if c_author_key else 0
@@ -1791,12 +2257,9 @@ def run_startup_reply_scan(
             post_title = normalize_str(post.get("title")) or f"Post {pid}"
             url = post_url(pid)
             incoming_body = normalize_str(comment.get("content"))
-            forced_reply_content = ""
+            force_reply_style = "normal"
             if should_correct_wrong_community_claim(incoming_body, post_submolt):
-                forced_reply_content = build_wrong_community_correction_reply(
-                    post_submolt=post_submolt,
-                    post_title_text=post_title,
-                )
+                force_reply_style = "correction"
                 logger.info(
                     "Reply scan forcing submolt correction comment_id=%s submolt=%s",
                     cid,
@@ -1805,12 +2268,19 @@ def run_startup_reply_scan(
             if looks_hostile_content(incoming_body):
                 skip_reasons["hostile_comment"] = skip_reasons.get("hostile_comment", 0) + 1
                 logger.info("Reply scan flagged hostile comment comment_id=%s", cid)
-            is_spammy = looks_spammy_comment(incoming_body) if not forced_reply_content else False
-            is_irrelevant_noise = looks_irrelevant_noise_comment(incoming_body) if not forced_reply_content else False
-            if (is_spammy or is_irrelevant_noise) and not forced_reply_content:
+            is_spammy = looks_spammy_comment(incoming_body)
+            is_irrelevant_noise = looks_irrelevant_noise_comment(incoming_body)
+            is_overt_spam = is_overt_spam_comment(incoming_body)
+            is_technical = is_technical_comment(incoming_body)
+            if is_technical:
+                is_spammy = False
+                is_irrelevant_noise = False
+            contains_link = any(token in incoming_body.lower() for token in ("http://", "https://", "www."))
+            off_topic_flag = False
+            if (is_spammy or is_irrelevant_noise) and force_reply_style != "correction":
                 author_bad_key = _normalized_name_key(c_author_name) or normalize_str(c_author_key).strip().lower()
                 author_post_bad_key = f"{normalize_str(pid).strip().lower()}::{author_bad_key}" if author_bad_key else ""
-                if is_spammy and author_bad_key:
+                if is_spammy and author_bad_key and is_overt_spam:
                     bad_bot_counts[author_bad_key] = bad_bot_counts.get(author_bad_key, 0) + 1
                     if author_post_bad_key:
                         bad_bot_counts_by_post[author_post_bad_key] = bad_bot_counts_by_post.get(author_post_bad_key, 0) + 1
@@ -1820,13 +2290,23 @@ def run_startup_reply_scan(
                 else:
                     skip_reasons["irrelevant_noise_comment"] = skip_reasons.get("irrelevant_noise_comment", 0) + 1
                     logger.info("Reply scan skipping low-signal comment_id=%s", cid)
+                if is_my_post:
+                    off_topic_flag = True
+                    if is_overt_spam and (contains_link or "$" in incoming_body):
+                        force_reply_style = "snark"
+                    else:
+                        force_reply_style = "normal"
+                else:
+                    continue
                 # Warn only on repeated, overt spam behavior to avoid false positives on legitimate technical comments.
                 warning_strike_threshold = max(2, int(cfg.badbot_warning_min_strikes))
                 if (
                     is_spammy
-                    and is_overt_spam_comment(incoming_body)
+                    and is_overt_spam
+                    and contains_link
                     and
                     is_my_post
+                    and force_reply_style != "snark"
                     and cfg.badbot_warning_enabled
                     and bad_bot_warnings_sent_this_scan < max(0, cfg.badbot_max_warnings_per_scan)
                     and cid not in bad_bot_warned_comment_ids
@@ -1850,6 +2330,7 @@ def run_startup_reply_scan(
                             warning_reply,
                             allow_links=False,
                             audit_label="badbot_warning",
+                            max_chars=cfg.max_comment_chars,
                         )
                         if not warning_reply:
                             skip_reasons["empty_badbot_warning"] = skip_reasons.get("empty_badbot_warning", 0) + 1
@@ -1932,7 +2413,6 @@ def run_startup_reply_scan(
                                     )
                                 except Exception as e:
                                     logger.warning("Reply scan badbot warning failed comment_id=%s error=%s", cid, e)
-                continue
             if turns_with_author >= THREAD_ESCALATE_TURNS:
                 if author_post_key in thread_followup_posted_pairs:
                     skip_reasons["thread_followup_already_posted"] = (
@@ -1959,6 +2439,7 @@ def run_startup_reply_scan(
                     followup_content,
                     allow_links=True,
                     audit_label="thread_followup_post",
+                    max_chars=cfg.max_comment_chars,
                 )
                 if not followup_content:
                     skip_reasons["empty_followup_content"] = skip_reasons.get("empty_followup_content", 0) + 1
@@ -2087,13 +2568,29 @@ def run_startup_reply_scan(
             if triage:
                 triage_cache_hits += 1
             else:
-                deterministic = _deterministic_reply_triage(
-                    comment_body=incoming_body,
-                    is_my_post=is_my_post,
-                    is_reply_to_me=is_reply_to_me,
-                )
-                if deterministic:
-                    triage = deterministic
+                if not was_new_comment and not is_backlog_comment:
+                    triage_deferred += 1
+                    skip_reasons["triage_existing_no_cache"] = skip_reasons.get("triage_existing_no_cache", 0) + 1
+                    continue
+                if triage_llm_calls >= triage_llm_budget:
+                    triage_deferred += 1
+                    skip_reasons["triage_budget_deferred"] = skip_reasons.get("triage_budget_deferred", 0) + 1
+                    if was_new_comment:
+                        seen_comment_ids.discard(cid)
+                        new_replies = max(0, new_replies - 1)
+                    continue
+                try:
+                    messages = build_reply_triage_messages(
+                        persona=persona_text,
+                        domain_context=domain_context_text,
+                        post=post,
+                        comment=comment,
+                        post_id=pid,
+                        comment_id=cid,
+                    )
+                    triage, triage_provider, _ = call_generation_model(cfg, messages)
+                    triage_llm_calls += 1
+                    provider_counts[triage_provider] = provider_counts.get(triage_provider, 0) + 1
                     triage_cache[cid] = {
                         "should_respond": bool(triage.get("should_respond")),
                         "confidence": float(triage.get("confidence", 0.0)),
@@ -2104,62 +2601,27 @@ def run_startup_reply_scan(
                         "vote_target": normalize_vote_target(triage.get("vote_target")),
                         "ts": utc_now().isoformat(),
                     }
-                    skip_reasons["triage_deterministic"] = skip_reasons.get("triage_deterministic", 0) + 1
-                else:
-                    if not was_new_comment:
-                        triage_deferred += 1
-                        skip_reasons["triage_existing_no_cache"] = skip_reasons.get("triage_existing_no_cache", 0) + 1
-                        continue
-                    if triage_llm_calls >= triage_llm_budget:
-                        triage_deferred += 1
-                        skip_reasons["triage_budget_deferred"] = skip_reasons.get("triage_budget_deferred", 0) + 1
-                        if was_new_comment:
-                            seen_comment_ids.discard(cid)
-                            new_replies = max(0, new_replies - 1)
-                        continue
-                    try:
-                        messages = build_reply_triage_messages(
-                            persona=persona_text,
-                            domain_context=domain_context_text,
-                            post=post,
-                            comment=comment,
-                            post_id=pid,
-                            comment_id=cid,
-                        )
-                        triage, triage_provider, _ = call_generation_model(cfg, messages)
-                        triage_llm_calls += 1
-                        provider_counts[triage_provider] = provider_counts.get(triage_provider, 0) + 1
-                        triage_cache[cid] = {
-                            "should_respond": bool(triage.get("should_respond")),
-                            "confidence": float(triage.get("confidence", 0.0)),
-                            "response_mode": normalize_response_mode(triage.get("response_mode"), default="none"),
-                            "title": normalize_str(triage.get("title")).strip(),
-                            "content": normalize_str(triage.get("content")).strip(),
-                            "vote_action": normalize_vote_action(triage.get("vote_action")),
-                            "vote_target": normalize_vote_target(triage.get("vote_target")),
-                            "ts": utc_now().isoformat(),
-                        }
-                        logger.debug(
-                            "Reply triage generated comment_id=%s provider=%s",
-                            cid,
-                            triage_provider,
-                        )
-                    except Exception as e:
-                        triage_fail_count += 1
-                        err_text = normalize_str(e)
-                        is_parse_fail = (
-                            "Chatbase returned non-JSON text" in err_text
-                            or "empty text response" in err_text
-                            or "Expecting value: line 1 column 1" in err_text
-                        )
-                        if is_parse_fail:
-                            triage_parse_fail_count += 1
-                            if triage_parse_fail_count <= 2:
-                                logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
-                            else:
-                                logger.debug("Reply triage parse failure comment_id=%s error=%s", cid, e)
-                        else:
+                    logger.debug(
+                        "Reply triage generated comment_id=%s provider=%s",
+                        cid,
+                        triage_provider,
+                    )
+                except Exception as e:
+                    triage_fail_count += 1
+                    err_text = normalize_str(e)
+                    is_parse_fail = (
+                        "Chatbase returned non-JSON text" in err_text
+                        or "empty text response" in err_text
+                        or "Expecting value: line 1 column 1" in err_text
+                    )
+                    if is_parse_fail:
+                        triage_parse_fail_count += 1
+                        if triage_parse_fail_count <= 2:
                             logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
+                        else:
+                            logger.debug("Reply triage parse failure comment_id=%s error=%s", cid, e)
+                    else:
+                        logger.warning("Reply triage failed comment_id=%s error=%s", cid, e)
                         triage = {
                             "should_respond": False,
                             "confidence": 0.0,
@@ -2170,9 +2632,102 @@ def run_startup_reply_scan(
                             "content": "",
                         }
 
+            if (is_my_post or is_reply_to_me) and (
+                force_reply_style in {"snark", "correction"}
+                or not bool(triage.get("should_respond"))
+                or normalize_response_mode(triage.get("response_mode"), default="none") == "none"
+                or float(triage.get("confidence", 0.0) or 0.0) < cfg.min_confidence
+            ):
+                try:
+                    if force_reply_style == "snark":
+                        off_topic_flag = True
+                    messages = build_reply_draft_messages(
+                        persona=persona_text,
+                        domain_context=domain_context_text,
+                        post=post,
+                        comment=comment,
+                        post_id=pid,
+                        comment_id=cid,
+                        style_hint=force_reply_style,
+                        off_topic=off_topic_flag,
+                    )
+                    triage, triage_provider, _ = call_generation_model(cfg, messages)
+                    triage_llm_calls += 1
+                    provider_counts[triage_provider] = provider_counts.get(triage_provider, 0) + 1
+                    triage["should_respond"] = True
+                    triage["response_mode"] = "comment"
+                    if force_reply_style == "snark":
+                        triage["vote_action"] = "none"
+                        triage["vote_target"] = "none"
+                    # Enforce off-topic wording for snark replies; re-prompt once if missing.
+                    if force_reply_style == "snark":
+                        reply_preview = normalize_str(triage.get("content")).lower()
+                        needs_offtopic = not any(
+                            marker in reply_preview
+                            for marker in ("off-topic", "off topic", "not relevant", "unrelated", "stay on topic")
+                        )
+                        if needs_offtopic:
+                            retry_messages = build_reply_draft_messages(
+                                persona=persona_text,
+                                domain_context=domain_context_text,
+                                post=post,
+                                comment=comment,
+                                post_id=pid,
+                                comment_id=cid,
+                                style_hint="snark_strict",
+                                off_topic=True,
+                            )
+                            triage, triage_provider, _ = call_generation_model(cfg, retry_messages)
+                            triage_llm_calls += 1
+                            provider_counts[triage_provider] = provider_counts.get(triage_provider, 0) + 1
+                            triage["should_respond"] = True
+                            triage["response_mode"] = "comment"
+                            triage["vote_action"] = "none"
+                            triage["vote_target"] = "none"
+                    elif not off_topic_flag:
+                        reply_preview = normalize_str(triage.get("content")).lower()
+                        if any(
+                            marker in reply_preview
+                            for marker in ("off-topic", "off topic", "not relevant", "unrelated")
+                        ):
+                            retry_messages = build_reply_draft_messages(
+                                persona=persona_text,
+                                domain_context=domain_context_text,
+                                post=post,
+                                comment=comment,
+                                post_id=pid,
+                                comment_id=cid,
+                                style_hint="normal",
+                                off_topic=False,
+                            )
+                            triage, triage_provider, _ = call_generation_model(cfg, retry_messages)
+                            triage_llm_calls += 1
+                            provider_counts[triage_provider] = provider_counts.get(triage_provider, 0) + 1
+                            triage["should_respond"] = True
+                            triage["response_mode"] = "comment"
+                    triage_cache[cid] = {
+                        "should_respond": True,
+                        "confidence": float(triage.get("confidence", cfg.min_confidence)),
+                        "response_mode": "comment",
+                        "title": normalize_str(triage.get("title")).strip(),
+                        "content": normalize_str(triage.get("content")).strip(),
+                        "vote_action": normalize_vote_action(triage.get("vote_action")),
+                        "vote_target": normalize_vote_target(triage.get("vote_target")),
+                        "ts": utc_now().isoformat(),
+                    }
+                    logger.debug("Reply draft forced via LLM comment_id=%s provider=%s", cid, triage_provider)
+                except Exception as e:
+                    logger.warning("Reply draft forcing failed comment_id=%s error=%s", cid, e)
+                    if force_reply_style in {"snark", "correction"}:
+                        triage["should_respond"] = False
+                        triage["response_mode"] = "none"
+
             vote_action = normalize_vote_action(triage.get("vote_action"))
             response_mode = normalize_response_mode(triage.get("response_mode"), default="none")
             triage_should_respond = bool(triage.get("should_respond"))
+            if is_my_post and response_mode == "none":
+                # Do not emit deterministic replies. If LLM triage returned none, skip.
+                triage_should_respond = False
             confidence, triage_confidence_imputed = _normalized_model_confidence(
                 raw_confidence=triage.get("confidence", 0),
                 should_act=triage_should_respond,
@@ -2214,6 +2769,18 @@ def run_startup_reply_scan(
                     vote_action = "none"
                 # Even when vote is skipped, still continue with reply-triage action path.
                 if vote_action != "none":
+                    vote_sig = f"comment:{cid}:{vote_action}"
+                    if has_seen_vote_signature(state, vote_sig):
+                        logger.info(
+                            "Reply scan skipping duplicate vote signature comment_id=%s vote=%s",
+                            cid,
+                            vote_action,
+                        )
+                        skip_reasons["duplicate_vote_signature"] = skip_reasons.get(
+                            "duplicate_vote_signature", 0
+                        ) + 1
+                        vote_action = "none"
+                if vote_action != "none":
                     approved, approve_all_actions, should_stop = confirm_action(
                         cfg=cfg,
                         logger=logger,
@@ -2235,6 +2802,7 @@ def run_startup_reply_scan(
                             client.vote_comment(cid, vote_action=vote_action)
                             voted_comment_ids.add(cid)
                             state["voted_comment_ids"] = list(voted_comment_ids)[-10000:]
+                            remember_vote_signature(state, vote_sig)
                             actions += 1
                             try:
                                 append_action_journal(
@@ -2267,26 +2835,32 @@ def run_startup_reply_scan(
                         except Exception as e:
                             logger.warning("Reply vote failed comment_id=%s vote=%s error=%s", cid, vote_action, e)
 
-            should_respond = bool(triage.get("should_respond")) or bool(forced_reply_content)
+            should_respond = bool(triage.get("should_respond"))
             if already_replied:
                 logger.info("Reply scan skipping reply; already replied to comment_id=%s", cid)
                 replied_to_comment_ids.add(cid)
                 replied_comment_pairs.add(pair_key)
                 state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
                 state["replied_comment_pairs"] = list(replied_comment_pairs)[-20000:]
+                if isinstance(state.get("unanswered_comments"), list):
+                    state["unanswered_comments"] = [
+                        item for item in state["unanswered_comments"]
+                        if normalize_str(item.get("comment_id")).strip() != normalize_str(cid).strip()
+                    ]
+                    state["unanswered_comment_count"] = len(state["unanswered_comments"])
                 skip_reasons["already_replied"] = skip_reasons.get("already_replied", 0) + 1
                 continue
 
             reply_content = ""
-            if forced_reply_content:
-                reply_content = forced_reply_content
-            elif should_respond and response_mode != "none" and confidence >= cfg.min_confidence:
+            if should_respond and response_mode != "none" and confidence >= cfg.min_confidence:
                 reply_content = format_content(triage)
             reply_content = _prepare_publish_content(
                 reply_content,
                 allow_links=False,
                 audit_label="thread_reply",
+                max_chars=cfg.max_comment_chars,
             )
+            bypass_quality_gate = bool(is_my_post and reply_content)
 
             if not reply_content:
                 if not should_respond:
@@ -2297,6 +2871,14 @@ def run_startup_reply_scan(
                     skip_reasons["low_confidence"] = skip_reasons.get("low_confidence", 0) + 1
                 else:
                     skip_reasons["empty_reply_content"] = skip_reasons.get("empty_reply_content", 0) + 1
+                if is_my_post and cid:
+                    declined_comment_ids.add(cid)
+                if is_my_post and isinstance(state.get("unanswered_comments"), list):
+                    state["unanswered_comments"] = [
+                        item for item in state["unanswered_comments"]
+                        if normalize_str(item.get("comment_id")).strip() != normalize_str(cid).strip()
+                    ]
+                    state["unanswered_comment_count"] = len(state["unanswered_comments"])
                 continue
 
             if not should_respond:
@@ -2309,15 +2891,31 @@ def run_startup_reply_scan(
             if not reply_content.strip():
                 skip_reasons["empty_reply_content"] = skip_reasons.get("empty_reply_content", 0) + 1
                 continue
-            if not forced_reply_content and _is_template_like_generated_content(reply_content):
+            if _is_template_like_generated_content(reply_content) and not is_my_post:
                 skip_reasons["template_like_reply"] = skip_reasons.get("template_like_reply", 0) + 1
                 logger.info("Reply scan skipping template-like reply comment_id=%s", cid)
+                if is_my_post and cid:
+                    declined_comment_ids.add(cid)
+                if is_my_post and isinstance(state.get("unanswered_comments"), list):
+                    state["unanswered_comments"] = [
+                        item for item in state["unanswered_comments"]
+                        if normalize_str(item.get("comment_id")).strip() != normalize_str(cid).strip()
+                    ]
+                    state["unanswered_comment_count"] = len(state["unanswered_comments"])
                 continue
-            if not forced_reply_content and _is_low_value_affirmation_reply(reply_content):
+            if not bypass_quality_gate and _is_low_value_affirmation_reply(reply_content):
                 skip_reasons["low_value_reply"] = skip_reasons.get("low_value_reply", 0) + 1
                 logger.info("Reply scan skipping low-value reply comment_id=%s", cid)
+                if is_my_post and cid:
+                    declined_comment_ids.add(cid)
+                if is_my_post and isinstance(state.get("unanswered_comments"), list):
+                    state["unanswered_comments"] = [
+                        item for item in state["unanswered_comments"]
+                        if normalize_str(item.get("comment_id")).strip() != normalize_str(cid).strip()
+                    ]
+                    state["unanswered_comment_count"] = len(state["unanswered_comments"])
                 continue
-            if not forced_reply_content and not _passes_generated_content_quality(
+            if not bypass_quality_gate and not _passes_generated_content_quality(
                 content=reply_content,
                 requested_mode="comment",
             ):
@@ -2356,7 +2954,9 @@ def run_startup_reply_scan(
                     submolt=normalize_submolt(post.get("submolt")),
                     url=url,
                     author=c_author_name or "(unknown)",
-                    content_preview=preview_text(reply_content),
+                    content_preview=preview_text(
+                        f"INCOMING:\n{incoming_body}\n\nREPLY:\n{reply_content}"
+                    ),
                     approve_all=approve_all_actions,
                 )
                 if should_stop:
@@ -2374,6 +2974,10 @@ def run_startup_reply_scan(
                         logger.info("Reply scan skipping duplicate reply comment_id=%s", cid)
                         continue
                     try:
+                        reply_content = sanitize_publish_content(reply_content, max_chars=cfg.max_comment_chars)
+                        if not reply_content:
+                            logger.info("Reply scan skipping empty reply after sanitize comment_id=%s", cid)
+                            continue
                         comment_resp = client.create_comment(pid, reply_content, parent_id=cid)
                         register_my_comment_id(state=state, response_payload=comment_resp)
                         _remember_publish_signature(state, reply_sig)
@@ -2400,6 +3004,12 @@ def run_startup_reply_scan(
                         replied_comment_pairs.add(pair_key)
                         state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
                         state["replied_comment_pairs"] = list(replied_comment_pairs)[-20000:]
+                        if isinstance(state.get("unanswered_comments"), list):
+                            state["unanswered_comments"] = [
+                                item for item in state["unanswered_comments"]
+                                if normalize_str(item.get("comment_id")).strip() != normalize_str(cid).strip()
+                            ]
+                            state["unanswered_comment_count"] = len(state["unanswered_comments"])
                         if c_author_key:
                             replies_by_author_on_post[c_author_key] = replies_by_author_on_post.get(c_author_key, 0) + 1
                             conversation_turns_by_author_on_post[c_author_key] = (
@@ -2448,7 +3058,9 @@ def run_startup_reply_scan(
                     submolt=normalize_submolt(post.get("submolt")),
                     url=url,
                     author=c_author_name or "(unknown)",
-                    content_preview=preview_text(reply_content),
+                    content_preview=preview_text(
+                        f"INCOMING:\n{incoming_body}\n\nREPLY:\n{reply_content}"
+                    ),
                     approve_all=approve_all_actions,
                 )
                 if should_stop:
@@ -2456,19 +3068,23 @@ def run_startup_reply_scan(
                     save_state(cfg.state_path, state)
                     return approve_all_actions
                 if approved:
-                    if wait_for_comment_slot(state=state, cfg=cfg, logger=logger):
-                        reply_sig = _publish_signature(
-                            action_type="comment",
-                            target_post_id=pid,
-                            parent_comment_id=cid,
-                            content=reply_content,
-                        )
-                        if _seen_publish_signature(state, reply_sig):
-                            logger.info("Reply scan skipping duplicate reply after wait comment_id=%s", cid)
-                            continue
-                        try:
-                            comment_resp = client.create_comment(pid, reply_content, parent_id=cid)
-                            register_my_comment_id(state=state, response_payload=comment_resp)
+                        if wait_for_comment_slot(state=state, cfg=cfg, logger=logger):
+                            reply_sig = _publish_signature(
+                                action_type="comment",
+                                target_post_id=pid,
+                                parent_comment_id=cid,
+                                content=reply_content,
+                            )
+                            if _seen_publish_signature(state, reply_sig):
+                                logger.info("Reply scan skipping duplicate reply after wait comment_id=%s", cid)
+                                continue
+                            try:
+                                reply_content = sanitize_publish_content(reply_content, max_chars=cfg.max_comment_chars)
+                                if not reply_content:
+                                    logger.info("Reply scan skipping empty reply after sanitize comment_id=%s", cid)
+                                    continue
+                                comment_resp = client.create_comment(pid, reply_content, parent_id=cid)
+                                register_my_comment_id(state=state, response_payload=comment_resp)
                             _remember_publish_signature(state, reply_sig)
                             state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
                             mark_reply_action_timestamps(state=state, action_kind="comment")
@@ -2478,6 +3094,12 @@ def run_startup_reply_scan(
                             replied_comment_pairs.add(pair_key)
                             state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
                             state["replied_comment_pairs"] = list(replied_comment_pairs)[-20000:]
+                            if isinstance(state.get("unanswered_comments"), list):
+                                state["unanswered_comments"] = [
+                                    item for item in state["unanswered_comments"]
+                                    if normalize_str(item.get("comment_id")).strip() != normalize_str(cid).strip()
+                                ]
+                                state["unanswered_comment_count"] = len(state["unanswered_comments"])
                             if c_author_key:
                                 replies_by_author_on_post[c_author_key] = replies_by_author_on_post.get(c_author_key, 0) + 1
                                 conversation_turns_by_author_on_post[c_author_key] = (
@@ -2539,12 +3161,31 @@ def run_startup_reply_scan(
     state["voted_comment_ids"] = list(voted_comment_ids)[-10000:]
     state["replied_to_comment_ids"] = list(replied_to_comment_ids)[-10000:]
     state["replied_comment_pairs"] = list(replied_comment_pairs)[-20000:]
+    if declined_comment_ids:
+        state["declined_comment_ids"] = list(declined_comment_ids)[-20000:]
     state["thread_followup_posted_pairs"] = list(thread_followup_posted_pairs)[-10000:]
     state["reply_triage_cache"] = dict(list(triage_cache.items())[-10000:])
     state["bad_bot_counts"] = bad_bot_counts
     state["bad_bot_counts_by_post"] = bad_bot_counts_by_post
     state["bad_bot_warned_comment_ids"] = list(bad_bot_warned_comment_ids)[-10000:]
     state["bad_bot_warnings_by_author_day"] = bad_bot_warnings_by_author_day
+    if unanswered_candidates:
+        filtered = [
+            item
+            for item in unanswered_candidates
+            if normalize_str(item.get("comment_id")).strip() not in replied_to_comment_ids
+            and normalize_str(item.get("comment_id")).strip() not in declined_comment_ids
+            and normalize_str(item.get("comment_id")).strip() not in bad_bot_warned_comment_ids
+        ]
+        filtered.sort(
+            key=lambda item: normalize_str(item.get("comment_created_at")).strip(),
+            reverse=True,
+        )
+        state["unanswered_comments"] = filtered[:250]
+        state["unanswered_comment_count"] = len(filtered)
+    else:
+        state["unanswered_comments"] = []
+        state["unanswered_comment_count"] = 0
     save_state(cfg.state_path, state)
     logger.info(
         "Reply scan complete scanned_comments=%s new_replies=%s actions=%s pending=%s",
@@ -2757,7 +3398,8 @@ def run_loop() -> None:
             "search_limit=%s idle_poll_seconds=%s dry_run=%s draft_shortlist=%s draft_signal_min_score=%s "
             "dynamic_shortlist=%s dynamic_shortlist_bounds=%s-%s proactive_daily_target=%s "
             "proactive_force_general=%s llm_provider=%s openai_configured=%s "
-            "chatbase_configured=%s auto_openai_fallback=%s self_improve_enabled=%s state_path=%s"
+            "chatbase_configured=%s groq_configured=%s ollama_configured=%s auto_openai_fallback=%s "
+            "self_improve_enabled=%s state_path=%s"
         ),
         cfg.discovery_mode,
         cfg.reply_mode,
@@ -2776,6 +3418,8 @@ def run_loop() -> None:
         cfg.llm_provider,
         bool(cfg.openai_api_key),
         bool(cfg.chatbase_api_key and cfg.chatbase_chatbot_id),
+        bool(cfg.groq_api_key),
+        bool(cfg.ollama_model and cfg.ollama_base_url),
         cfg.llm_auto_fallback_to_openai,
         cfg.self_improve_enabled,
         cfg.state_path,
@@ -2795,6 +3439,28 @@ def run_loop() -> None:
     except Exception as e:
         logger.warning("Analytics DB initialization failed path=%s error=%s", cfg.analytics_db_path, e)
 
+    state = load_state(cfg.state_path)
+    post_memory = load_post_engine_memory(cfg.proactive_memory_path)
+    if not isinstance(state.get("recent_topic_signatures"), list):
+        state["recent_topic_signatures"] = []
+    if not isinstance(state.get("recent_post_fingerprints"), list):
+        state["recent_post_fingerprints"] = []
+    if not isinstance(state.get("recent_post_titles"), list):
+        state["recent_post_titles"] = []
+
+    # If we are in an auth-block window (suspension/invalid key), pause early.
+    auth_block_remaining = _auth_block_remaining_seconds(state)
+    if auth_block_remaining > 0:
+        logger.warning(
+            "Auth block active reason=%s remaining_seconds=%s",
+            state.get("auth_block_reason", "auth_error"),
+            auth_block_remaining,
+        )
+        logger.info("Sleeping seconds=%s reason=auth_block_startup", auth_block_remaining)
+        time.sleep(auth_block_remaining)
+        state["auth_block_until_ts"] = 0
+        save_state(cfg.state_path, state)
+
     try:
         claim_status = client.get_claim_status()
         if claim_status not in {"claimed", "active"}:
@@ -2804,6 +3470,9 @@ def run_loop() -> None:
             )
             return
     except Exception as e:
+        error_text = normalize_str(e)
+        _apply_auth_block(state, error_text, logger)
+        save_state(cfg.state_path, state)
         logger.warning("Could not verify claim status at startup: %s", e)
 
     my_name = resolve_self_name(client, logger)
@@ -2845,11 +3514,6 @@ def run_loop() -> None:
         if should_stop:
             logger.info("Stopping run after operator quit during pending keyword review.")
             return
-
-    state = load_state(cfg.state_path)
-    post_memory = load_post_engine_memory(cfg.proactive_memory_path)
-    if not isinstance(state.get("recent_topic_signatures"), list):
-        state["recent_topic_signatures"] = []
     submolt_meta_cache: Dict[str, Any] = {"fetched_ts": 0.0, "items": {}}
     seen: Set[str] = set(state.get("seen_post_ids", []))
     replied_posts: Set[str] = set(state.get("replied_post_ids", []))
@@ -2859,6 +3523,22 @@ def run_loop() -> None:
         len(replied_posts),
         len(post_memory.get("proactive_posts", [])),
     )
+
+    # Seed duplicate-post guards from the action journal so restarts don't re-post the same content.
+    journal_fps, journal_titles = _recent_post_fingerprints_from_journal(cfg.action_journal_path)
+    if journal_fps:
+        state["recent_post_fingerprints"] = list(
+            {*(state.get("recent_post_fingerprints") or []), *journal_fps}
+        )[-1000:]
+    if journal_titles:
+        state["recent_post_titles"] = list(
+            {*(state.get("recent_post_titles") or []), *journal_titles}
+        )[-1000:]
+    journal_last_post_ts = _latest_post_ts_from_journal(cfg.action_journal_path)
+    if isinstance(journal_last_post_ts, (int, float)):
+        last_post_ts = state.get("last_post_action_ts")
+        if not isinstance(last_post_ts, (int, float)) or journal_last_post_ts > float(last_post_ts):
+            state["last_post_action_ts"] = float(journal_last_post_ts)
     if cfg.confirm_actions:
         logger.info("Interactive confirmation enabled for outgoing actions.")
     else:
@@ -2873,6 +3553,17 @@ def run_loop() -> None:
             recent = []
         recent.append(sig)
         state["recent_topic_signatures"] = recent[-400:]
+        fp = _post_dedupe_fingerprint(title, content)
+        recent_fps = state.get("recent_post_fingerprints", [])
+        if not isinstance(recent_fps, list):
+            recent_fps = []
+        recent_fps.append(fp)
+        state["recent_post_fingerprints"] = recent_fps[-1000:]
+        recent_titles = state.get("recent_post_titles", [])
+        if not isinstance(recent_titles, list):
+            recent_titles = []
+        recent_titles.append(normalize_str(title).strip())
+        state["recent_post_titles"] = recent_titles[-1000:]
 
     def analytics_event(
         *,
@@ -2956,7 +3647,14 @@ def run_loop() -> None:
     except Exception as e:
         logger.warning("Submolt metadata unavailable at startup: %s", e)
         submolt_meta = {}
+    startup_pending_replies = int(state.get("unanswered_comment_count", 0) or 0)
     startup_priority_post_required = should_prioritize_proactive_post(state=state, cfg=cfg)
+    if startup_pending_replies > 0:
+        logger.info(
+            "Startup proactive priority skipped reason=pending_replies count=%s",
+            startup_pending_replies,
+        )
+        startup_priority_post_required = False
     if startup_priority_post_required:
         since_last_post = seconds_since_last_post(state=state)
         logger.info(
@@ -2983,8 +3681,13 @@ def run_loop() -> None:
             startup_priority_post_sent = True
             logger.info("Startup proactive priority posted_before_reply_scan=1")
         else:
-            startup_priority_post_pending = True
-            logger.info("Startup proactive priority pending=1")
+            attempt_result = normalize_str(state.get("last_proactive_post_attempt_result")).strip().lower()
+            if attempt_result.startswith("duplicate") or attempt_result in {"not_approved", "dry_run"}:
+                startup_priority_post_pending = False
+                logger.info("Startup proactive priority cleared reason=%s", attempt_result or "no_post")
+            else:
+                startup_priority_post_pending = True
+                logger.info("Startup proactive priority pending=1")
 
     if startup_priority_post_pending:
         logger.info("Startup submolt discovery deferred reason=priority_post_pending")
@@ -3000,8 +3703,6 @@ def run_loop() -> None:
 
     if startup_priority_post_sent:
         logger.info("Startup reply scan deferred reason=priority_post_sent")
-    elif startup_priority_post_pending or startup_priority_post_required:
-        logger.info("Startup reply scan deferred reason=priority_post_pending")
     else:
         approve_all_actions = run_startup_reply_scan(
             client=client,
@@ -3016,7 +3717,43 @@ def run_loop() -> None:
     search_state: Dict[str, Any] = {"retry_cycle": 1, "keyword_cursor": 0}
     while True:
         iteration += 1
+        if cfg.max_cycles > 0 and iteration > cfg.max_cycles:
+            logger.info("Max cycles reached max_cycles=%s", cfg.max_cycles)
+            break
         try:
+            auth_block_remaining = _auth_block_remaining_seconds(state)
+            if auth_block_remaining > 0:
+                logger.warning(
+                    "Auth block active reason=%s remaining_seconds=%s",
+                    state.get("auth_block_reason", "auth_error"),
+                    auth_block_remaining,
+                )
+                sleep_seconds = max(60, min(auth_block_remaining, cfg.poll_seconds * 4))
+                logger.info("Sleeping seconds=%s reason=auth_block", sleep_seconds)
+                time.sleep(sleep_seconds)
+                continue
+            if state.get("auth_block_until_ts"):
+                state["auth_block_until_ts"] = 0
+                state["auth_block_reason"] = ""
+                save_state(cfg.state_path, state)
+            # Reconcile replied comment ids from the action journal to keep backlog counts accurate.
+            try:
+                journal_replied = _recent_replied_comment_ids_from_journal(cfg.action_journal_path)
+                if journal_replied:
+                    replied_ids = set(state.get("replied_to_comment_ids", []))
+                    before = len(replied_ids)
+                    replied_ids.update(journal_replied)
+                    if len(replied_ids) != before:
+                        state["replied_to_comment_ids"] = list(replied_ids)[-10000:]
+                        if isinstance(state.get("unanswered_comments"), list):
+                            state["unanswered_comments"] = [
+                                item for item in state["unanswered_comments"]
+                                if normalize_str(item.get("comment_id")).strip() not in replied_ids
+                            ]
+                            state["unanswered_comment_count"] = len(state["unanswered_comments"])
+                        save_state(cfg.state_path, state)
+            except Exception as e:
+                logger.debug("Journal reply reconciliation failed error=%s", e)
             if not my_name:
                 my_name = resolve_self_name(client, logger)
                 if my_name:
@@ -3045,21 +3782,25 @@ def run_loop() -> None:
             logger.info("Poll cycle=%s start", iteration)
             priority_post_required = should_prioritize_proactive_post(state=state, cfg=cfg)
             pending_executed = 0
-            if priority_post_required:
-                logger.info("Cycle=%s pending actions deferred reason=priority_post_pending", iteration)
-            else:
-                pending_executed = execute_pending_actions(
-                    client=client,
-                    cfg=cfg,
-                    state=state,
-                    logger=logger,
-                    my_name=my_name,
-                )
-                if pending_executed:
-                    save_state(cfg.state_path, state)
+            pending_executed = execute_pending_actions(
+                client=client,
+                cfg=cfg,
+                state=state,
+                logger=logger,
+                my_name=my_name,
+            )
+            if pending_executed:
+                save_state(cfg.state_path, state)
             early_proactive_actions = 0
             early_post_action_sent = False
-            if should_prioritize_proactive_post(state=state, cfg=cfg):
+            pending_replies_start = int(state.get("unanswered_comment_count", 0) or 0)
+            if pending_replies_start > 0:
+                logger.info(
+                    "Cycle=%s skipping proactive post because pending replies=%s",
+                    iteration,
+                    pending_replies_start,
+                )
+            if pending_replies_start <= 0 and should_prioritize_proactive_post(state=state, cfg=cfg):
                 since_last_post = seconds_since_last_post(state=state)
                 logger.info(
                     "Cycle=%s proactive priority trigger post_slot_open=true last_post_age_seconds=%s",
@@ -3085,18 +3826,21 @@ def run_loop() -> None:
                     early_post_action_sent = True
                     save_state(cfg.state_path, state)
                     save_post_engine_memory(cfg.proactive_memory_path, post_memory)
-            if should_prioritize_proactive_post(state=state, cfg=cfg) and not early_post_action_sent:
-                logger.info(
-                    "Cycle=%s priority_post_pending=true defer_reply_scan_and_discovery=1",
-                    iteration,
-                )
+            if pending_replies_start <= 0 and should_prioritize_proactive_post(state=state, cfg=cfg) and not early_post_action_sent:
+                attempt_result = normalize_str(state.get("last_proactive_post_attempt_result")).strip().lower()
+                if attempt_result.startswith("duplicate") or attempt_result in {"not_approved", "dry_run"}:
+                    logger.info(
+                        "Cycle=%s priority_post_pending=false reason=%s continuing_with_reply_scan_and_discovery=1",
+                        iteration,
+                        attempt_result or "no_post",
+                    )
+                else:
+                    logger.info(
+                        "Cycle=%s priority_post_pending=true continuing_with_reply_scan_and_discovery=1",
+                        iteration,
+                    )
                 save_state(cfg.state_path, state)
                 save_post_engine_memory(cfg.proactive_memory_path, post_memory)
-                sleep_seconds = max(1, cfg.idle_poll_seconds)
-                sleep_reason = "priority_post_pending"
-                logger.info("Sleeping seconds=%s reason=%s", sleep_seconds, sleep_reason)
-                time.sleep(sleep_seconds)
-                continue
             if cfg.startup_reply_scan_enabled and cfg.reply_scan_interval_cycles > 0:
                 if iteration % cfg.reply_scan_interval_cycles == 0:
                     if early_post_action_sent:
@@ -3120,6 +3864,68 @@ def run_loop() -> None:
                             domain_context_text=domain_context_text,
                             approve_all_actions=approve_all_actions,
                         )
+                        pending_replies_start = int(state.get("unanswered_comment_count", 0) or 0)
+                        logger.info(
+                            "Reply scan updated pending_replies=%s",
+                            pending_replies_start,
+                        )
+            if pending_replies_start > 0:
+                comment_allowed_now, comment_gate_reason = comment_gate_status(state=state, cfg=cfg)
+                if comment_allowed_now:
+                    logger.info(
+                        "Reply scan forced cycle=%s reason=pending_replies count=%s",
+                        iteration,
+                        pending_replies_start,
+                    )
+                    approve_all_actions = run_startup_reply_scan(
+                        client=client,
+                        cfg=cfg,
+                        logger=logger,
+                        state=state,
+                        my_name=my_name,
+                        persona_text=persona_text,
+                        domain_context_text=domain_context_text,
+                        approve_all_actions=approve_all_actions,
+                    )
+                    pending_replies_start = int(state.get("unanswered_comment_count", 0) or 0)
+                    logger.info(
+                        "Reply scan updated pending_replies=%s",
+                        pending_replies_start,
+                    )
+                else:
+                    logger.info(
+                        "Reply scan deferred cycle=%s reason=comment_gate_closed gate=%s",
+                        iteration,
+                        comment_gate_reason,
+                    )
+            pending_replies = int(state.get("unanswered_comment_count", 0) or 0)
+            if pending_replies > 0:
+                comment_allowed_now, comment_gate_reason = comment_gate_status(state=state, cfg=cfg)
+                if not my_name:
+                    logger.info(
+                        "Cycle=%s pending_replies=%s but identity_missing; continuing with discovery/drafting",
+                        iteration,
+                        pending_replies,
+                    )
+                elif not comment_allowed_now:
+                    logger.info(
+                        "Cycle=%s pending_replies=%s but comment gate closed=%s; deferring discovery",
+                        iteration,
+                        pending_replies,
+                        comment_gate_reason,
+                    )
+                    save_state(cfg.state_path, state)
+                    time.sleep(max(1, int(cfg.idle_poll_seconds)))
+                    continue
+                else:
+                    logger.info(
+                        "Cycle=%s pending_replies_priority count=%s; skipping discovery/drafting",
+                        iteration,
+                        pending_replies,
+                    )
+                    save_state(cfg.state_path, state)
+                    time.sleep(max(1, int(cfg.idle_poll_seconds)))
+                    continue
             posts, sources = discover_posts(
                 client=client,
                 cfg=cfg,
@@ -3420,6 +4226,11 @@ def run_loop() -> None:
                         continue
 
                 allowed_modes = currently_allowed_response_modes(cfg=cfg, state=state)
+                # If a post slot is not open, avoid drafting post responses to save tokens.
+                if post_cd_remaining > 0:
+                    allowed_modes = [mode for mode in allowed_modes if mode != "post"]
+                elif "post" not in allowed_modes:
+                    allowed_modes = [mode for mode in allowed_modes if mode != "post"]
                 if allowed_modes == ["none"]:
                     skip_reasons["no_action_slots"] = skip_reasons.get("no_action_slots", 0) + 1
                     mark_seen(pid)
@@ -3506,9 +4317,24 @@ def run_loop() -> None:
                         cfg.llm_provider,
                         e,
                     )
-                    draft = fallback_draft()
                     drafted_count += 1
-                    logger.info("Cycle=%s using_fallback_draft post_id=%s", iteration, pid)
+                    if "post" in allowed_modes and "comment" not in allowed_modes:
+                        draft = fallback_draft()
+                        draft["response_mode"] = "post"
+                        logger.info("Cycle=%s using_fallback_post_draft post_id=%s", iteration, pid)
+                    else:
+                        draft = {
+                            "should_respond": False,
+                            "confidence": 0.0,
+                            "response_mode": "none",
+                            "title": "",
+                            "content": "",
+                            "followups": [],
+                            "vote_action": "none",
+                            "vote_target": "none",
+                        }
+                        skip_reasons["llm_draft_failed"] = skip_reasons.get("llm_draft_failed", 0) + 1
+                        logger.info("Cycle=%s llm_draft_failed_no_fallback post_id=%s", iteration, pid)
 
                 should_respond = bool(draft.get("should_respond", False))
                 confidence, confidence_imputed = _normalized_model_confidence(
@@ -3636,7 +4462,7 @@ def run_loop() -> None:
                         pid,
                     )
                 # Sanitize early so template/format scaffolding does not cause false skips.
-                content = sanitize_publish_content(content)
+                content = sanitize_publish_content(content, max_chars=cfg.max_comment_chars)
                 if not content:
                     logger.warning("Cycle=%s skip post_id=%s reason=empty_content", iteration, pid)
                     mark_seen(pid)
@@ -3675,12 +4501,15 @@ def run_loop() -> None:
                     content,
                     allow_links=False,
                     audit_label="main_cycle_comment",
+                    max_chars=cfg.max_comment_chars,
                 )
                 post_content = _prepare_publish_content(
                     _compose_reference_post_content(reference_url=url, content=content),
                     allow_links=True,
                     audit_label="main_cycle_post",
                 )
+                if post_content:
+                    post_content = sanitize_publish_content(post_content, max_chars=1200)
                 if hostile_source:
                     post_content = ""
                 draft_archetype = normalize_str(draft.get("content_archetype")).strip().lower()
@@ -3741,6 +4570,17 @@ def run_loop() -> None:
                                     )
                                     continue
                                 try:
+                                    comment_content = sanitize_publish_content(
+                                        comment_content,
+                                        max_chars=cfg.max_comment_chars,
+                                    )
+                                    if not comment_content:
+                                        logger.info(
+                                            "Cycle=%s skip post_id=%s reason=empty_comment_after_sanitize",
+                                            iteration,
+                                            pid,
+                                        )
+                                        continue
                                     logger.info(
                                         "Cycle=%s action=comment attempt post_id=%s submolt=%s url=%s waited_for_cooldown=true",
                                         iteration,
@@ -4034,13 +4874,24 @@ def run_loop() -> None:
                                 executed=False,
                                 error="duplicate_publish_signature",
                                 title=reference_post_title,
-                            )
-                            continue
-                        try:
+                        )
+                        continue
+                    try:
+                        comment_content = sanitize_publish_content(
+                            comment_content,
+                            max_chars=cfg.max_comment_chars,
+                        )
+                        if not comment_content:
                             logger.info(
-                                "Cycle=%s action=comment attempt post_id=%s submolt=%s url=%s",
+                                "Cycle=%s skip post_id=%s reason=empty_comment_after_sanitize",
                                 iteration,
                                 pid,
+                            )
+                            continue
+                        logger.info(
+                            "Cycle=%s action=comment attempt post_id=%s submolt=%s url=%s",
+                            iteration,
+                            pid,
                                 action_submolt,
                                 url,
                             )
@@ -4177,6 +5028,28 @@ def run_loop() -> None:
                                 url,
                                 title,
                             )
+                            dup_post, dup_reason = _is_duplicate_post(title, post_content, state)
+                            if dup_post:
+                                logger.info(
+                                    "Cycle=%s action=post skipped reference_post_id=%s reason=%s",
+                                    iteration,
+                                    pid,
+                                    dup_reason,
+                                )
+                                analytics_event(
+                                    action_type="post",
+                                    target_post_id="(new)",
+                                    submolt=post_submolt_route,
+                                    feed_sources=feed_sources_for_event,
+                                    virality_score=virality_for_event,
+                                    archetype=draft_archetype,
+                                    model_confidence=confidence,
+                                    approved_by_human=True,
+                                    executed=False,
+                                    error=dup_reason,
+                                    title=title,
+                                )
+                                continue
                             post_sig = _publish_signature(
                                 action_type="post",
                                 target_post_id="(new)",
@@ -4289,6 +5162,28 @@ def run_loop() -> None:
                             url,
                             title,
                         )
+                        dup_post, dup_reason = _is_duplicate_post(title, post_content, state)
+                        if dup_post:
+                            logger.info(
+                                "Cycle=%s action=post skipped reference_post_id=%s reason=%s",
+                                iteration,
+                                pid,
+                                dup_reason,
+                            )
+                            analytics_event(
+                                action_type="post",
+                                target_post_id="(new)",
+                                submolt=action_submolt,
+                                feed_sources=feed_sources_for_event,
+                                virality_score=virality_for_event,
+                                archetype=draft_archetype,
+                                model_confidence=confidence,
+                                approved_by_human=True,
+                                executed=False,
+                                error=dup_reason,
+                                title=title,
+                            )
+                            continue
                         post_sig = _publish_signature(
                             action_type="post",
                             target_post_id="(new)",
@@ -4890,15 +5785,32 @@ def run_loop() -> None:
                     sleep_seconds = max(1, cfg.idle_poll_seconds)
                     sleep_reason = "cooldown_elapsed"
         except MoltbookAuthError as e:
+            error_text = normalize_str(e)
             logger.error("Poll cycle=%s auth_error=%s", iteration, e)
-            sleep_seconds = max(1, cfg.poll_seconds)
-            sleep_reason = "auth_error_backoff"
+            block_seconds = _apply_auth_block(state, error_text, logger)
+            save_state(cfg.state_path, state)
+            if block_seconds > 0:
+                sleep_seconds = max(60, min(block_seconds, cfg.poll_seconds * 4))
+                sleep_reason = "auth_block"
+            else:
+                sleep_seconds = max(1, cfg.poll_seconds)
+                sleep_reason = "auth_error_backoff"
         except Exception as e:
-            logger.exception("Poll cycle=%s loop_error=%s", iteration, e)
-            sleep_seconds = max(1, cfg.poll_seconds)
-            sleep_reason = "loop_error_backoff"
+            error_text = normalize_str(e)
+            if "account suspended" in error_text.lower() or "invalid api key" in error_text.lower():
+                logger.error("Poll cycle=%s auth_error=%s", iteration, e)
+                block_seconds = _apply_auth_block(state, error_text, logger)
+                save_state(cfg.state_path, state)
+                sleep_seconds = max(60, min(max(1, block_seconds), cfg.poll_seconds * 4))
+                sleep_reason = "auth_block"
+            else:
+                logger.exception("Poll cycle=%s loop_error=%s", iteration, e)
+                sleep_seconds = max(1, cfg.poll_seconds)
+                sleep_reason = "loop_error_backoff"
 
         logger.info("Sleeping seconds=%s reason=%s", sleep_seconds, sleep_reason)
+        if cfg.max_cycles > 0 and sleep_reason == "auth_error_backoff":
+            break
         time.sleep(sleep_seconds)
 
 

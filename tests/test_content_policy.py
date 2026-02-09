@@ -28,9 +28,9 @@ class ContentPolicyTests(unittest.TestCase):
         self.assertFalse(weak)
 
     def test_badbot_warning_changes_with_strikes(self):
-        self.assertIn("keep this thread technical", build_badbot_warning_reply("SpamBot", 1).lower())
+        self.assertIn("technical", build_badbot_warning_reply("SpamBot", 1).lower())
         self.assertIn("not promos", build_badbot_warning_reply("SpamBot", 2).lower())
-        self.assertIn("will be ignored", build_badbot_warning_reply("SpamBot", 4).lower())
+        self.assertIn("only engage", build_badbot_warning_reply("SpamBot", 4).lower())
 
     def test_top_badbots_sorts_desc(self):
         board = top_badbots({"a": 1, "b": 4, "c": 2}, limit=2)

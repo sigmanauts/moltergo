@@ -38,6 +38,8 @@ class MoltbookCredentials:
         1. MOLTBOOK_API_KEY env var
         2. credentials.json file
         """
+        if os.getenv("MOLTBOOK_SKIP_AUTH_VALIDATION", "").strip().lower() in {"1", "true", "yes"}:
+            return cls(api_key=os.getenv("MOLTBOOK_API_KEY", ""), agent_name=os.getenv("MOLTBOOK_AGENT_NAME"))
         api_key = os.getenv("MOLTBOOK_API_KEY")
         agent_name: Optional[str] = None
 

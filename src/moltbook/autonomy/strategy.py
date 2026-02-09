@@ -361,6 +361,8 @@ def _is_template_like_generated_content(text: str) -> bool:
     blob = normalize_str(text).strip().lower()
     if not blob:
         return False
+    if _looks_like_control_payload_text(blob):
+        return True
     if "```" in blob:
         return True
     if re.search(r"if you want[^\\n]{0,140}threads/profile", blob):

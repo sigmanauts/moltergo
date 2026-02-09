@@ -66,9 +66,28 @@ MAX_PROMPT_PRIOR_SUGGESTIONS = 4
 MAX_PROMPT_LEARNING_EXAMPLES = 2
 MAX_CHATBASE_MESSAGE_CHARS = 2400
 MAX_OPENAI_MESSAGE_CHARS = 9000
+MAX_OLLAMA_MESSAGE_CHARS = 6000
+MAX_COMMENT_CHARS_DEFAULT = 900
+
+
+def clamp_comment_length(text: str, max_chars: int) -> str:
+    if not text:
+        return ""
+    if max_chars <= 0:
+        return text
+    if len(text) <= max_chars:
+        return text
+    trimmed = text[:max_chars].rstrip()
+    if "\n\n" in trimmed:
+        trimmed = trimmed.rsplit("\n\n", 1)[0].rstrip()
+    return trimmed
 CONTROL_PAYLOAD_PATTERN = re.compile(
-    r"\b(should_respond|response_mode|vote_action|vote_target|confidence|should_post|content_archetype)\s*[:=]",
+    r"\b(should_respond|response_mode|vote_action|vote_target|confidence|should_post|content_archetype)\"?\s*[:=]",
     re.IGNORECASE,
+)
+CONTROL_PAYLOAD_JSON_PATTERN = re.compile(
+    r"^\s*\{.*\"(should_respond|response_mode|vote_action|vote_target|confidence|should_post)\".*\}\s*$",
+    re.IGNORECASE | re.DOTALL,
 )
 TRIAGE_SCAFFOLD_PATTERN = re.compile(r"(^|\n)\s*(assessment|action)\s*:\s*", re.IGNORECASE)
 TRIAGE_REPLY_LABEL_PATTERN = re.compile(r"\breply(?:\s*\([^)]{0,40}\))?\s*:\s*", re.IGNORECASE)
@@ -569,7 +588,8 @@ def build_openai_messages(
         "and 1 concrete way the author could apply Ergo in their scenario. "
         "When relevant, include one real-world implementation angle and one concise misconception correction. "
         "When context fits, invite readers to share one concrete ErgoScript use case from their own work. "
-        "Never write a boilerplate lead sentence."
+        "Never write a boilerplate lead sentence. "
+        "Do not use the phrases: \"good angle\", \"great point\", \"appreciate the detail\", \"thanks for the reply\", \"noted\"."
     )
     trend_list = [normalize_str(x).strip().lower() for x in (trending_terms or []) if normalize_str(x).strip()]
     trend_list = trend_list[:8]
@@ -628,7 +648,8 @@ def build_reply_triage_messages(
         "should_respond, confidence, response_mode(comment|none), title, content, vote_action(upvote|none), vote_target(top_comment|none). "
         "Vote up only useful comments. No spam replies. "
         "If comment is playful but on-topic, match tone in first sentence then add one concrete mechanism. "
-        "Never use boilerplate openers."
+        "Never use boilerplate openers. "
+        "Avoid these phrases: \"good angle\", \"great point\", \"appreciate the detail\", \"thanks for the reply\", \"noted\"."
     )
     user = (
         f"Persona:\n{persona_compact}\n\n"
@@ -636,6 +657,83 @@ def build_reply_triage_messages(
         "Assess this incoming comment on our post. If relevant/constructive, usually upvote and optionally reply. "
         "If spam/irrelevant, do not reply.\n\n"
         "If replying: 2-4 sentences, one concrete mechanism, one direct question.\n\n"
+        f"{_reply_context_anchor(post=post, comment=comment)}\n\n"
+        f"Post:\n{json.dumps(post_prompt, ensure_ascii=False)}\n\n"
+        f"Incoming comment:\n{json.dumps(comment_prompt, ensure_ascii=False)}"
+    )
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
+def build_reply_draft_messages(
+    persona: str,
+    domain_context: str,
+    post: Dict[str, Any],
+    comment: Dict[str, Any],
+    post_id: Optional[str],
+    comment_id: Optional[str],
+    style_hint: str = "normal",
+    off_topic: bool = False,
+) -> List[Dict[str, str]]:
+    persona_compact = _clip_text(persona, MAX_TRIAGE_PERSONA_CHARS)
+    context_compact = _clip_text(domain_context or "(no extra domain context provided)", MAX_TRIAGE_CONTEXT_CHARS)
+    post_prompt = {
+        "post_id": post_id,
+        "title": _clip_text(post.get("title"), 180),
+        "content": _clip_text(post.get("content"), MAX_TRIAGE_POST_CONTENT_CHARS),
+        "submolt": normalize_str(post.get("submolt")).strip(),
+        "url": post_url(post_id),
+    }
+    comment_prompt = {
+        "comment_id": comment_id,
+        "content": _clip_text(comment.get("content"), MAX_TRIAGE_COMMENT_CONTENT_CHARS),
+        "author": (comment.get("author") or {}).get("name"),
+        "score": comment.get("score"),
+    }
+    style_hint = normalize_str(style_hint).strip().lower()
+    style_line = "Reply style: concise, technical, and direct."
+    if style_hint == "snark":
+        style_line = (
+            "Reply style: short, sharp refusal. Point out irrelevance or spam plainly. "
+            "No insults, no slurs, no threats. "
+            "First sentence must state the comment is off-topic or irrelevant. "
+            "Do not answer the substance."
+        )
+    elif style_hint == "snark_strict":
+        style_line = (
+            "Reply style: strict off-topic refusal. "
+            "Your first sentence must include the exact phrase: \"Off-topic for this thread.\" "
+            "Do not answer the substance. Ask them to stay on topic."
+        )
+    elif style_hint == "correction":
+        style_line = (
+            "Reply style: brief correction of mistaken community context. "
+            "Be polite, factual, and redirect to the right topic."
+        )
+    system = (
+        "Response kind: reply_triage.\n"
+        "Return ONLY valid JSON with keys: should_respond, confidence, response_mode, title, content, "
+        "vote_action, vote_target.\n"
+        "Set should_respond=true, response_mode=comment, vote_target=top_comment. "
+        "Never use boilerplate openers. "
+        "Do not use the phrases: \"good angle\", \"great point\", \"appreciate the detail\", "
+        "\"thanks for the reply\", \"noted\".\n"
+        f"{DEFAULT_PERSONA_HINT}\n"
+        f"{CYBERPUNK_VOICE_REQUIREMENTS}\n"
+        f"{HUMAN_STYLE_REQUIREMENTS}\n"
+        f"{style_line}\n"
+    )
+    user = (
+        f"Persona:\n{persona_compact}\n\n"
+        f"Context:\n{context_compact}\n\n"
+        f"Off-topic flag: {'true' if off_topic else 'false'}.\n"
+        "If off-topic flag is false, do NOT say off-topic, irrelevant, or unrelated.\n"
+        "Write a reply to the incoming comment. "
+        "If the comment is off-topic but not spam, redirect back to the thread with one concrete mechanism. "
+        "If spam, refuse and explain why it is irrelevant.\n\n"
+        "Reply constraints: 2-4 sentences, one concrete mechanism, one direct question.\n\n"
         f"{_reply_context_anchor(post=post, comment=comment)}\n\n"
         f"Post:\n{json.dumps(post_prompt, ensure_ascii=False)}\n\n"
         f"Incoming comment:\n{json.dumps(comment_prompt, ensure_ascii=False)}"
@@ -862,6 +960,76 @@ def call_openai(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[Dict[str, 
     return _parse_json_object_lenient(content, response_kind=response_kind), usage
 
 
+def call_groq(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    if not cfg.groq_api_key:
+        raise RuntimeError("GROQ_API_KEY not set")
+    url = f"{cfg.groq_base_url}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {cfg.groq_api_key}",
+        "Content-Type": "application/json",
+    }
+    compacted_messages = _compact_messages(messages, MAX_OPENAI_MESSAGE_CHARS)
+    response_kind = _infer_response_kind(compacted_messages)
+    prompt_tokens_est = _estimate_tokens_from_messages(compacted_messages)
+    payload = {
+        "model": cfg.groq_model,
+        "messages": compacted_messages,
+        "temperature": cfg.openai_temperature,
+        "response_format": {"type": "json_object"},
+    }
+    resp = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Groq error {resp.status_code}: {resp.text}")
+    data = resp.json()
+    content = data["choices"][0]["message"]["content"]
+    usage = _finalize_usage(
+        usage=_extract_usage(data),
+        prompt_tokens_est=prompt_tokens_est,
+        completion_text=content,
+        source_hint="groq_api",
+    )
+    return _parse_json_object_lenient(content, response_kind=response_kind), usage
+
+
+def call_ollama(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    model = normalize_str(cfg.ollama_model).strip()
+    if not model:
+        raise RuntimeError("OLLAMA_MODEL not set")
+    url = f"{cfg.ollama_base_url}/api/chat"
+    compacted_messages = _compact_messages(messages, MAX_OLLAMA_MESSAGE_CHARS)
+    response_kind = _infer_response_kind(compacted_messages)
+    payload = {
+        "model": model,
+        "messages": compacted_messages,
+        "stream": False,
+    }
+    resp = requests.post(url, json=payload, timeout=60)
+    resp.raise_for_status()
+    data = resp.json()
+    text = normalize_str((data.get("message") or {}).get("content") or data.get("response") or "").strip()
+    if not text:
+        raise RuntimeError("Ollama returned empty response body")
+    usage_seed = _extract_usage(data)
+    # Ollama returns prompt_eval_count / eval_count.
+    if usage_seed.get("prompt_tokens") is None and isinstance(data.get("prompt_eval_count"), int):
+        usage_seed["prompt_tokens"] = data.get("prompt_eval_count")
+    if usage_seed.get("completion_tokens") is None and isinstance(data.get("eval_count"), int):
+        usage_seed["completion_tokens"] = data.get("eval_count")
+    if (
+        usage_seed.get("total_tokens") is None
+        and isinstance(usage_seed.get("prompt_tokens"), int)
+        and isinstance(usage_seed.get("completion_tokens"), int)
+    ):
+        usage_seed["total_tokens"] = int(usage_seed["prompt_tokens"]) + int(usage_seed["completion_tokens"])
+    usage = _finalize_usage(
+        usage=usage_seed,
+        prompt_tokens_est=_estimate_tokens_from_messages(compacted_messages),
+        completion_text=text,
+        source_hint="ollama_api",
+    )
+    return _parse_json_object_lenient(text, response_kind=response_kind), usage
+
+
 def _extract_chatbase_text(payload: Dict[str, Any]) -> str:
     text_value = payload.get("text")
     if isinstance(text_value, str):
@@ -965,6 +1133,89 @@ def _extract_first_balanced_json_object(text: str) -> str:
     return ""
 
 
+def _extract_embedded_json_payload(text: str) -> Dict[str, Any]:
+    blob = normalize_str(text).strip()
+    if not blob or "{" not in blob:
+        return {}
+    candidate = _extract_first_balanced_json_object(blob)
+    if not candidate:
+        return {}
+    # Best-effort: strip trailing commas that make JSON invalid.
+    candidate = re.sub(r",\s*([}\]])", r"\1", candidate)
+    try:
+        parsed = json.loads(candidate)
+    except Exception:
+        # Fallback: try to extract key fields even if JSON is malformed.
+        return {}
+    if isinstance(parsed, dict):
+        return parsed
+    return {}
+
+
+def _extract_embedded_content_field(text: str) -> str:
+    blob = normalize_str(text).strip()
+    if not blob:
+        return ""
+    candidate = _extract_first_balanced_json_object(blob)
+    if not candidate:
+        candidate = blob
+    keys = ("content", "reply", "comment")
+    patterns = []
+    for key in keys:
+        patterns.extend(
+            [
+                rf"\"{key}\"\\s*:\\s*\"((?:\\\\.|[^\\\"])*)\"",
+                rf"'{key}'\\s*:\\s*'((?:\\\\.|[^\\\'])*)'",
+                rf"\\b{key}\\s*:\\s*\"((?:\\\\.|[^\\\"])*)\"",
+                rf"\\b{key}\\s*:\\s*'((?:\\\\.|[^\\\'])*)'",
+            ]
+        )
+    for pattern in patterns:
+        match = re.search(pattern, candidate, flags=re.DOTALL)
+        if not match:
+            continue
+        raw_value = match.group(1)
+        try:
+            return json.loads(f"\"{raw_value}\"")
+        except Exception:
+            return normalize_str(raw_value).replace("\\n", "\n").replace("\\\"", "\"").strip()
+    # Loose fallback: handle malformed JSON with an unescaped content field.
+    lowered = candidate.lower()
+    if "content" in lowered:
+        start = lowered.find("content")
+        if start >= 0:
+            # Find the first quote after the content key, then take the last quote before the end.
+            after = candidate[start:]
+            first_quote = after.find('"')
+            if first_quote >= 0:
+                after = after[first_quote + 1 :]
+                first_quote = after.find('"')
+                if first_quote >= 0:
+                    remainder = after[first_quote + 1 :]
+                    tail = remainder.rsplit('"', 1)
+                    if len(tail) == 2:
+                        return normalize_str(tail[0]).replace("\\n", "\n").replace("\\\"", "\"").strip()
+    return ""
+
+
+def _strip_banned_openers(text: str) -> str:
+    if not text:
+        return text
+    pattern = (
+        r"(?im)^\\s*[\\-–—\"'\\(\\[]*\\s*"
+        r"(good angle|great point|good point|appreciate the detail|thanks for the reply|noted)"
+        r"[\\s\\.:,-]*"
+    )
+    cleaned = re.sub(pattern, "", text, count=1).lstrip()
+    # Also drop the phrase if it appears in the first ~25 chars.
+    lowered = cleaned.lower()
+    for phrase in ("good angle", "great point", "good point", "appreciate the detail", "thanks for the reply", "noted"):
+        if lowered.startswith(phrase):
+            cleaned = cleaned[len(phrase) :].lstrip(" .,:-")
+            break
+    return cleaned
+
+
 def _normalize_response_kind(value: Any) -> str:
     text = normalize_str(value).strip().lower()
     if text in {"reply_triage", "proactive_post", "post_response", "keyword_suggestions", "self_improvement"}:
@@ -976,6 +1227,8 @@ def _contains_control_payload_markers(text: Any) -> bool:
     blob = normalize_str(text).strip()
     if not blob:
         return False
+    if CONTROL_PAYLOAD_JSON_PATTERN.match(blob):
+        return True
     return bool(CONTROL_PAYLOAD_PATTERN.search(blob))
 
 
@@ -1069,6 +1322,9 @@ def _sanitize_generated_content_text(text: Any) -> str:
     out = normalize_str(text).strip()
     if not out:
         return ""
+    if CONTROL_PAYLOAD_JSON_PATTERN.match(out):
+        # Drop entire JSON payloads to avoid posting control metadata.
+        return ""
     out = out.replace("...[truncated]", "...").replace("... [truncated]", "...").replace("[truncated]", "")
     lower = out.lower()
     if _contains_triage_scaffold_text(out) or ("reply" in lower and ("assessment" in lower or "action" in lower)):
@@ -1094,26 +1350,68 @@ def _sanitize_generated_content_text(text: Any) -> str:
     out = _strip_outer_quotes(out)
     out = _strip_markdown_fences(out)
     out = re.sub(r"\n{3,}", "\n\n", out).strip()
+    out = _strip_banned_openers(out)
     out = out.strip()
     return out
 
 
-def sanitize_publish_content(text: Any) -> str:
+def sanitize_publish_content(text: Any, max_chars: Optional[int] = None) -> str:
     """
     Final high-safety scrub applied immediately before publishing content.
     This guards against wrapper leakage even if earlier draft parsing missed it.
     """
-    out = _sanitize_generated_content_text(text)
+    raw = normalize_str(text).strip()
+    # If the model wrapped its reply in a JSON object, extract the content.
+    payload = _extract_embedded_json_payload(raw)
+    if payload:
+        candidate = payload.get("content") or payload.get("reply") or payload.get("comment")
+        if candidate:
+            raw = normalize_str(candidate).strip()
+        elif payload.get("title") and len(raw) < 220:
+            raw = normalize_str(payload.get("title")).strip()
+    else:
+        embedded = _extract_embedded_content_field(raw)
+        if embedded:
+            raw = normalize_str(embedded).strip()
+        else:
+            # Strip a JSON-like wrapper to avoid leaking scaffolding to publish path.
+            if "{" in raw and "content" in raw.lower():
+                candidate = _extract_first_balanced_json_object(raw)
+                if candidate:
+                    raw = raw.replace(candidate, "").strip()
+    out = _sanitize_generated_content_text(raw)
     if not out:
+        return ""
+    if _contains_control_payload_markers(out):
         return ""
     cleaned_lines: List[str] = []
     for line in out.splitlines():
+        norm_line = normalize_str(line)
+        if re.match(r"(?im)^\s*here'?s (the )?(draft )?(response|reply|comment)\s*:?\s*$", norm_line):
+            continue
+        if re.match(r"(?im)^\s*this (response|comment|reply) is\b", norm_line):
+            continue
+        if re.match(r"(?im)^\s*here'?s the response\b", norm_line):
+            continue
+        if re.match(r"(?im)^\s*here'?s the reply\b", norm_line):
+            continue
+        if re.match(r"(?im)^\s*(response|reply|comment)\\s*\\(.*?\\)\\s*:\\s*$", norm_line):
+            continue
+        if re.match(r"(?im)^\s*(response|reply|comment)\\s*:\\s*$", norm_line):
+            continue
         if DRAFT_PREAMBLE_LINE_PATTERN.match(normalize_str(line)):
+            continue
+        if re.match(r"(?im)^\s*(title|content|response_mode|should_respond|confidence)\\s*[:=]", norm_line):
+            continue
+        if re.match(r"(?im)^\s*(content_archetype|strategy_notes|topic_tags)\\s*[:=]", norm_line):
             continue
         cleaned_lines.append(line)
     out = "\n".join(cleaned_lines).strip()
-    if _contains_control_payload_markers(out):
-        return ""
+    # Hard length cap for comments to avoid flooding threads.
+    if max_chars is None:
+        max_chars = MAX_COMMENT_CHARS_DEFAULT
+    if max_chars and len(out) > max_chars:
+        out = clamp_comment_length(out, max_chars)
     # Remove a leftover leading metadata key if present.
     out = re.sub(r"(?is)^\s*```+\s*(?:yaml\s+)?comment\s*:\s*", "", out).strip()
     out = re.sub(r"(?is)^\s*```+\s*(?:yaml\s+)?reply\s*:\s*", "", out).strip()
@@ -1563,6 +1861,21 @@ def _parse_json_object_lenient(text: str, response_kind: str = "generic") -> Dic
     if isinstance(coerced, dict) and coerced:
         return coerced
 
+    # Final salvage: extract embedded content/reply/comment and wrap it.
+    extracted = _extract_embedded_content_field(raw)
+    if extracted:
+        kind = _normalize_response_kind(response_kind)
+        base = {
+            "should_respond": True,
+            "confidence": 0.72,
+            "response_mode": "comment",
+            "title": "",
+            "content": extracted,
+            "vote_action": "none",
+            "vote_target": "none",
+        }
+        return _sanitize_structured_response(base, response_kind=kind)
+
     preview = _clip_text(raw.replace("\n", " "), 320)
     raise RuntimeError(f"Chatbase returned non-JSON text (preview={preview})")
 
@@ -1622,16 +1935,30 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
     def can_chatbase() -> bool:
         return bool(cfg.chatbase_api_key and cfg.chatbase_chatbot_id)
 
+    def can_groq() -> bool:
+        return bool(cfg.groq_api_key)
+
     def can_openai() -> bool:
         return bool(cfg.openai_api_key)
 
+    def can_ollama() -> bool:
+        return bool(cfg.ollama_model and cfg.ollama_base_url)
+
     if provider == "chatbase":
         model_hint = cfg.chatbase_chatbot_id
+    elif provider == "groq":
+        model_hint = cfg.groq_model
     elif provider == "openai":
         model_hint = cfg.openai_model
+    elif provider == "ollama":
+        model_hint = cfg.ollama_model
     else:
         if can_chatbase():
             model_hint = f"chatbase:{cfg.chatbase_chatbot_id}"
+        elif can_groq():
+            model_hint = f"groq:{cfg.groq_model}"
+        elif can_ollama():
+            model_hint = f"ollama:{cfg.ollama_model}"
         elif can_openai():
             model_hint = f"openai:{cfg.openai_model}"
         else:
@@ -1644,7 +1971,8 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
     logger.info(
         (
             "LLM request kind=%s provider=%s model=%s messages=%s "
-            "prompt_chars=%s prompt_tokens_est=%s chatbase_configured=%s openai_configured=%s"
+            "prompt_chars=%s prompt_tokens_est=%s chatbase_configured=%s groq_configured=%s "
+            "ollama_configured=%s openai_configured=%s"
         ),
         display_kind,
         provider_route,
@@ -1653,6 +1981,8 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
         prompt_chars,
         prompt_tokens_est,
         int(can_chatbase()),
+        int(can_groq()),
+        int(can_ollama()),
         int(can_openai()),
     )
 
@@ -1674,12 +2004,26 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
         _log_response("chatbase", usage)
         return parsed, "chatbase", usage
 
+    if provider == "groq":
+        if not can_groq():
+            raise RuntimeError("LLM provider groq selected but GROQ_API_KEY missing")
+        parsed, usage = call_groq(cfg, messages)
+        _log_response("groq", usage)
+        return parsed, "groq", usage
+
     if provider == "openai":
         if not can_openai():
             raise RuntimeError("LLM provider openai selected but OPENAI_API_KEY missing")
         parsed, usage = call_openai(cfg, messages)
         _log_response("openai", usage)
         return parsed, "openai", usage
+
+    if provider == "ollama":
+        if not can_ollama():
+            raise RuntimeError("LLM provider ollama selected but OLLAMA_BASE_URL/OLLAMA_MODEL missing")
+        parsed, usage = call_ollama(cfg, messages)
+        _log_response("ollama", usage)
+        return parsed, "ollama", usage
 
     # auto mode: prefer Chatbase for Ergo-domain writing.
     # OpenAI fallback is optional via MOLTBOOK_LLM_AUTO_FALLBACK_TO_OPENAI=1.
@@ -1689,6 +2033,16 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
             _log_response("chatbase", usage)
             return parsed, "chatbase", usage
         except Exception as e:
+            if can_groq():
+                logger.warning("LLM provider chatbase failed in auto mode; falling back to groq error=%s", e)
+                parsed, usage = call_groq(cfg, messages)
+                _log_response("groq", usage)
+                return parsed, "groq", usage
+            if can_ollama():
+                logger.warning("LLM provider chatbase failed in auto mode; falling back to ollama error=%s", e)
+                parsed, usage = call_ollama(cfg, messages)
+                _log_response("ollama", usage)
+                return parsed, "ollama", usage
             if can_openai() and cfg.llm_auto_fallback_to_openai:
                 logger.warning("LLM provider chatbase failed in auto mode; falling back to openai error=%s", e)
                 parsed, usage = call_openai(cfg, messages)
@@ -1700,12 +2054,20 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
                     f"Set MOLTBOOK_LLM_AUTO_FALLBACK_TO_OPENAI=1 to allow fallback. Cause: {e}"
                 )
             )
+    if can_groq():
+        parsed, usage = call_groq(cfg, messages)
+        _log_response("groq", usage)
+        return parsed, "groq", usage
+    if can_ollama():
+        parsed, usage = call_ollama(cfg, messages)
+        _log_response("ollama", usage)
+        return parsed, "ollama", usage
     if can_openai():
         parsed, usage = call_openai(cfg, messages)
         _log_response("openai", usage)
         return parsed, "openai", usage
 
-    raise RuntimeError("No LLM provider configured (set CHATBASE_* or OPENAI_API_KEY)")
+    raise RuntimeError("No LLM provider configured (set CHATBASE_*, GROQ_*, OLLAMA_*, or OPENAI_API_KEY)")
 
 
 def fallback_draft() -> Dict[str, Any]:

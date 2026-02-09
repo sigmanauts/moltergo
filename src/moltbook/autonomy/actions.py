@@ -35,6 +35,21 @@ def _publish_signature(
     return f"{action}:{post_id_value}:{parent_id_value}:{digest}"
 
 
+def has_seen_vote_signature(state: Dict[str, Any], signature: str) -> bool:
+    raw = state.get("recent_vote_signatures", [])
+    if not isinstance(raw, list):
+        return False
+    return signature in raw
+
+
+def remember_vote_signature(state: Dict[str, Any], signature: str) -> None:
+    raw = state.get("recent_vote_signatures", [])
+    if not isinstance(raw, list):
+        raw = []
+    raw.append(signature)
+    state["recent_vote_signatures"] = raw[-20000:]
+
+
 def _seen_publish_signature(state: Dict[str, Any], signature: str) -> bool:
     raw = state.get("recent_publish_signatures", [])
     if not isinstance(raw, list):
@@ -231,7 +246,7 @@ def execute_pending_actions(
                 logger.info("Pending action deferred kind=comment reason=%s", reason)
                 continue
             pid = normalize_str(action.get("post_id"))
-            content = sanitize_publish_content(normalize_str(action.get("content")))
+            content = sanitize_publish_content(normalize_str(action.get("content")), max_chars=cfg.max_comment_chars)
             parent_comment_id = normalize_str(action.get("parent_comment_id")) or None
             if not pid or not content:
                 logger.warning("Dropping invalid pending comment action (missing post_id/content).")
@@ -319,6 +334,12 @@ def execute_pending_actions(
                 replied_pairs = set(state.get("replied_comment_pairs", []))
                 replied_pairs.add(f"{normalize_str(pid).strip()}:{normalize_str(parent_comment_id).strip()}")
                 state["replied_comment_pairs"] = list(replied_pairs)[-20000:]
+                if isinstance(state.get("unanswered_comments"), list):
+                    state["unanswered_comments"] = [
+                        item for item in state["unanswered_comments"]
+                        if normalize_str(item.get("comment_id")).strip() != normalize_str(parent_comment_id).strip()
+                    ]
+                    state["unanswered_comment_count"] = len(state["unanswered_comments"])
             executed += 1
             try:
                 append_action_journal(

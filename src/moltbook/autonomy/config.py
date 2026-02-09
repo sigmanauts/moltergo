@@ -125,6 +125,7 @@ class Config:
     badbot_warning_min_strikes: int
     badbot_max_warnings_per_scan: int
     badbot_max_warnings_per_author_per_day: int
+    max_comment_chars: int
     proactive_posting_enabled: bool
     proactive_post_attempt_cooldown_seconds: int
     proactive_post_reference_limit: int
@@ -150,6 +151,11 @@ class Config:
     openai_base_url: str
     openai_model: str
     openai_temperature: float
+    groq_api_key: Optional[str]
+    groq_base_url: str
+    groq_model: str
+    ollama_base_url: str
+    ollama_model: str
     chatbase_api_key: Optional[str]
     chatbase_chatbot_id: Optional[str]
     chatbase_base_url: str
@@ -162,6 +168,7 @@ class Config:
     confirm_default_choice: str
     allow_comment_downvote: bool
     agent_name_hint: Optional[str]
+    max_cycles: int
 
 
 def _parse_csv_env(env_key: str) -> List[str]:
@@ -321,6 +328,11 @@ def load_config() -> Config:
     openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     openai_temperature = float(os.getenv("OPENAI_TEMPERATURE", "0.7"))
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    groq_base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+    groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+    ollama_model = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
     chatbase_api_key = os.getenv("CHATBASE_API_KEY")
     chatbase_chatbot_id = (
         os.getenv("CHATBASE_CHATBOT_ID", "").strip()
@@ -329,7 +341,7 @@ def load_config() -> Config:
     )
     chatbase_base_url = os.getenv("CHATBASE_BASE_URL", "https://www.chatbase.co/api/v1").rstrip("/")
     llm_provider = os.getenv("MOLTBOOK_LLM_PROVIDER", "auto").strip().lower()
-    if llm_provider not in {"auto", "openai", "chatbase"}:
+    if llm_provider not in {"auto", "openai", "chatbase", "ollama", "groq"}:
         llm_provider = "auto"
     llm_auto_fallback_to_openai = os.getenv("MOLTBOOK_LLM_AUTO_FALLBACK_TO_OPENAI", "0").strip().lower() in {
         "1",
@@ -339,7 +351,10 @@ def load_config() -> Config:
 
     log_level = os.getenv("MOLTBOOK_LOG_LEVEL", "INFO").strip().upper()
     log_path_str = os.getenv("MOLTBOOK_LOG_PATH", "").strip()
-    log_path = Path(log_path_str) if log_path_str else None
+    if log_path_str:
+        log_path = Path(log_path_str)
+    else:
+        log_path = Path("memory/autonomy.log")
     confirm_actions = os.getenv("MOLTBOOK_CONFIRM_ACTIONS", "1").strip().lower() in {"1", "true", "yes"}
     confirm_timeout_seconds = int(os.getenv("MOLTBOOK_CONFIRM_TIMEOUT_SECONDS", "0"))
     confirm_default_choice = os.getenv("MOLTBOOK_CONFIRM_DEFAULT_CHOICE", "n").strip().lower()
@@ -351,6 +366,8 @@ def load_config() -> Config:
         "yes",
     }
     agent_name_hint = os.getenv("MOLTBOOK_AGENT_NAME", "").strip() or None
+    max_comment_chars = int(os.getenv("MOLTBOOK_MAX_COMMENT_CHARS", "900"))
+    max_cycles = int(os.getenv("MOLTBOOK_MAX_CYCLES", "0"))
 
     return Config(
         poll_seconds=poll_seconds,
@@ -434,6 +451,11 @@ def load_config() -> Config:
         openai_base_url=openai_base_url,
         openai_model=openai_model,
         openai_temperature=openai_temperature,
+        groq_api_key=groq_api_key,
+        groq_base_url=groq_base_url,
+        groq_model=groq_model,
+        ollama_base_url=ollama_base_url,
+        ollama_model=ollama_model,
         chatbase_api_key=chatbase_api_key,
         chatbase_chatbot_id=chatbase_chatbot_id,
         chatbase_base_url=chatbase_base_url,
@@ -446,4 +468,6 @@ def load_config() -> Config:
         confirm_default_choice=confirm_default_choice,
         allow_comment_downvote=allow_comment_downvote,
         agent_name_hint=agent_name_hint,
+        max_comment_chars=max_comment_chars,
+        max_cycles=max_cycles,
     )

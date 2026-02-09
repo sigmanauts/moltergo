@@ -22,9 +22,18 @@ from .ui import confirm_keyword_addition, print_keyword_added_banner
 def has_generation_provider(cfg: Config) -> bool:
     if cfg.llm_provider == "chatbase":
         return bool(cfg.chatbase_api_key and cfg.chatbase_chatbot_id)
+    if cfg.llm_provider == "groq":
+        return bool(cfg.groq_api_key)
+    if cfg.llm_provider == "ollama":
+        return bool(cfg.ollama_model and cfg.ollama_base_url)
     if cfg.llm_provider == "openai":
         return bool(cfg.openai_api_key)
-    return bool((cfg.chatbase_api_key and cfg.chatbase_chatbot_id) or cfg.openai_api_key)
+    return bool(
+        (cfg.chatbase_api_key and cfg.chatbase_chatbot_id)
+        or cfg.groq_api_key
+        or (cfg.ollama_model and cfg.ollama_base_url)
+        or cfg.openai_api_key
+    )
 
 
 def review_pending_keyword_suggestions(

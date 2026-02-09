@@ -104,6 +104,8 @@ panel_box \
   "slug: $AGENT_SLUG" \
   "mode: $RUN_MODE" \
   "confirm: $MOLTBOOK_CONFIRM_ACTIONS (timeout=${MOLTBOOK_CONFIRM_TIMEOUT_SECONDS}s default=$MOLTBOOK_CONFIRM_DEFAULT_CHOICE)" \
-  "auto_register: $MOLTBOOK_AUTO_REGISTER"
+  "auto_register: $MOLTBOOK_AUTO_REGISTER" \
+  "pythonpath: src"
 
+export PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}"
 exec ./scripts/run_env_agent_loop.sh "$AGENT_SLUG"

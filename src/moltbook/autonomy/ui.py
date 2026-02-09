@@ -146,7 +146,7 @@ def print_cycle_banner(iteration: int, mode: str, keywords: int) -> None:
 def print_runtime_banner(cfg: Config) -> None:
     provider = cfg.llm_provider
     if provider == "auto":
-        provider = "auto(chatbase-first)"
+        provider = "auto(chatbase/groq/ollama/openai)"
     _ui_print_panel(
         title="MOLTBOOK AUTONOMY",
         rows=[
@@ -284,12 +284,31 @@ def confirm_action(
         tone=panel_tone,
     )
     if content_preview:
-        preview_title, preview_label, preview_tone = _preview_panel_meta(action)
-        _ui_print_panel(
-            title=preview_title,
-            rows=[(preview_label, content_preview)],
-            tone=preview_tone,
-        )
+        preview_blob = normalize_str(content_preview)
+        incoming_block = ""
+        reply_block = ""
+        if "INCOMING:" in preview_blob and "REPLY:" in preview_blob:
+            parts = preview_blob.split("REPLY:", 1)
+            incoming_block = parts[0].replace("INCOMING:", "").strip()
+            reply_block = parts[1].strip()
+        if incoming_block and reply_block:
+            _ui_print_panel(
+                title="INCOMING COMMENT",
+                rows=[("incoming", incoming_block)],
+                tone="yellow",
+            )
+            _ui_print_panel(
+                title="REPLY BODY",
+                rows=[("reply", reply_block)],
+                tone="cyan",
+            )
+        else:
+            preview_title, preview_label, preview_tone = _preview_panel_meta(action)
+            _ui_print_panel(
+                title=preview_title,
+                rows=[(preview_label, content_preview)],
+                tone=preview_tone,
+            )
     prompt = "Proceed? [y]es / [n]o / [a]ll remaining / [q]uit: "
     choice = ""
     if cfg.confirm_timeout_seconds > 0:

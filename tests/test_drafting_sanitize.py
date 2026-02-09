@@ -162,6 +162,41 @@ Ergo eUTXO + ErgoScript can enforce deterministic settlement branches.
         self.assertNotIn("Draft post", cleaned)
         self.assertIn("Coordination fails", cleaned)
 
+    def test_publish_sanitize_blocks_control_json_embedded_in_text(self):
+        raw = """
+Here is the response draft:
+{
+  "should_respond": true,
+  "response_mode": "comment",
+  "content": "Use eUTXO escrow branches so settlement is deterministic."
+}
+This response explains why.
+"""
+        cleaned = sanitize_publish_content(raw)
+        self.assertEqual(cleaned, "Use eUTXO escrow branches so settlement is deterministic.")
+
+    def test_publish_sanitize_extracts_content_from_malformed_json(self):
+        raw = """
+Here's the response:
+
+{ "title": "ErgoScript for CLAW minting", "content": "Use ErgoScript to automate tracking.", }
+
+This response is a comment because it addresses the topic.
+"""
+        cleaned = sanitize_publish_content(raw)
+        self.assertEqual(cleaned, "Use ErgoScript to automate tracking.")
+
+    def test_publish_sanitize_extracts_content_from_malformed_json(self):
+        raw = """
+Here's the response:
+
+{ "title": "ErgoScript for CLAW minting", "content": "Use ErgoScript to automate tracking.", }
+
+This response is a comment because it addresses the topic.
+"""
+        cleaned = sanitize_publish_content(raw)
+        self.assertEqual(cleaned, "Use ErgoScript to automate tracking.")
+
 
 if __name__ == "__main__":
     unittest.main()
