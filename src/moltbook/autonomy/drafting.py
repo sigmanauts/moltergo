@@ -463,6 +463,25 @@ def normalize_str(value: Any) -> str:
     return str(value)
 
 
+_SMART_QUOTE_MAP = str.maketrans(
+    {
+        "“": "\"",
+        "”": "\"",
+        "„": "\"",
+        "«": "\"",
+        "»": "\"",
+        "‘": "'",
+        "’": "'",
+    }
+)
+
+
+def _normalize_jsonish_quotes(text: str) -> str:
+    if not text:
+        return text
+    return text.translate(_SMART_QUOTE_MAP)
+
+
 def post_url(post_id: Optional[str]) -> str:
     if not post_id:
         return "(link unavailable)"
@@ -649,7 +668,9 @@ def build_reply_triage_messages(
         "Vote up only useful comments. No spam replies. "
         "If comment is playful but on-topic, match tone in first sentence then add one concrete mechanism. "
         "Never use boilerplate openers. "
-        "Avoid these phrases: \"good angle\", \"great point\", \"appreciate the detail\", \"thanks for the reply\", \"noted\"."
+        "Avoid these phrases: \"good angle\", \"great point\", \"appreciate the detail\", \"thanks for the reply\", \"noted\". "
+        "If you reply, explicitly reference at least one concrete term or detail from the incoming comment. "
+        "Do not label a comment off-topic unless it is clearly unrelated to the post."
     )
     user = (
         f"Persona:\n{persona_compact}\n\n"
@@ -676,6 +697,7 @@ def build_reply_draft_messages(
     comment_id: Optional[str],
     style_hint: str = "normal",
     off_topic: bool = False,
+    extra_rules: Optional[str] = None,
 ) -> List[Dict[str, str]]:
     persona_compact = _clip_text(persona, MAX_TRIAGE_PERSONA_CHARS)
     context_compact = _clip_text(domain_context or "(no extra domain context provided)", MAX_TRIAGE_CONTEXT_CHARS)
@@ -701,6 +723,12 @@ def build_reply_draft_messages(
             "First sentence must state the comment is off-topic or irrelevant. "
             "Do not answer the substance."
         )
+    elif style_hint == "redirect":
+        style_line = (
+            "Reply style: brief redirect. State that the comment is off-topic for this thread, "
+            "then give a one-sentence path back to the thread's concrete mechanism. "
+            "Do not be hostile."
+        )
     elif style_hint == "snark_strict":
         style_line = (
             "Reply style: strict off-topic refusal. "
@@ -720,10 +748,12 @@ def build_reply_draft_messages(
         "Never use boilerplate openers. "
         "Do not use the phrases: \"good angle\", \"great point\", \"appreciate the detail\", "
         "\"thanks for the reply\", \"noted\".\n"
+        "If you reply, explicitly reference at least one concrete term or detail from the incoming comment.\n"
         f"{DEFAULT_PERSONA_HINT}\n"
         f"{CYBERPUNK_VOICE_REQUIREMENTS}\n"
         f"{HUMAN_STYLE_REQUIREMENTS}\n"
         f"{style_line}\n"
+        + (f"Additional constraints: {normalize_str(extra_rules).strip()}\n" if normalize_str(extra_rules).strip() else "")
     )
     user = (
         f"Persona:\n{persona_compact}\n\n"
@@ -733,7 +763,8 @@ def build_reply_draft_messages(
         "Write a reply to the incoming comment. "
         "If the comment is off-topic but not spam, redirect back to the thread with one concrete mechanism. "
         "If spam, refuse and explain why it is irrelevant.\n\n"
-        "Reply constraints: 2-4 sentences, one concrete mechanism, one direct question.\n\n"
+        "Reply constraints: 2-4 sentences, one concrete mechanism, one direct question. "
+        "Reference at least one term from the incoming comment.\n\n"
         f"{_reply_context_anchor(post=post, comment=comment)}\n\n"
         f"Post:\n{json.dumps(post_prompt, ensure_ascii=False)}\n\n"
         f"Incoming comment:\n{json.dumps(comment_prompt, ensure_ascii=False)}"
@@ -991,6 +1022,48 @@ def call_groq(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[Dict[str, An
     return _parse_json_object_lenient(content, response_kind=response_kind), usage
 
 
+def call_openrouter(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    if not cfg.openrouter_api_key:
+        raise RuntimeError("OPENROUTER_API_KEY not set")
+    model = normalize_str(cfg.openrouter_model).strip()
+    if not model:
+        raise RuntimeError("OPENROUTER_MODEL not set")
+
+    url = f"{cfg.openrouter_base_url}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {cfg.openrouter_api_key}",
+        "Content-Type": "application/json",
+    }
+    site_url = normalize_str(cfg.openrouter_site_url or "").strip()
+    app_name = normalize_str(cfg.openrouter_app_name or "").strip()
+    if site_url:
+        headers["HTTP-Referer"] = site_url
+    if app_name:
+        headers["X-Title"] = app_name
+
+    compacted_messages = _compact_messages(messages, MAX_OPENAI_MESSAGE_CHARS)
+    response_kind = _infer_response_kind(compacted_messages)
+    prompt_tokens_est = _estimate_tokens_from_messages(compacted_messages)
+    payload = {
+        "model": model,
+        "messages": compacted_messages,
+        "temperature": cfg.openai_temperature,
+        "response_format": {"type": "json_object"},
+    }
+    resp = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
+    if resp.status_code >= 400:
+        raise RuntimeError(f"OpenRouter error {resp.status_code}: {resp.text}")
+    data = resp.json()
+    content = data["choices"][0]["message"]["content"]
+    usage = _finalize_usage(
+        usage=_extract_usage(data),
+        prompt_tokens_est=prompt_tokens_est,
+        completion_text=content,
+        source_hint="openrouter_api",
+    )
+    return _parse_json_object_lenient(content, response_kind=response_kind), usage
+
+
 def call_ollama(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     model = normalize_str(cfg.ollama_model).strip()
     if not model:
@@ -1100,7 +1173,7 @@ def _extract_first_fenced_block(text: str) -> str:
 
 
 def _extract_first_balanced_json_object(text: str) -> str:
-    blob = normalize_str(text)
+    blob = _normalize_jsonish_quotes(normalize_str(text))
     start = blob.find("{")
     if start < 0:
         return ""
@@ -1134,7 +1207,7 @@ def _extract_first_balanced_json_object(text: str) -> str:
 
 
 def _extract_embedded_json_payload(text: str) -> Dict[str, Any]:
-    blob = normalize_str(text).strip()
+    blob = _normalize_jsonish_quotes(normalize_str(text)).strip()
     if not blob or "{" not in blob:
         return {}
     candidate = _extract_first_balanced_json_object(blob)
@@ -1143,7 +1216,7 @@ def _extract_embedded_json_payload(text: str) -> Dict[str, Any]:
     # Best-effort: strip trailing commas that make JSON invalid.
     candidate = re.sub(r",\s*([}\]])", r"\1", candidate)
     try:
-        parsed = json.loads(candidate)
+        parsed = json.loads(_normalize_jsonish_quotes(candidate))
     except Exception:
         # Fallback: try to extract key fields even if JSON is malformed.
         return {}
@@ -1158,7 +1231,9 @@ def _extract_embedded_content_field(text: str) -> str:
         return ""
     candidate = _extract_first_balanced_json_object(blob)
     if not candidate:
-        candidate = blob
+        candidate = _normalize_jsonish_quotes(blob)
+    else:
+        candidate = _normalize_jsonish_quotes(candidate)
     keys = ("content", "reply", "comment")
     patterns = []
     for key in keys:
@@ -1201,19 +1276,34 @@ def _extract_embedded_content_field(text: str) -> str:
 def _strip_banned_openers(text: str) -> str:
     if not text:
         return text
+    banned_phrases = (
+        "good angle",
+        "great point",
+        "good point",
+        "appreciate the detail",
+        "thanks for the reply",
+        "thanks for the response",
+        "appreciate the reply",
+        "appreciate the response",
+        "noted",
+    )
     pattern = (
         r"(?im)^\\s*[\\-–—\"'\\(\\[]*\\s*"
-        r"(good angle|great point|good point|appreciate the detail|thanks for the reply|noted)"
+        r"(good angle|great point|good point|appreciate the detail|thanks for the reply|thanks for the response|appreciate the reply|appreciate the response|noted)"
         r"[\\s\\.:,-]*"
     )
     cleaned = re.sub(pattern, "", text, count=1).lstrip()
-    # Also drop the phrase if it appears in the first ~25 chars.
-    lowered = cleaned.lower()
-    for phrase in ("good angle", "great point", "good point", "appreciate the detail", "thanks for the reply", "noted"):
+    lowered = cleaned.lower().lstrip()
+    for phrase in banned_phrases:
         if lowered.startswith(phrase):
             cleaned = cleaned[len(phrase) :].lstrip(" .,:-")
             break
-    return cleaned
+    sentences = re.split(r"(?<=[.!?])\\s+", cleaned, maxsplit=1)
+    if sentences:
+        first_lower = sentences[0].lower()
+        if any(phrase in first_lower for phrase in banned_phrases):
+            cleaned = sentences[1] if len(sentences) > 1 else ""
+    return cleaned.strip()
 
 
 def _normalize_response_kind(value: Any) -> str:
@@ -1387,13 +1477,13 @@ def sanitize_publish_content(text: Any, max_chars: Optional[int] = None) -> str:
     cleaned_lines: List[str] = []
     for line in out.splitlines():
         norm_line = normalize_str(line)
-        if re.match(r"(?im)^\s*here'?s (the )?(draft )?(response|reply|comment)\s*:?\s*$", norm_line):
+        if re.match(r"(?im)^\s*here[’']?s (the )?(draft )?(response|reply|comment)\s*:?\s*$", norm_line):
             continue
-        if re.match(r"(?im)^\s*this (response|comment|reply) is\b", norm_line):
+        if re.search(r"(?im)\bthis (response|comment|reply) is\b", norm_line):
             continue
-        if re.match(r"(?im)^\s*here'?s the response\b", norm_line):
+        if re.match(r"(?im)^\s*here[’']?s the response\b", norm_line):
             continue
-        if re.match(r"(?im)^\s*here'?s the reply\b", norm_line):
+        if re.match(r"(?im)^\s*here[’']?s the reply\b", norm_line):
             continue
         if re.match(r"(?im)^\s*(response|reply|comment)\\s*\\(.*?\\)\\s*:\\s*$", norm_line):
             continue
@@ -1828,36 +1918,37 @@ def _parse_json_object_lenient(text: str, response_kind: str = "generic") -> Dic
     raw = normalize_str(text).lstrip("\ufeff").strip()
     if not raw:
         raise RuntimeError("Chatbase returned empty text response")
+    normalized = _normalize_jsonish_quotes(raw)
 
     # 1) strict parse
     try:
-        parsed = json.loads(raw)
+        parsed = json.loads(normalized)
         if isinstance(parsed, dict):
             return _sanitize_structured_response(parsed, response_kind=response_kind)
     except Exception:
         pass
 
     # 2) fenced block parse
-    fenced = _extract_first_fenced_block(raw)
+    fenced = _extract_first_fenced_block(normalized)
     if fenced:
         try:
-            parsed = json.loads(fenced)
+            parsed = json.loads(_normalize_jsonish_quotes(fenced))
             if isinstance(parsed, dict):
                 return _sanitize_structured_response(parsed, response_kind=response_kind)
         except Exception:
             pass
 
     # 3) first balanced object parse
-    balanced = _extract_first_balanced_json_object(raw)
+    balanced = _extract_first_balanced_json_object(normalized)
     if balanced:
         try:
-            parsed = json.loads(balanced)
+            parsed = json.loads(_normalize_jsonish_quotes(balanced))
             if isinstance(parsed, dict):
                 return _sanitize_structured_response(parsed, response_kind=response_kind)
         except Exception:
             pass
 
-    coerced = _coerce_non_json_object(raw, response_kind=response_kind)
+    coerced = _coerce_non_json_object(normalized, response_kind=response_kind)
     if isinstance(coerced, dict) and coerced:
         return coerced
 
@@ -1944,10 +2035,15 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
     def can_ollama() -> bool:
         return bool(cfg.ollama_model and cfg.ollama_base_url)
 
+    def can_openrouter() -> bool:
+        return bool(cfg.openrouter_api_key and cfg.openrouter_model and cfg.openrouter_base_url)
+
     if provider == "chatbase":
         model_hint = cfg.chatbase_chatbot_id
     elif provider == "groq":
         model_hint = cfg.groq_model
+    elif provider == "openrouter":
+        model_hint = cfg.openrouter_model
     elif provider == "openai":
         model_hint = cfg.openai_model
     elif provider == "ollama":
@@ -1955,6 +2051,8 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
     else:
         if can_chatbase():
             model_hint = f"chatbase:{cfg.chatbase_chatbot_id}"
+        elif can_openrouter():
+            model_hint = f"openrouter:{cfg.openrouter_model}"
         elif can_groq():
             model_hint = f"groq:{cfg.groq_model}"
         elif can_ollama():
@@ -1972,7 +2070,7 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
         (
             "LLM request kind=%s provider=%s model=%s messages=%s "
             "prompt_chars=%s prompt_tokens_est=%s chatbase_configured=%s groq_configured=%s "
-            "ollama_configured=%s openai_configured=%s"
+            "openrouter_configured=%s ollama_configured=%s openai_configured=%s"
         ),
         display_kind,
         provider_route,
@@ -1982,6 +2080,7 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
         prompt_tokens_est,
         int(can_chatbase()),
         int(can_groq()),
+        int(can_openrouter()),
         int(can_ollama()),
         int(can_openai()),
     )
@@ -2018,6 +2117,13 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
         _log_response("openai", usage)
         return parsed, "openai", usage
 
+    if provider == "openrouter":
+        if not can_openrouter():
+            raise RuntimeError("LLM provider openrouter selected but OPENROUTER_API_KEY missing")
+        parsed, usage = call_openrouter(cfg, messages)
+        _log_response("openrouter", usage)
+        return parsed, "openrouter", usage
+
     if provider == "ollama":
         if not can_ollama():
             raise RuntimeError("LLM provider ollama selected but OLLAMA_BASE_URL/OLLAMA_MODEL missing")
@@ -2033,6 +2139,11 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
             _log_response("chatbase", usage)
             return parsed, "chatbase", usage
         except Exception as e:
+            if can_openrouter():
+                logger.warning("LLM provider chatbase failed in auto mode; falling back to openrouter error=%s", e)
+                parsed, usage = call_openrouter(cfg, messages)
+                _log_response("openrouter", usage)
+                return parsed, "openrouter", usage
             if can_groq():
                 logger.warning("LLM provider chatbase failed in auto mode; falling back to groq error=%s", e)
                 parsed, usage = call_groq(cfg, messages)
@@ -2054,6 +2165,10 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
                     f"Set MOLTBOOK_LLM_AUTO_FALLBACK_TO_OPENAI=1 to allow fallback. Cause: {e}"
                 )
             )
+    if can_openrouter():
+        parsed, usage = call_openrouter(cfg, messages)
+        _log_response("openrouter", usage)
+        return parsed, "openrouter", usage
     if can_groq():
         parsed, usage = call_groq(cfg, messages)
         _log_response("groq", usage)
@@ -2067,7 +2182,9 @@ def call_generation_model(cfg: Config, messages: List[Dict[str, str]]) -> Tuple[
         _log_response("openai", usage)
         return parsed, "openai", usage
 
-    raise RuntimeError("No LLM provider configured (set CHATBASE_*, GROQ_*, OLLAMA_*, or OPENAI_API_KEY)")
+    raise RuntimeError(
+        "No LLM provider configured (set CHATBASE_*, OPENROUTER_*, GROQ_*, OLLAMA_*, or OPENAI_API_KEY)"
+    )
 
 
 def fallback_draft() -> Dict[str, Any]:

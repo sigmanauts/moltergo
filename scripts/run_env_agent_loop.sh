@@ -50,6 +50,8 @@ if [ -z "${API_KEY}" ]; then
 fi
 
 export MOLTBOOK_API_KEY="$API_KEY"
+export MOLTBOOK_API_KEY_VAR="$VAR_NAME"
+export MOLTBOOK_API_KEY_SOURCE="env:${VAR_NAME}"
 if [ -n "${AGENT_NAME_VALUE}" ]; then
   export MOLTBOOK_AGENT_NAME="${AGENT_NAME_VALUE}"
 fi

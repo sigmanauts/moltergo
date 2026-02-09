@@ -159,6 +159,11 @@ class Config:
     chatbase_api_key: Optional[str]
     chatbase_chatbot_id: Optional[str]
     chatbase_base_url: str
+    openrouter_api_key: Optional[str]
+    openrouter_base_url: str
+    openrouter_model: str
+    openrouter_site_url: Optional[str]
+    openrouter_app_name: Optional[str]
     llm_provider: str
     llm_auto_fallback_to_openai: bool
     log_level: str
@@ -340,8 +345,13 @@ def load_config() -> Config:
         or None
     )
     chatbase_base_url = os.getenv("CHATBASE_BASE_URL", "https://www.chatbase.co/api/v1").rstrip("/")
+    openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+    openrouter_base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+    openrouter_model = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
+    openrouter_site_url = os.getenv("OPENROUTER_SITE_URL")
+    openrouter_app_name = os.getenv("OPENROUTER_APP_NAME")
     llm_provider = os.getenv("MOLTBOOK_LLM_PROVIDER", "auto").strip().lower()
-    if llm_provider not in {"auto", "openai", "chatbase", "ollama", "groq"}:
+    if llm_provider not in {"auto", "openai", "chatbase", "ollama", "groq", "openrouter"}:
         llm_provider = "auto"
     llm_auto_fallback_to_openai = os.getenv("MOLTBOOK_LLM_AUTO_FALLBACK_TO_OPENAI", "0").strip().lower() in {
         "1",
@@ -459,6 +469,11 @@ def load_config() -> Config:
         chatbase_api_key=chatbase_api_key,
         chatbase_chatbot_id=chatbase_chatbot_id,
         chatbase_base_url=chatbase_base_url,
+        openrouter_api_key=openrouter_api_key,
+        openrouter_base_url=openrouter_base_url,
+        openrouter_model=openrouter_model,
+        openrouter_site_url=openrouter_site_url,
+        openrouter_app_name=openrouter_app_name,
         llm_provider=llm_provider,
         llm_auto_fallback_to_openai=llm_auto_fallback_to_openai,
         log_level=log_level,

@@ -26,12 +26,15 @@ def has_generation_provider(cfg: Config) -> bool:
         return bool(cfg.groq_api_key)
     if cfg.llm_provider == "ollama":
         return bool(cfg.ollama_model and cfg.ollama_base_url)
+    if cfg.llm_provider == "openrouter":
+        return bool(cfg.openrouter_api_key and cfg.openrouter_model and cfg.openrouter_base_url)
     if cfg.llm_provider == "openai":
         return bool(cfg.openai_api_key)
     return bool(
         (cfg.chatbase_api_key and cfg.chatbase_chatbot_id)
         or cfg.groq_api_key
         or (cfg.ollama_model and cfg.ollama_base_url)
+        or (cfg.openrouter_api_key and cfg.openrouter_model and cfg.openrouter_base_url)
         or cfg.openai_api_key
     )
 

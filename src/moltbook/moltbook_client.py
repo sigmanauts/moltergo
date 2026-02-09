@@ -29,6 +29,7 @@ class MoltbookAuthError(Exception):
 class MoltbookCredentials:
     api_key: str
     agent_name: Optional[str] = None
+    source: str = "unknown"
 
     @classmethod
     def load(cls) -> "MoltbookCredentials":
@@ -39,15 +40,24 @@ class MoltbookCredentials:
         2. credentials.json file
         """
         if os.getenv("MOLTBOOK_SKIP_AUTH_VALIDATION", "").strip().lower() in {"1", "true", "yes"}:
-            return cls(api_key=os.getenv("MOLTBOOK_API_KEY", ""), agent_name=os.getenv("MOLTBOOK_AGENT_NAME"))
+            return cls(
+                api_key=os.getenv("MOLTBOOK_API_KEY", ""),
+                agent_name=os.getenv("MOLTBOOK_AGENT_NAME"),
+                source=os.getenv("MOLTBOOK_API_KEY_SOURCE", "env:MOLTBOOK_API_KEY"),
+            )
         api_key = os.getenv("MOLTBOOK_API_KEY")
         agent_name: Optional[str] = None
+        source = os.getenv("MOLTBOOK_API_KEY_SOURCE", "env:MOLTBOOK_API_KEY")
 
         if not api_key and CREDENTIALS_PATH.exists():
             with CREDENTIALS_PATH.open("r", encoding="utf-8") as f:
                 data = json.load(f)
             api_key = data.get("api_key")
             agent_name = data.get("agent_name")
+            source = f"file:{CREDENTIALS_PATH}"
+
+        if api_key is not None:
+            api_key = str(api_key).strip()
 
         if not api_key:
             raise MoltbookAuthError(
@@ -55,7 +65,19 @@ class MoltbookCredentials:
                 f"{CREDENTIALS_PATH} with an 'api_key' field."
             )
 
-        return cls(api_key=api_key, agent_name=agent_name)
+        return cls(api_key=api_key, agent_name=agent_name, source=source)
+
+    @classmethod
+    def load_from_file(cls) -> Optional["MoltbookCredentials"]:
+        if not CREDENTIALS_PATH.exists():
+            return None
+        with CREDENTIALS_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        api_key = str(data.get("api_key") or "").strip()
+        if not api_key:
+            return None
+        agent_name = data.get("agent_name")
+        return cls(api_key=api_key, agent_name=agent_name, source=f"file:{CREDENTIALS_PATH}")
 
 
 class MoltbookClient:

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import difflib
 import json
 import logging
 import re
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from ..moltbook_client import MoltbookAuthError, MoltbookClient
+from ..moltbook_client import MoltbookAuthError, MoltbookClient, MoltbookCredentials
 from ..virality import infer_topic_signature, parse_timestamp, score_post_candidate, summarize_sources
 
 from .actions import (
@@ -33,12 +34,12 @@ from .analytics import (
 )
 from .config import Config, load_config
 from .content_policy import (
-    build_badbot_warning_reply,
     build_thread_followup_post_content,
     build_thread_followup_post_title,
     enforce_link_policy,
     is_strong_ergo_post,
     is_technical_comment,
+    comment_matches_post_context,
     looks_hostile_content,
     looks_irrelevant_noise_comment,
     is_overt_spam_comment,
@@ -154,6 +155,7 @@ from .thread_history import (
 )
 from .ui import (
     confirm_action,
+    print_auth_block_banner,
     print_cycle_banner,
     print_drafting_banner,
     print_runtime_banner,
@@ -432,7 +434,12 @@ def _auth_block_seconds_from_error(error_text: str) -> Tuple[int, str]:
     return 0, ""
 
 
-def _apply_auth_block(state: Dict[str, Any], error_text: str, logger) -> int:
+def _apply_auth_block(
+    state: Dict[str, Any],
+    error_text: str,
+    logger,
+    key_fingerprint: Optional[str] = None,
+) -> int:
     seconds, reason = _auth_block_seconds_from_error(error_text)
     if seconds <= 0:
         return 0
@@ -441,6 +448,8 @@ def _apply_auth_block(state: Dict[str, Any], error_text: str, logger) -> int:
     state["auth_block_until_ts"] = max(float(state.get("auth_block_until_ts", 0) or 0), until_ts)
     state["auth_block_reason"] = reason or "auth_error"
     state["auth_block_last_error"] = normalize_str(error_text).strip()[:240]
+    if key_fingerprint:
+        state["auth_block_key_fingerprint"] = key_fingerprint
     if logger:
         logger.warning(
             "Auth block engaged reason=%s seconds=%s until_ts=%s",
@@ -458,6 +467,13 @@ def _auth_block_remaining_seconds(state: Dict[str, Any]) -> int:
     now_ts = utc_now().timestamp()
     remaining = int(max(0, until_ts - now_ts))
     return remaining
+
+
+def _auth_key_fingerprint(api_key: Optional[str]) -> str:
+    key = normalize_str(api_key).strip()
+    if not key:
+        return ""
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
 
 
 def _recent_post_fingerprints_from_journal(
@@ -1936,7 +1952,12 @@ def run_startup_reply_scan(
             if not isinstance(value, dict):
                 continue
             triage_cache[normalize_str(key)] = value
+    pending_backlog = 0
+    if isinstance(state.get("unanswered_comments"), list):
+        pending_backlog = len(state.get("unanswered_comments") or [])
     triage_llm_budget = max(1, cfg.reply_triage_llm_calls_per_scan)
+    if pending_backlog > 0:
+        triage_llm_budget = max(triage_llm_budget, min(30, pending_backlog))
     triage_llm_calls = 0
     triage_cache_hits = 0
     triage_deferred = 0
@@ -2298,121 +2319,7 @@ def run_startup_reply_scan(
                         force_reply_style = "normal"
                 else:
                     continue
-                # Warn only on repeated, overt spam behavior to avoid false positives on legitimate technical comments.
-                warning_strike_threshold = max(2, int(cfg.badbot_warning_min_strikes))
-                if (
-                    is_spammy
-                    and is_overt_spam
-                    and contains_link
-                    and
-                    is_my_post
-                    and force_reply_style != "snark"
-                    and cfg.badbot_warning_enabled
-                    and bad_bot_warnings_sent_this_scan < max(0, cfg.badbot_max_warnings_per_scan)
-                    and cid not in bad_bot_warned_comment_ids
-                    and author_bad_key
-                ):
-                    strike_count = int(bad_bot_counts.get(author_bad_key, 1))
-                    post_strike_count = int(bad_bot_counts_by_post.get(author_post_bad_key, 0)) if author_post_bad_key else 0
-                    author_warn_count = int(bad_bot_warnings_by_author_day.get(author_bad_key, 0) or 0)
-                    if (
-                        strike_count >= warning_strike_threshold
-                        and post_strike_count >= warning_strike_threshold
-                        and author_warn_count < max(0, cfg.badbot_max_warnings_per_author_per_day)
-                    ):
-                        # Use daily warning count for tone so stale historical totals do not create hostile messaging.
-                        warning_level = author_warn_count + 1
-                        warning_reply = build_badbot_warning_reply(
-                            author_name=c_author_name or author_bad_key,
-                            strike_count=warning_level,
-                        )
-                        warning_reply = _prepare_publish_content(
-                            warning_reply,
-                            allow_links=False,
-                            audit_label="badbot_warning",
-                            max_chars=cfg.max_comment_chars,
-                        )
-                        if not warning_reply:
-                            skip_reasons["empty_badbot_warning"] = skip_reasons.get("empty_badbot_warning", 0) + 1
-                            continue
-                        approved, approve_all_actions, should_stop = confirm_action(
-                            cfg=cfg,
-                            logger=logger,
-                            action=f"warn-badbot-{cid}",
-                            pid=pid,
-                            title=post_title,
-                            submolt=post_submolt,
-                            url=url,
-                            author=c_author_name or "(unknown)",
-                            content_preview=preview_text(warning_reply),
-                            approve_all=approve_all_actions,
-                        )
-                        if should_stop:
-                            state["seen_comment_ids"] = list(seen_comment_ids)[-10000:]
-                            save_state(cfg.state_path, state)
-                            return approve_all_actions
-                        if approved:
-                            comment_allowed, _ = comment_gate_status(state=state, cfg=cfg)
-                            if comment_allowed:
-                                warning_sig = _publish_signature(
-                                    action_type="comment",
-                                    target_post_id=pid,
-                                    parent_comment_id=cid,
-                                    content=warning_reply,
-                                )
-                                if _seen_publish_signature(state, warning_sig):
-                                    logger.info(
-                                        "Reply scan skipping duplicate badbot warning comment_id=%s",
-                                        cid,
-                                    )
-                                    continue
-                                try:
-                                    comment_resp = client.create_comment(pid, warning_reply, parent_id=cid)
-                                    register_my_comment_id(state=state, response_payload=comment_resp)
-                                    _remember_publish_signature(state, warning_sig)
-                                    state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
-                                    mark_reply_action_timestamps(state=state, action_kind="comment")
-                                    replied_to_comment_ids.add(cid)
-                                    replied_comment_pairs.add(pair_key)
-                                    bad_bot_warned_comment_ids.add(cid)
-                                    bad_bot_warnings_by_author_day[author_bad_key] = author_warn_count + 1
-                                    bad_bot_warnings_sent_this_scan += 1
-                                    actions += 1
-                                    try:
-                                        append_action_journal(
-                                            cfg.action_journal_path,
-                                            action_type="comment",
-                                            target_post_id=pid,
-                                            submolt=post_submolt,
-                                            title=post_title,
-                                            content=warning_reply,
-                                            parent_comment_id=cid,
-                                            reference_post_id=pid,
-                                            url=url,
-                                            reference={
-                                                "post_id": pid,
-                                                "post_title": post_title,
-                                                "comment_id": cid,
-                                                "comment_author": c_author_name or c_author_key,
-                                                "comment_content": incoming_body,
-                                            },
-                                            meta={"source": "startup_reply_scan", "kind": "badbot_warning"},
-                                        )
-                                    except Exception as e:
-                                        logger.debug(
-                                            "Action journal write failed post_id=%s comment_id=%s error=%s",
-                                            pid,
-                                            cid,
-                                            e,
-                                        )
-                                    print_success_banner(
-                                        action="comment-badbot-warning",
-                                        pid=pid,
-                                        url=url,
-                                        title=post_title,
-                                    )
-                                except Exception as e:
-                                    logger.warning("Reply scan badbot warning failed comment_id=%s error=%s", cid, e)
+                # Explicit bad-bot warnings are disabled; rely on LLM snark replies for overt spam.
             if turns_with_author >= THREAD_ESCALATE_TURNS:
                 if author_post_key in thread_followup_posted_pairs:
                     skip_reasons["thread_followup_already_posted"] = (
@@ -2631,6 +2538,15 @@ def run_startup_reply_scan(
                             "title": "",
                             "content": "",
                         }
+
+            triage_reply_preview = normalize_str(triage.get("content")).lower()
+            if not off_topic_flag and any(
+                marker in triage_reply_preview
+                for marker in ("off-topic", "off topic", "not relevant", "unrelated")
+            ):
+                # Force a re-draft via the reply generator to avoid false off-topic labeling.
+                triage["should_respond"] = False
+                triage["response_mode"] = "none"
 
             if (is_my_post or is_reply_to_me) and (
                 force_reply_style in {"snark", "correction"}
@@ -3068,23 +2984,23 @@ def run_startup_reply_scan(
                     save_state(cfg.state_path, state)
                     return approve_all_actions
                 if approved:
-                        if wait_for_comment_slot(state=state, cfg=cfg, logger=logger):
-                            reply_sig = _publish_signature(
-                                action_type="comment",
-                                target_post_id=pid,
-                                parent_comment_id=cid,
-                                content=reply_content,
-                            )
-                            if _seen_publish_signature(state, reply_sig):
-                                logger.info("Reply scan skipping duplicate reply after wait comment_id=%s", cid)
+                    if wait_for_comment_slot(state=state, cfg=cfg, logger=logger):
+                        reply_sig = _publish_signature(
+                            action_type="comment",
+                            target_post_id=pid,
+                            parent_comment_id=cid,
+                            content=reply_content,
+                        )
+                        if _seen_publish_signature(state, reply_sig):
+                            logger.info("Reply scan skipping duplicate reply after wait comment_id=%s", cid)
+                            continue
+                        try:
+                            reply_content = sanitize_publish_content(reply_content, max_chars=cfg.max_comment_chars)
+                            if not reply_content:
+                                logger.info("Reply scan skipping empty reply after sanitize comment_id=%s", cid)
                                 continue
-                            try:
-                                reply_content = sanitize_publish_content(reply_content, max_chars=cfg.max_comment_chars)
-                                if not reply_content:
-                                    logger.info("Reply scan skipping empty reply after sanitize comment_id=%s", cid)
-                                    continue
-                                comment_resp = client.create_comment(pid, reply_content, parent_id=cid)
-                                register_my_comment_id(state=state, response_payload=comment_resp)
+                            comment_resp = client.create_comment(pid, reply_content, parent_id=cid)
+                            register_my_comment_id(state=state, response_payload=comment_resp)
                             _remember_publish_signature(state, reply_sig)
                             state["daily_comment_count"] = state.get("daily_comment_count", 0) + 1
                             mark_reply_action_timestamps(state=state, action_kind="comment")
@@ -3101,7 +3017,9 @@ def run_startup_reply_scan(
                                 ]
                                 state["unanswered_comment_count"] = len(state["unanswered_comments"])
                             if c_author_key:
-                                replies_by_author_on_post[c_author_key] = replies_by_author_on_post.get(c_author_key, 0) + 1
+                                replies_by_author_on_post[c_author_key] = replies_by_author_on_post.get(
+                                    c_author_key, 0
+                                ) + 1
                                 conversation_turns_by_author_on_post[c_author_key] = (
                                     conversation_turns_by_author_on_post.get(c_author_key, 0) + 1
                                 )
@@ -3398,7 +3316,8 @@ def run_loop() -> None:
             "search_limit=%s idle_poll_seconds=%s dry_run=%s draft_shortlist=%s draft_signal_min_score=%s "
             "dynamic_shortlist=%s dynamic_shortlist_bounds=%s-%s proactive_daily_target=%s "
             "proactive_force_general=%s llm_provider=%s openai_configured=%s "
-            "chatbase_configured=%s groq_configured=%s ollama_configured=%s auto_openai_fallback=%s "
+            "chatbase_configured=%s openrouter_configured=%s groq_configured=%s ollama_configured=%s "
+            "auto_openai_fallback=%s "
             "self_improve_enabled=%s state_path=%s"
         ),
         cfg.discovery_mode,
@@ -3418,6 +3337,7 @@ def run_loop() -> None:
         cfg.llm_provider,
         bool(cfg.openai_api_key),
         bool(cfg.chatbase_api_key and cfg.chatbase_chatbot_id),
+        bool(cfg.openrouter_api_key and cfg.openrouter_model and cfg.openrouter_base_url),
         bool(cfg.groq_api_key),
         bool(cfg.ollama_model and cfg.ollama_base_url),
         cfg.llm_auto_fallback_to_openai,
@@ -3433,6 +3353,9 @@ def run_loop() -> None:
             cfg.self_improve_text_path,
             cfg.self_improve_backlog_path,
         )
+    if cfg.dry_run and cfg.max_cycles > 0 and cfg.max_cycles <= 1:
+        logger.info("Dry-run single-cycle mode: skipping network-heavy run loop")
+        return
     try:
         init_analytics_db(cfg.analytics_db_path)
         logger.info("Analytics DB ready path=%s", cfg.analytics_db_path)
@@ -3440,6 +3363,54 @@ def run_loop() -> None:
         logger.warning("Analytics DB initialization failed path=%s error=%s", cfg.analytics_db_path, e)
 
     state = load_state(cfg.state_path)
+    current_key_fp = _auth_key_fingerprint(getattr(client.credentials, "api_key", None))
+    prior_key_fp = normalize_str(state.get("auth_block_key_fingerprint", "")).strip()
+    if prior_key_fp and current_key_fp and prior_key_fp != current_key_fp:
+        logger.info("Auth block key changed; clearing prior auth block")
+        state["auth_block_until_ts"] = 0
+        state["auth_block_reason"] = ""
+        state["auth_block_last_error"] = ""
+        state["auth_block_key_fingerprint"] = current_key_fp
+        save_state(cfg.state_path, state)
+    elif current_key_fp:
+        state["auth_block_key_fingerprint"] = current_key_fp
+    auth_remaining = _auth_block_remaining_seconds(state)
+    # If we previously marked invalid_api_key, re-check once with the current key.
+    if auth_remaining > 0 and normalize_str(state.get("auth_block_reason")).strip() == "invalid_api_key":
+        try:
+            claim_status = client.get_claim_status()
+            if claim_status in {"claimed", "active"}:
+                logger.info("Auth block cleared after successful claim status check.")
+                state["auth_block_until_ts"] = 0
+                state["auth_block_reason"] = ""
+                state["auth_block_last_error"] = ""
+                save_state(cfg.state_path, state)
+                auth_remaining = 0
+        except Exception:
+            pass
+    if auth_remaining > 0:
+        key_source = ""
+        try:
+            key_source = normalize_str(getattr(client.credentials, "source", "")).strip()
+        except Exception:
+            key_source = ""
+        key_len = 0
+        try:
+            key_len = len(normalize_str(getattr(client.credentials, "api_key", "")))
+        except Exception:
+            key_len = 0
+        agent_name_banner = normalize_str(getattr(client.credentials, "agent_name", "")).strip()
+        print_auth_block_banner(
+            state=state,
+            key_source=key_source,
+            remaining_seconds=auth_remaining,
+            key_fingerprint=current_key_fp,
+            key_length=key_len,
+            agent_name=agent_name_banner,
+        )
+        if normalize_str(state.get("auth_block_reason")).strip() == "invalid_api_key":
+            logger.error("Auth block: invalid API key. Exiting without sleep.")
+            return
     post_memory = load_post_engine_memory(cfg.proactive_memory_path)
     if not isinstance(state.get("recent_topic_signatures"), list):
         state["recent_topic_signatures"] = []
@@ -3471,7 +3442,34 @@ def run_loop() -> None:
             return
     except Exception as e:
         error_text = normalize_str(e)
-        _apply_auth_block(state, error_text, logger)
+        if "invalid api key" in error_text.lower():
+            # Try credentials.json fallback if env key fails.
+            try:
+                fallback_creds = MoltbookCredentials.load_from_file()
+            except Exception:
+                fallback_creds = None
+            if fallback_creds and fallback_creds.api_key != client.credentials.api_key:
+                logger.warning("Env API key rejected; trying credentials.json fallback.")
+                client.credentials = fallback_creds
+                current_key_fp = _auth_key_fingerprint(fallback_creds.api_key)
+                state["auth_block_key_fingerprint"] = current_key_fp
+                try:
+                    claim_status = client.get_claim_status()
+                    if claim_status in {"claimed", "active"}:
+                        state["auth_block_until_ts"] = 0
+                        state["auth_block_reason"] = ""
+                        state["auth_block_last_error"] = ""
+                        save_state(cfg.state_path, state)
+                        logger.info("Credentials.json key verified; continuing.")
+                    else:
+                        logger.error(
+                            "Agent is not claim-ready (status=%s). Complete manual claim before running autonomy.",
+                            claim_status,
+                        )
+                        return
+                except Exception as fallback_error:
+                    error_text = normalize_str(fallback_error)
+        _apply_auth_block(state, error_text, logger, key_fingerprint=current_key_fp)
         save_state(cfg.state_path, state)
         logger.warning("Could not verify claim status at startup: %s", e)
 
@@ -3926,15 +3924,19 @@ def run_loop() -> None:
                     save_state(cfg.state_path, state)
                     time.sleep(max(1, int(cfg.idle_poll_seconds)))
                     continue
-            posts, sources = discover_posts(
-                client=client,
-                cfg=cfg,
-                logger=logger,
-                keywords=active_keywords,
-                iteration=iteration,
-                search_state=search_state,
-                post_id_fn=post_id,
-            )
+            if cfg.dry_run and cfg.max_cycles > 0 and cfg.max_cycles <= 1:
+                logger.info("Dry-run single-cycle mode: skipping discovery network calls")
+                posts, sources = [], []
+            else:
+                posts, sources = discover_posts(
+                    client=client,
+                    cfg=cfg,
+                    logger=logger,
+                    keywords=active_keywords,
+                    iteration=iteration,
+                    search_state=search_state,
+                    post_id_fn=post_id,
+                )
             logger.info("Poll cycle=%s discovered_posts=%s sources=%s", iteration, len(posts), ",".join(sources))
             if posts:
                 approve_all_actions = maybe_follow_ergo_authors(
@@ -4454,10 +4456,11 @@ def run_loop() -> None:
                 content = _ensure_use_case_prompt_if_relevant(content=content, post=post)
                 content = _normalize_ergo_terms(content)
                 if hostile_source:
-                    requested_mode = "comment"
-                    content = build_hostile_refusal_reply()
+                    requested_mode = "none"
+                    content = ""
+                    skip_reasons["hostile_source_guard"] = skip_reasons.get("hostile_source_guard", 0) + 1
                     logger.info(
-                        "Cycle=%s hostile_source_guard post_id=%s forcing_defensive_comment=1",
+                        "Cycle=%s hostile_source_guard post_id=%s skipping_publish=1",
                         iteration,
                         pid,
                     )
@@ -4874,24 +4877,24 @@ def run_loop() -> None:
                                 executed=False,
                                 error="duplicate_publish_signature",
                                 title=reference_post_title,
-                        )
-                        continue
-                    try:
-                        comment_content = sanitize_publish_content(
-                            comment_content,
-                            max_chars=cfg.max_comment_chars,
-                        )
-                        if not comment_content:
-                            logger.info(
-                                "Cycle=%s skip post_id=%s reason=empty_comment_after_sanitize",
-                                iteration,
-                                pid,
                             )
                             continue
-                        logger.info(
-                            "Cycle=%s action=comment attempt post_id=%s submolt=%s url=%s",
-                            iteration,
-                            pid,
+                        try:
+                            comment_content = sanitize_publish_content(
+                                comment_content,
+                                max_chars=cfg.max_comment_chars,
+                            )
+                            if not comment_content:
+                                logger.info(
+                                    "Cycle=%s skip post_id=%s reason=empty_comment_after_sanitize",
+                                    iteration,
+                                    pid,
+                                )
+                                continue
+                            logger.info(
+                                "Cycle=%s action=comment attempt post_id=%s submolt=%s url=%s",
+                                iteration,
+                                pid,
                                 action_submolt,
                                 url,
                             )
@@ -5077,7 +5080,11 @@ def run_loop() -> None:
                                 )
                                 continue
                             try:
-                                post_resp = client.create_post(submolt=post_submolt_route, title=title, content=post_content)
+                                post_resp = client.create_post(
+                                    submolt=post_submolt_route,
+                                    title=title,
+                                    content=post_content,
+                                )
                                 _remember_publish_signature(state, post_sig)
                             except Exception as e:
                                 analytics_event(
@@ -5787,7 +5794,7 @@ def run_loop() -> None:
         except MoltbookAuthError as e:
             error_text = normalize_str(e)
             logger.error("Poll cycle=%s auth_error=%s", iteration, e)
-            block_seconds = _apply_auth_block(state, error_text, logger)
+            block_seconds = _apply_auth_block(state, error_text, logger, key_fingerprint=current_key_fp)
             save_state(cfg.state_path, state)
             if block_seconds > 0:
                 sleep_seconds = max(60, min(block_seconds, cfg.poll_seconds * 4))
@@ -5799,7 +5806,7 @@ def run_loop() -> None:
             error_text = normalize_str(e)
             if "account suspended" in error_text.lower() or "invalid api key" in error_text.lower():
                 logger.error("Poll cycle=%s auth_error=%s", iteration, e)
-                block_seconds = _apply_auth_block(state, error_text, logger)
+                block_seconds = _apply_auth_block(state, error_text, logger, key_fingerprint=current_key_fp)
                 save_state(cfg.state_path, state)
                 sleep_seconds = max(60, min(max(1, block_seconds), cfg.poll_seconds * 4))
                 sleep_reason = "auth_block"
@@ -5808,6 +5815,9 @@ def run_loop() -> None:
                 sleep_seconds = max(1, cfg.poll_seconds)
                 sleep_reason = "loop_error_backoff"
 
+        if cfg.max_cycles > 0 and iteration >= cfg.max_cycles:
+            logger.info("Max cycles reached before sleep max_cycles=%s", cfg.max_cycles)
+            break
         logger.info("Sleeping seconds=%s reason=%s", sleep_seconds, sleep_reason)
         if cfg.max_cycles > 0 and sleep_reason == "auth_error_backoff":
             break

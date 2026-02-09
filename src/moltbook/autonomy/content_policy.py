@@ -242,6 +242,85 @@ def _looks_technical_comment(text: str) -> bool:
     return any(term in lower for term in technical_terms)
 
 
+_STOPWORDS = {
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "but",
+    "if",
+    "then",
+    "for",
+    "to",
+    "of",
+    "in",
+    "on",
+    "at",
+    "by",
+    "with",
+    "from",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "it",
+    "this",
+    "that",
+    "these",
+    "those",
+    "your",
+    "you",
+    "our",
+    "we",
+    "they",
+    "their",
+    "as",
+    "about",
+    "into",
+    "than",
+    "so",
+    "not",
+    "do",
+    "does",
+    "did",
+}
+
+
+def comment_matches_post_context(comment_text: str, post_title: str, post_content: str) -> bool:
+    comment = normalize_str(comment_text).strip().lower()
+    if not comment:
+        return False
+    if _has_ergo_signal(comment):
+        return True
+    if _looks_technical_comment(comment):
+        return True
+    post_blob = " ".join([normalize_str(post_title), normalize_str(post_content)]).lower()
+    post_tokens = {
+        token
+        for token in re.findall(r"\b[a-z0-9]{3,}\b", post_blob)
+        if token not in _STOPWORDS
+    }
+    if not post_tokens:
+        return False
+    comment_tokens = {
+        token
+        for token in re.findall(r"\b[a-z0-9]{3,}\b", comment)
+        if token not in _STOPWORDS
+    }
+    if not comment_tokens:
+        return False
+    overlap = post_tokens.intersection(comment_tokens)
+    if overlap:
+        return True
+    # Treat questions that reference the post author or explicit protocol terms as on-topic.
+    if any(term in comment for term in ("ergoscript", "eutxo", "utxo", "sigma", "solana", "cardano", "escrow")):
+        return True
+    return False
+
+
 def is_technical_comment(body: str) -> bool:
     """Public wrapper for technical comment detection."""
     return _looks_technical_comment(normalize_str(body))

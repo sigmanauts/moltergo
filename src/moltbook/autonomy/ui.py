@@ -146,7 +146,7 @@ def print_cycle_banner(iteration: int, mode: str, keywords: int) -> None:
 def print_runtime_banner(cfg: Config) -> None:
     provider = cfg.llm_provider
     if provider == "auto":
-        provider = "auto(chatbase/groq/ollama/openai)"
+        provider = "auto(chatbase/openrouter/groq/ollama/openai)"
     _ui_print_panel(
         title="MOLTBOOK AUTONOMY",
         rows=[
@@ -161,6 +161,34 @@ def print_runtime_banner(cfg: Config) -> None:
         ],
         tone="magenta",
     )
+
+
+def print_auth_block_banner(
+    state: Dict[str, Any],
+    key_source: str,
+    remaining_seconds: int,
+    key_fingerprint: str = "",
+    key_length: int = 0,
+    agent_name: str = "",
+) -> None:
+    reason = normalize_str(state.get("auth_block_reason") or "auth_error").strip()
+    last_error = normalize_str(state.get("auth_block_last_error") or "").strip()
+    rows = [
+        ("status", f"blocked ({reason})"),
+        ("key_source", key_source or "(unknown)"),
+    ]
+    if agent_name:
+        rows.append(("agent", agent_name))
+    if key_length:
+        rows.append(("key_len", str(key_length)))
+    if key_fingerprint:
+        rows.append(("key_fp", key_fingerprint))
+    if remaining_seconds > 0:
+        rows.append(("retry_in", f"{remaining_seconds}s"))
+    if last_error:
+        rows.append(("last_error", last_error))
+    rows.append(("fix", "Update the Moltbook API key in env or ~/.config/moltbook/credentials.json"))
+    _ui_print_panel(title="AUTH BLOCKED", rows=rows, tone="red")
 
 
 def print_drafting_banner(action_kind: str, pid: str, title: str, provider_hint: str) -> None:
